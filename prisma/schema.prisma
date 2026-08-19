@@ -1,0 +1,337 @@
+// Prisma Schema for Regulation 26 - Curriculum & Syllabus Management System
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  password     String
+  name         String
+  role         String   // SUPERADMIN, MASTERADMIN, HOD, FACULTY
+  departmentId String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department          Department?          @relation("UserDepartment", fields: [departmentId], references: [id])
+  headedDepartment    Department?          @relation("DepartmentHoD")
+  assignedSubjects    Subject[]            @relation("FacultyAssignedSubjects")
+  createdSubjects     Subject[]            @relation("SubjectCreator")
+  initiatedStages     AcademicStage[]      @relation("StageInitiator")
+  requestedExtensions ExtensionRequest[]   @relation("ExtensionRequester")
+  decidedExtensions   ExtensionRequest[]   @relation("ExtensionDecider")
+  syllabusSubmissions SyllabusSubmission[] @relation("FacultySubmissions")
+  approvedSubmissions SyllabusSubmission[] @relation("ApprovedBySubmissions")
+  notifications       Notification[]       @relation("UserNotifications")
+  auditLogs           AuditLog[]           @relation("UserAuditLogs")
+}
+
+model Department {
+  id             String   @id @default(uuid())
+  programmeType  String   // B.E., B.Tech, M.E., M.Tech
+  programmeName  String   // Computer Science and Engineering
+  shortName      String   // CSE
+  departmentCode String   @unique // CS
+  semesters      Int      @default(8)
+  hodId          String?  @unique
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  hod               User?              @relation("DepartmentHoD", fields: [hodId], references: [id])
+  users             User[]             @relation("UserDepartment")
+  subjects          Subject[]
+  poConfigurations  POConfiguration[]
+  psoConfigurations PSOConfiguration[]
+  extensionRequests ExtensionRequest[]
+}
+
+model Regulation {
+  id          String   @id @default(uuid())
+  code        String   @unique // "26", "23", "29"
+  name        String   // "Regulation 26"
+  displayName String   // "Regulation 26 (2026)"
+  active      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subjects          Subject[]
+  poConfigurations  POConfiguration[]
+  psoConfigurations PSOConfiguration[]
+}
+
+model AcademicYear {
+  id        String   @id @default(uuid())
+  year      String   @unique // "2026–2027"
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subjects Subject[]
+}
+
+model AcademicStage {
+  id            String    @id @default(uuid())
+  name          String    // "Curriculum & Syllabus Formation", "DAC Meeting", "BoS Meeting"
+  description   String?
+  startDate     DateTime?
+  deadline      DateTime?
+  status        String    @default("INACTIVE") // INACTIVE, ACTIVE, COMPLETED, OVERDUE
+  initiatedById String?
+  initiatedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  initiatedBy       User?              @relation("StageInitiator", fields: [initiatedById], references: [id])
+  extensionRequests ExtensionRequest[]
+}
+
+model ExtensionRequest {
+  id                String    @id @default(uuid())
+  stageId           String
+  departmentId      String
+  requestedById     String
+  currentDeadline   DateTime
+  requestedDeadline DateTime
+  reason            String
+  status            String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  decidedById       String?
+  decidedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  stage       AcademicStage @relation(fields: [stageId], references: [id])
+  department  Department    @relation(fields: [departmentId], references: [id])
+  requestedBy User          @relation("ExtensionRequester", fields: [requestedById], references: [id])
+  decidedBy   User?         @relation("ExtensionDecider", fields: [decidedById], references: [id])
+}
+
+model SubjectType {
+  id           String  @id @default(uuid())
+  name         String  // Theory, Lab, Lab-Oriented Theory, Project, Project-Oriented Theory
+  code         Int     // Theory=1, Lab=2, Lab-Oriented Theory=3, Project=4, Project-Oriented Theory=5
+  templateType String  // THEORY, LAB, LAB_ORIENTED_THEORY
+  active       Boolean @default(true)
+
+  subjects Subject[]
+}
+
+model SubjectCategory {
+  id          String  @id @default(uuid())
+  code        String  @unique // PC, PE, MC, OE, EEC
+  name        String
+  description String?
+  active      Boolean @default(true)
+
+  subjects Subject[]
+}
+
+model POConfiguration {
+  id           String @id @default(uuid())
+  departmentId String
+  regulationId String
+  poCount      Int    @default(12)
+
+  department Department @relation(fields: [departmentId], references: [id])
+  regulation Regulation @relation(fields: [regulationId], references: [id])
+
+  @@unique([departmentId, regulationId])
+}
+
+model PSOConfiguration {
+  id           String @id @default(uuid())
+  departmentId String
+  regulationId String
+  psoCount     Int    @default(3)
+
+  department Department @relation(fields: [departmentId], references: [id])
+  regulation Regulation @relation(fields: [regulationId], references: [id])
+
+  @@unique([departmentId, regulationId])
+}
+
+model Subject {
+  id                String    @id @default(uuid())
+  departmentId      String
+  regulationId      String
+  academicYearId    String
+  semester          Int
+  subjectTypeId     String
+  subjectCategoryId String
+  subjectName       String
+  subjectCode       String // Generated CS26421
+  lecture           Int // L
+  tutorial          Int // T
+  practical         Int // P
+  credits           Float // C (calculated)
+  status            String    @default("DRAFT") // DRAFT, FINALIZED, ASSIGNED
+  assignedFacultyId String?
+  syllabusStatus    String    @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, SUBMITTED, RETURNED_FOR_CORRECTION, RESUBMITTED, APPROVED
+  finalizedAt       DateTime?
+  assignedAt        DateTime?
+  createdById       String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  department      Department          @relation(fields: [departmentId], references: [id])
+  regulation      Regulation          @relation(fields: [regulationId], references: [id])
+  academicYear    AcademicYear        @relation(fields: [academicYearId], references: [id])
+  subjectType     SubjectType         @relation(fields: [subjectTypeId], references: [id])
+  subjectCategory SubjectCategory     @relation(fields: [subjectCategoryId], references: [id])
+  assignedFaculty User?               @relation("FacultyAssignedSubjects", fields: [assignedFacultyId], references: [id])
+  createdBy       User                @relation("SubjectCreator", fields: [createdById], references: [id])
+  submission      SyllabusSubmission?
+
+  @@unique([departmentId, regulationId, semester, subjectTypeId, subjectCode])
+}
+
+model SyllabusSubmission {
+  id                   String    @id @default(uuid())
+  subjectId            String    @unique
+  facultyId            String
+  version              Int       @default(1)
+  unitContactHours     Int? // Common unit contact hours for theory units
+  theoryContactHours   Int? // 5 * unitContactHours
+  labContactHours      Int? // Lab contact hours
+  totalContactHours    Int? // Calculated total
+  correctionReason     String?
+  returnedAt           DateTime?
+  approvedAt           DateTime?
+  approvedById         String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  subject            Subject             @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  faculty            User                @relation("FacultySubmissions", fields: [facultyId], references: [id])
+  approvedBy         User?               @relation("ApprovedBySubmissions", fields: [approvedById], references: [id])
+  objectives         Objective[]
+  syllabusUnits      SyllabusUnit[]
+  experiments        Experiment[]
+  courseOutcomes     CourseOutcome[]
+  textbooks          Textbook[]
+  references         Reference[]
+  coPoMappings       COPOMapping[]
+  coPoJustifications COPOJustification[]
+}
+
+model Objective {
+  id          String @id @default(uuid())
+  syllabusId  String
+  order       Int
+  description String
+
+  syllabus SyllabusSubmission @relation(fields: [syllabusId], references: [id], onDelete: Cascade)
+}
+
+model SyllabusUnit {
+  id         String @id @default(uuid())
+  syllabusId String
+  unitNumber Int // 1 to 5
+  unitName   String
+  content    String
+
+  syllabus SyllabusSubmission @relation(fields: [syllabusId], references: [id], onDelete: Cascade)
+}
+
+model Experiment {
+  id               String @id @default(uuid())
+  syllabusId       String
+  experimentNumber Int
+  title            String
+
+  syllabus SyllabusSubmission @relation(fields: [syllabusId], references: [id], onDelete: Cascade)
+}
+
+model CourseOutcome {
+  id          String @id @default(uuid())
+  syllabusId  String
+  coNumber    Int // 1 to 5 mandatory
+  description String
+
+  syllabus SyllabusSubmission @relation(fields: [syllabusId], references: [id], onDelete: Cascade)
+}
+
+model Textbook {
+  id         String  @id @default(uuid())
+  syllabusId String
+  order      Int
+  title      String
+  authors    String
+  edition    String?
+  publisher  String?
+  year       String?
+
+  syllabus SyllabusSubmission @relation(fields: [syllabusId], references: [id], onDelete: Cascade)
+}
+
+model Reference {
+  id          String  @id @default(uuid())
+  syllabusId  String
+  order       Int
+  title       String
+  authors     String?
+  edition     String?
+  publisher   String?
+  year        String?
+  url         String?
+  description String?
+
+  syllabus SyllabusSubmission @relation(fields: [syllabusId], references: [id], onDelete: Cascade)
+}
+
+model COPOMapping {
+  id          String @id @default(uuid())
+  syllabusId  String
+  coNumber    Int // 1 to 5
+  poKey       String // PO1..PO12, PSO1..PSO3
+  correlation Int // 0=No correlation ('-'), 1=Low, 2=Medium, 3=High
+
+  syllabus SyllabusSubmission @relation(fields: [syllabusId], references: [id], onDelete: Cascade)
+
+  @@unique([syllabusId, coNumber, poKey])
+}
+
+model COPOJustification {
+  id            String @id @default(uuid())
+  syllabusId    String
+  coNumber      Int
+  poKey         String
+  justification String
+
+  syllabus SyllabusSubmission @relation(fields: [syllabusId], references: [id], onDelete: Cascade)
+
+  @@unique([syllabusId, coNumber, poKey])
+}
+
+model Notification {
+  id            String   @id @default(uuid())
+  recipientId   String
+  title         String
+  message       String
+  type          String
+  relatedEntity String?
+  read          Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  recipient User @relation("UserNotifications", fields: [recipientId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  userRole  String
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  createdAt DateTime @default(now())
+
+  user User @relation("UserAuditLogs", fields: [userId], references: [id])
+}
