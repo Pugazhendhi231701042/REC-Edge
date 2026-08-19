@@ -63,7 +63,6 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
     17: 'Partnerships for the Goals',
   };
 
-  // Group SDG Mappings by CO
   const sdgMappingsList = submission.sdgMappings || [];
 
   return (
@@ -78,7 +77,7 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
           onClick={handlePrint}
           className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md flex items-center transition-all"
         >
-          <Printer className="w-4 h-4 mr-2" /> Print / Save as PDF
+          <Printer className="w-4 h-4 mr-2" /> Print / Save Complete PDF
         </button>
       </div>
 
@@ -90,11 +89,11 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
           <p className="text-xs font-semibold text-desc uppercase tracking-widest mt-1">An Autonomous Institution | Affiliated to Anna University</p>
           <h2 className="text-base font-bold text-slate-800 mt-3">{subject.department?.programmeName}</h2>
           <div className="inline-block mt-3 px-4 py-1 rounded-full bg-purple-50 text-brand-800 border border-purple-200 text-xs font-bold uppercase tracking-wider">
-            {documentTitle} — {subject.regulation?.displayName || 'Regulation 26'}
+            Syllabus Submission Acknowledgement — {subject.regulation?.displayName || 'Regulation 26'}
           </div>
         </div>
 
-        {/* Subject Master Metadata */}
+        {/* 1. Subject Details */}
         <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200 mb-6">
           <div>
             <p><strong>Subject Name:</strong> {subject.subjectName}</p>
@@ -110,7 +109,7 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
           </div>
         </div>
 
-        {/* 1. Objectives */}
+        {/* 2. Objectives */}
         {submission.objectives && submission.objectives.length > 0 && (
           <div className="mb-6">
             <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-2">1. Objectives</h3>
@@ -122,7 +121,7 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
           </div>
         )}
 
-        {/* 2. Units / Experiments */}
+        {/* 3. Syllabus Units / Experiments */}
         {submission.syllabusUnits && submission.syllabusUnits.length > 0 && (
           <div className="mb-6">
             <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-3">2. Course Syllabus</h3>
@@ -148,7 +147,7 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
           </div>
         )}
 
-        {/* 3. Course Outcomes */}
+        {/* 4. Course Outcomes */}
         {submission.courseOutcomes && submission.courseOutcomes.length > 0 && (
           <div className="mb-6">
             <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-2">3. Course Outcomes (COs)</h3>
@@ -160,7 +159,7 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
           </div>
         )}
 
-        {/* 4. Textbooks */}
+        {/* 5. Textbooks */}
         {submission.textbooks && submission.textbooks.length > 0 && (
           <div className="mb-6">
             <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-2">4. Textbooks</h3>
@@ -174,21 +173,21 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
           </div>
         )}
 
-        {/* 5. References */}
+        {/* 6. References */}
         {submission.references && submission.references.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-2">5. References</h3>
+            <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-2">5. Reference Books / Links</h3>
             <ol className="list-decimal list-inside text-xs space-y-1 text-slate-800">
               {submission.references.map((ref: any, idx: number) => (
                 <li key={idx}>
-                  {ref.authors ? `${ref.authors}, ` : ''}<em>"{ref.title}"</em>{ref.publisher ? `, ${ref.publisher}` : ''}{ref.year ? `, ${ref.year}` : ''}.
+                  {ref.authors ? `${ref.authors}, ` : ''}<em>"{ref.title}"</em>{ref.publisher ? `, ${ref.publisher}` : ''}{ref.year ? `, ${ref.year}` : ''}. {ref.url ? `Link: ${ref.url}` : ''}
                 </li>
               ))}
             </ol>
           </div>
         )}
 
-        {/* 6. CO/PO Mapping Table */}
+        {/* 7. CO/PO Mapping Table */}
         <div className="mb-6 page-break-inside-avoid">
           <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-3">6. CO / PO & PSO Mapping Matrix</h3>
           <table className="w-full text-xs text-center border-collapse border border-slate-300">
@@ -218,7 +217,7 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
           </table>
         </div>
 
-        {/* 7. Sustainable Development Goals (SDG) Mapping Table (User Requirement) */}
+        {/* 8. Sustainable Development Goals (SDG) Mapping Table */}
         {sdgMappingsList.length > 0 && (
           <div className="mb-6 page-break-inside-avoid">
             <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-3 flex items-center">
@@ -252,8 +251,8 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
           </div>
         )}
 
-        {/* 8. CO/PO Justifications (Hidden for Dean review view if hideJustifications=true) */}
-        {!hideJustifications && Object.keys(justificationsMap).length > 0 && (
+        {/* 9. CO/PO Justifications (Always shown in printable Acknowledgement PDF for all authorized roles) */}
+        {(!hideJustifications || true) && Object.keys(justificationsMap).length > 0 && (
           <div className="mb-8 page-break-inside-avoid">
             <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-3">8. CO / PO Justifications</h3>
             <div className="space-y-2 text-xs">

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Globe, Plus, Trash2, Check, AlertCircle, Info, Sparkles } from 'lucide-react';
+import { Globe, Plus, Trash2, Check, AlertTriangle, Sparkles } from 'lucide-react';
 
 export interface SDGGoalItem {
   id: string;
@@ -22,16 +22,19 @@ interface SDGMappingFormProps {
 }
 
 /**
- * Parses raw unit content string into discrete selectable topic items by splitting on '-'
+ * Parses raw unit content string into discrete selectable topic items by splitting on hyphens (-), en-dashes (–), em-dashes (—), or semicolons (;).
+ * Trims unnecessary spaces and trailing punctuation around each topic string.
+ * Does NOT alter original syllabus text.
  */
 export function parseUnitTopics(content: string): string[] {
   if (!content || !content.trim()) return [];
-  
-  // Split on hyphen '-'
-  const parts = content.split('-').map((p) => p.trim()).filter((p) => p.length > 0);
-  if (parts.length > 0) return parts;
-  
-  return [content.trim()];
+
+  // Regex matches hyphen (-), en-dash (–), em-dash (—), or semicolon (;)
+  const parts = content.split(/[-–—;]/g);
+
+  return parts
+    .map((p) => p.replace(/^[.\s,]+|[.\s,]+$/g, '').trim())
+    .filter((p) => p.length > 0);
 }
 
 export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
@@ -83,7 +86,7 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
         <div className="text-xs text-slate-700 space-y-1">
           <p className="font-bold text-brand-800">UN Sustainable Development Goals (SDGs) Mapping</p>
           <p>
-            Map each Course Outcome (CO) to relevant UN SDGs and specific syllabus topics. Each CO maps <strong>strictly to its corresponding Unit</strong> (CO1 → Unit 1, CO2 → Unit 2, etc.).
+            Map each Course Outcome (CO) to relevant UN SDGs and specific syllabus topics. Each CO maps <strong>strictly to its corresponding Unit</strong> (CO1 → Unit 1, CO2 → Unit 2, etc.). Topics are automatically parsed from unit content separated by hyphens (<code>-</code>) or en-dashes (<code>–</code>).
           </p>
         </div>
       </div>
@@ -113,7 +116,9 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
                     <h4 className="text-sm font-bold text-slate-900">
                       CO{coNum} — Unit {unit.unitNumber}: {unit.unitName || `Unit ${unit.unitNumber}`}
                     </h4>
-                    <p className="text-xs text-desc">Unit Content Topics: {topics.length > 0 ? topics.join(' • ') : 'No topics parsed yet.'}</p>
+                    <p className="text-xs text-desc">
+                      Available Unit Topics ({topics.length}): {topics.length > 0 ? topics.join(' • ') : 'No topics parsed. Separate topics in Unit content with - or –'}
+                    </p>
                   </div>
                 </div>
                 {groupedBySDG.size > 0 ? (
@@ -122,7 +127,7 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
                   </span>
                 ) : (
                   <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold flex items-center">
-                    <AlertCircle className="w-3.5 h-3.5 mr-1" /> Missing SDG Mapping
+                    <AlertTriangle className="w-3.5 h-3.5 mr-1" /> Missing SDG Mapping
                   </span>
                 )}
               </div>
@@ -194,19 +199,29 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
                           <span className="text-[10px] font-bold text-desc uppercase">{topicList.length} Topic(s)</span>
                         </div>
                         <ul className="space-y-1.5 pl-4 border-l-2 border-purple-300">
-                          {topicList.map((t, tIdx) => (
-                            <li key={tIdx} className="flex items-center justify-between text-xs text-slate-800">
-                              <span>• {t}</span>
-                              {!disabled && (
-                                <button
-                                  onClick={() => handleRemoveMapping(coNum, sdgNum, t)}
-                                  className="p-1 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </li>
-                          ))}
+                          {topicList.map((t, tIdx) => {
+                            const isStale = topics.length > 0 && !topics.includes(t);
+                            return (
+                              <li key={tIdx} className="flex items-center justify-between text-xs text-slate-800">
+                                <span className="flex items-center">
+                                  • {t}
+                                  {isStale && (
+                                    <span className="ml-2 px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold flex items-center border border-amber-200">
+                                      <AlertTriangle className="w-3 h-3 mr-1 text-amber-600" /> Topic no longer matches syllabus content - please update
+                                    </span>
+                                  )}
+                                </span>
+                                {!disabled && (
+                                  <button
+                                    onClick={() => handleRemoveMapping(coNum, sdgNum, t)}
+                                    className="p-1 text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-2"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </li>
+                            );
+                          })}
                         </ul>
                       </div>
                     );
