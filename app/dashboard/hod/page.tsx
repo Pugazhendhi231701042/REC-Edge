@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 
 export default function HoDDashboard() {
+  const [activeTab, setActiveTab] = useState<string>('curriculum');
   const [department, setDepartment] = useState<any>(null);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [subjectTypes, setSubjectTypes] = useState<any[]>([]);
@@ -161,10 +162,22 @@ export default function HoDDashboard() {
     }
   };
 
+  const fetchFullSubjectForReview = async (subj: any) => {
+    try {
+      const res = await fetch(`/api/faculty/syllabus/${subj.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setReviewSubject(data.subject);
+        setShowReviewModal(true);
+      }
+    } catch (err) {
+      console.error('Failed to fetch full subject for review');
+    }
+  };
+
   const semCount = department?.semesters || 8;
   const semesterNumbers = Array.from({ length: semCount }, (_, i) => i + 1);
 
-  // Semesters Filter
   const activeSemSubjects = subjects.filter((s) => s.semester === activeSemester);
   const totalInSem = activeSemSubjects.length;
   const assignedInSem = activeSemSubjects.filter((s) => s.status === 'ASSIGNED').length;
@@ -176,7 +189,7 @@ export default function HoDDashboard() {
   const isCurriculumFinalized = subjects.some((s) => s.status === 'FINALIZED' || s.status === 'ASSIGNED');
 
   return (
-    <AppShell>
+    <AppShell activeTab={activeTab} onTabChange={setActiveTab}>
       <div className="space-y-8 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between">
@@ -237,8 +250,8 @@ export default function HoDDashboard() {
           />
         </div>
 
-        {/* Dynamic Semester Selection Tabs (Requirement 19: Dynamically generated based on Dept config) */}
-        <div className="bg-white rounded-2xl border border-purple-100 p-6 shadow-sm space-y-6">
+        {/* Dynamic Semester Selection Tabs */}
+        <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-6">
           <div className="flex items-center justify-between border-b pb-3 overflow-x-auto">
             <div className="flex items-center space-x-2 min-w-max">
               {semesterNumbers.map((sem) => (
@@ -333,10 +346,7 @@ export default function HoDDashboard() {
                         {/* Review Syllabus Button if Submitted */}
                         {(subj.syllabusStatus === 'SUBMITTED' || subj.syllabusStatus === 'RESUBMITTED' || subj.syllabusStatus === 'APPROVED') && (
                           <button
-                            onClick={() => {
-                              setReviewSubject(subj);
-                              setShowReviewModal(true);
-                            }}
+                            onClick={() => fetchFullSubjectForReview(subj)}
                             className="px-2.5 py-1 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-lg text-xs inline-flex items-center"
                           >
                             <Eye className="w-3.5 h-3.5 mr-1" /> Review
@@ -351,7 +361,7 @@ export default function HoDDashboard() {
           </div>
         </div>
 
-        {/* Subject Form Modal (With LTPC credit calculator & auto code preview) */}
+        {/* Subject Form Modal */}
         {showSubjectModal && (
           <SubjectFormModal
             isOpen={showSubjectModal}
@@ -365,7 +375,7 @@ export default function HoDDashboard() {
           />
         )}
 
-        {/* Assign Faculty Modal (Requirement 31) */}
+        {/* Assign Faculty Modal */}
         {showAssignModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
@@ -405,13 +415,13 @@ export default function HoDDashboard() {
           </div>
         )}
 
-        {/* Syllabus Review & Approval Modal (Requirement 55, 56, 57) */}
+        {/* Syllabus Review & Approval Modal (User Requirement: Displays Objectives, Units, COs, Textbooks, References, Mappings) */}
         {showReviewModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-            <div className="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-3xl max-w-4xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between border-b pb-3">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">Syllabus Review & Decision</h3>
+                  <h3 className="text-base font-bold text-slate-900">HoD Syllabus Review & Decision</h3>
                   <p className="text-xs text-desc">
                     {reviewSubject?.subjectCode} - {reviewSubject?.subjectName} | Faculty: {reviewSubject?.assignedFaculty?.name}
                   </p>
@@ -425,11 +435,12 @@ export default function HoDDashboard() {
                 <SyllabusPDFGenerator
                   subject={reviewSubject}
                   submission={reviewSubject.submission}
-                  documentTitle="HoD Syllabus Review View"
+                  documentTitle="HoD Full Syllabus Review View"
+                  hideJustifications={false}
                 />
               )}
 
-              {/* Review Decision Buttons */}
+              {/* Review Decision Controls */}
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
                 <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">HoD Review Decision</h4>
 

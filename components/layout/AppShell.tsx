@@ -7,9 +7,11 @@ import { Bell, Key, X, CheckCircle, ShieldAlert, Sparkles } from 'lucide-react';
 
 interface AppShellProps {
   children: React.ReactNode;
+  activeTab?: string;
+  onTabChange?: (tab: string) => void;
 }
 
-export const AppShell: React.FC<AppShellProps> = ({ children }) => {
+export const AppShell: React.FC<AppShellProps> = ({ children, activeTab, onTabChange }) => {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -118,6 +120,8 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
         userEmail={user?.email}
         departmentName={user?.department}
         onLogout={handleLogout}
+        activeTab={activeTab}
+        onTabChange={onTabChange}
       />
 
       {/* Main Content Area */}
@@ -195,7 +199,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
         </main>
       </div>
 
-      {/* Settings Modal (Password Reset - Requirement 15, 110) */}
+      {/* Settings Modal */}
       {showSettingsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">

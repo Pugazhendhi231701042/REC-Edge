@@ -116,7 +116,7 @@ model ExtensionRequest {
 model SubjectType {
   id           String  @id @default(uuid())
   name         String  // Theory, Lab, Lab-Oriented Theory, Project, Project-Oriented Theory
-  code         Int     // Theory=1, Lab=2, Lab-Oriented Theory=3, Project=4, Project-Oriented Theory=5
+  code         Int     // Configurable integer code (e.g. 1, 2, 3, 4, 5)
   templateType String  // THEORY, LAB, LAB_ORIENTED_THEORY
   active       Boolean @default(true)
 
@@ -131,6 +131,14 @@ model SubjectCategory {
   active      Boolean @default(true)
 
   subjects Subject[]
+}
+
+model CreditConfig {
+  id        String   @id @default("default-credit-config")
+  lWeight   Float    @default(1.0) // Lecture weight
+  tWeight   Float    @default(1.0) // Tutorial weight
+  pWeight   Float    @default(0.5) // Practical weight
+  updatedAt DateTime @updatedAt
 }
 
 model POConfiguration {

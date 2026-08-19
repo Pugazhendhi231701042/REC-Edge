@@ -7,11 +7,17 @@ export interface CreditResult {
 }
 
 /**
- * Calculates academic credits based on Regulation LTP formula:
- * Credits = (L * 1) + (T * 1) + (P * 0.5)
- * Disallows decimal whole number violations (e.g., 1.5).
+ * Calculates academic credits based on configurable weights (Default: L*1.0, T*1.0, P*0.5).
+ * Disallows non-integer credit values (e.g. 1.5).
  */
-export function calculateCredits(L: number, T: number, P: number): CreditResult {
+export function calculateCredits(
+  L: number,
+  T: number,
+  P: number,
+  lWeight = 1.0,
+  tWeight = 1.0,
+  pWeight = 0.5
+): CreditResult {
   const lVal = Number(L) || 0;
   const tVal = Number(T) || 0;
   const pVal = Number(P) || 0;
@@ -24,7 +30,7 @@ export function calculateCredits(L: number, T: number, P: number): CreditResult 
     };
   }
 
-  const rawCredits = lVal * 1 + tVal * 1 + pVal * 0.5;
+  const rawCredits = lVal * lWeight + tVal * tWeight + pVal * pWeight;
 
   if (!Number.isInteger(rawCredits)) {
     return {

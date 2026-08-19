@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 
 export default function DeanDashboard() {
+  const [activeTab, setActiveTab] = useState<string>('overview');
   const [overview, setOverview] = useState<any>(null);
   const [stages, setStages] = useState<any[]>([]);
   const [extensionRequests, setExtensionRequests] = useState<any[]>([]);
@@ -123,7 +124,7 @@ export default function DeanDashboard() {
   const activeStage = stages.find((s) => s.status === 'ACTIVE');
 
   return (
-    <AppShell>
+    <AppShell activeTab={activeTab} onTabChange={setActiveTab}>
       <div className="space-y-8 max-w-7xl mx-auto">
         {/* Header Title */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between">
@@ -175,7 +176,7 @@ export default function DeanDashboard() {
         </div>
 
         {/* Academic Workflow Stages */}
-        <div className="bg-white p-6 rounded-2xl border border-purple-100 shadow-sm space-y-4">
+        <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
           <div className="flex items-center justify-between border-b pb-3">
             <div>
               <h3 className="text-base font-bold text-slate-900">Academic Workflow Stages</h3>
@@ -229,7 +230,7 @@ export default function DeanDashboard() {
 
         {/* Pending Extension Requests */}
         {extensionRequests.filter((r) => r.status === 'PENDING').length > 0 && (
-          <div className="bg-amber-50/70 p-6 rounded-2xl border border-amber-200 space-y-4">
+          <div className="bg-amber-50/70 p-6 rounded-3xl border border-amber-200 space-y-4">
             <h3 className="text-sm font-bold text-amber-900 flex items-center">
               <ShieldAlert className="w-5 h-5 mr-2 text-amber-600" />
               Pending Deadline Extension Requests
@@ -272,7 +273,7 @@ export default function DeanDashboard() {
         )}
 
         {/* Department Progress Table */}
-        <div className="bg-white rounded-2xl border border-purple-100 p-6 shadow-sm space-y-4">
+        <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
           <h3 className="text-base font-bold text-slate-900">Department-wise Formation Progress</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left">
@@ -314,17 +315,17 @@ export default function DeanDashboard() {
           </div>
         </div>
 
-        {/* Approved Syllabi Directory */}
-        <div className="bg-white rounded-2xl border border-purple-100 p-6 shadow-sm space-y-4">
+        {/* Approved Syllabi Directory (Dean Access) */}
+        <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
           <h3 className="text-base font-bold text-slate-900">Approved Syllabi Directory (Dean Access)</h3>
-          <p className="text-xs text-desc">Only syllabi approved by Heads of Department are displayed here for institutional signoff.</p>
+          <p className="text-xs text-desc">Syllabi approved by Heads of Department displayed without justifications.</p>
 
           {overview?.approvedSyllabi?.length === 0 ? (
             <p className="text-xs text-desc py-6 text-center">No syllabi have been approved by HoDs yet.</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {overview?.approvedSyllabi?.map((subj: any) => (
-                <div key={subj.id} className="p-4 border border-purple-100 rounded-xl bg-purple-50/20 hover:shadow-md transition-all flex items-center justify-between">
+                <div key={subj.id} className="p-4 border border-purple-100 rounded-2xl bg-purple-50/20 hover:shadow-md transition-all flex items-center justify-between">
                   <div>
                     <span className="text-[10px] font-bold text-brand-700 uppercase bg-purple-100 px-2 py-0.5 rounded">
                       {subj.subjectCode}
@@ -336,9 +337,9 @@ export default function DeanDashboard() {
                   </div>
                   <button
                     onClick={() => setSelectedSyllabus(subj)}
-                    className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-lg flex items-center"
+                    className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl flex items-center"
                   >
-                    <Eye className="w-3.5 h-3.5 mr-1" /> View & Print
+                    <Eye className="w-3.5 h-3.5 mr-1" /> View Dean Review
                   </button>
                 </div>
               ))}
@@ -346,12 +347,12 @@ export default function DeanDashboard() {
           )}
         </div>
 
-        {/* Printable PDF Modal */}
+        {/* Printable PDF Modal for Dean View (User Requirement: Dean Review WITHOUT justifications) */}
         {selectedSyllabus && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-            <div className="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-3xl max-w-4xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between border-b pb-3">
-                <h3 className="text-sm font-bold text-slate-900">Approved Syllabus Document Viewer</h3>
+                <h3 className="text-sm font-bold text-slate-900">Dean Syllabus Review View</h3>
                 <button onClick={() => setSelectedSyllabus(null)} className="text-slate-400 hover:text-slate-600">
                   <X className="w-5 h-5" />
                 </button>
@@ -360,7 +361,8 @@ export default function DeanDashboard() {
               <SyllabusPDFGenerator
                 subject={selectedSyllabus}
                 submission={selectedSyllabus.submission}
-                documentTitle="Approved Syllabus Document"
+                documentTitle="Approved Syllabus Document (Dean View)"
+                hideJustifications={true}
               />
             </div>
           </div>

@@ -30,12 +30,36 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 403 });
   }
 
-  const { action, code, name, displayName, active, regId } = await req.json();
+  const { action, code, name, displayName, regId, subjectTypeId, typeCode, typeName } = await req.json();
+
+  if (action === 'EDIT_SUBJECT_TYPE') {
+    if (!subjectTypeId || !typeCode || !typeName) {
+      return NextResponse.json({ error: 'Subject Type ID, Code, and Name are required.' }, { status: 400 });
+    }
+
+    const updatedType = await prisma.subjectType.update({
+      where: { id: subjectTypeId },
+      data: {
+        code: Number(typeCode),
+        name: typeName.trim(),
+      },
+    });
+
+    await logAudit({
+      userId: session.userId,
+      userRole: session.role,
+      action: 'UPDATE_SUBJECT_TYPE_CODE',
+      entity: 'SubjectType',
+      entityId: subjectTypeId,
+      details: { code: updatedType.code, name: updatedType.name },
+    });
+
+    return NextResponse.json({ success: true, subjectType: updatedType });
+  }
 
   if (action === 'SET_ACTIVE') {
     if (!regId) return NextResponse.json({ error: 'Regulation ID required.' }, { status: 400 });
 
-    // Set all to false, then target to true
     await prisma.regulation.updateMany({ data: { active: false } });
     const updated = await prisma.regulation.update({
       where: { id: regId },
@@ -62,7 +86,7 @@ export async function POST(req: Request) {
       code,
       name,
       displayName: displayName || name,
-      active: active || false,
+      active: false,
     },
   });
 

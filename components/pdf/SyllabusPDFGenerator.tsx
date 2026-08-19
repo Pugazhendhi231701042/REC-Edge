@@ -7,6 +7,7 @@ interface SyllabusPDFGeneratorProps {
   poCount?: number;
   psoCount?: number;
   documentTitle?: string;
+  hideJustifications?: boolean;
 }
 
 export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
@@ -15,6 +16,7 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
   poCount = 12,
   psoCount = 3,
   documentTitle = 'Syllabus Submission Acknowledgement',
+  hideJustifications = false,
 }) => {
   if (!subject || !submission) return null;
 
@@ -43,21 +45,21 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
   return (
     <div className="space-y-4">
       {/* Print / Download Action Bar */}
-      <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-purple-100 shadow-sm print:hidden">
+      <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-purple-100 shadow-sm print:hidden">
         <div className="flex items-center space-x-2">
           <FileCheck className="w-5 h-5 text-brand-600" />
           <span className="text-sm font-bold text-slate-900">{documentTitle}</span>
         </div>
         <button
           onClick={handlePrint}
-          className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm flex items-center transition-all"
+          className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md flex items-center transition-all"
         >
           <Printer className="w-4 h-4 mr-2" /> Print / Save as PDF
         </button>
       </div>
 
       {/* Printable Institutional PDF Layout */}
-      <div id="printable-syllabus" className="bg-white p-8 md:p-12 rounded-2xl border border-slate-200 shadow-lg text-slate-900 print:shadow-none print:border-none print:p-0">
+      <div id="printable-syllabus" className="bg-white p-8 md:p-12 rounded-3xl border border-slate-200 shadow-lg text-slate-900 print:shadow-none print:border-none print:p-0">
         {/* Header */}
         <div className="text-center border-b-2 border-brand-600 pb-6 mb-6">
           <h1 className="text-2xl font-bold uppercase text-brand-700 tracking-wide">Rajalakshmi Engineering College</h1>
@@ -69,7 +71,7 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
         </div>
 
         {/* Subject Master Metadata */}
-        <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6">
+        <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200 mb-6">
           <div>
             <p><strong>Subject Name:</strong> {subject.subjectName}</p>
             <p className="mt-1"><strong>Subject Code:</strong> {subject.subjectCode}</p>
@@ -192,8 +194,8 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
           </table>
         </div>
 
-        {/* 7. CO/PO Justifications (Detailed in Approved Syllabus view) */}
-        {Object.keys(justificationsMap).length > 0 && (
+        {/* 7. CO/PO Justifications (Hidden for Dean review view if hideJustifications=true) */}
+        {!hideJustifications && Object.keys(justificationsMap).length > 0 && (
           <div className="mb-8 page-break-inside-avoid">
             <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-3">7. CO / PO Justifications</h3>
             <div className="space-y-2 text-xs">

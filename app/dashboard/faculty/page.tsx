@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 
 export default function FacultyDashboard() {
+  const [activeTab, setActiveTab] = useState<string>('assigned');
   const [subjects, setSubjects] = useState<any[]>([]);
   const [activeStage, setActiveStage] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -111,8 +112,14 @@ export default function FacultyDashboard() {
   const returnedCount = subjects.filter((s) => s.syllabusStatus === 'RETURNED_FOR_CORRECTION').length;
   const approvedCount = subjects.filter((s) => s.syllabusStatus === 'APPROVED').length;
 
+  const filteredSubjects = subjects.filter((s) => {
+    if (activeTab === 'drafts') return s.syllabusStatus === 'IN_PROGRESS' || s.syllabusStatus === 'RETURNED_FOR_CORRECTION';
+    if (activeTab === 'completed') return s.syllabusStatus === 'SUBMITTED' || s.syllabusStatus === 'RESUBMITTED' || s.syllabusStatus === 'APPROVED';
+    return true;
+  });
+
   return (
-    <AppShell>
+    <AppShell activeTab={activeTab} onTabChange={setActiveTab}>
       <div className="space-y-8 max-w-7xl mx-auto">
         {/* If viewing single subject detail */}
         {selectedSubjectId && subjectDetail ? (
@@ -128,8 +135,8 @@ export default function FacultyDashboard() {
               <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to My Assigned Subjects
             </button>
 
-            {/* Read-Only inherited subject metadata card (Requirement 34: READ-ONLY inherited information) */}
-            <div className="bg-white p-6 rounded-2xl border border-purple-100 shadow-sm space-y-4">
+            {/* Read-Only inherited subject metadata card */}
+            <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div>
                   <div className="flex items-center space-x-2">
@@ -158,7 +165,7 @@ export default function FacultyDashboard() {
               </div>
 
               {/* LTPC Read-Only Banner */}
-              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 grid grid-cols-4 gap-2 text-center text-xs font-semibold text-slate-700">
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 grid grid-cols-4 gap-2 text-center text-xs font-semibold text-slate-700">
                 <div>Lecture (L): <strong className="text-slate-900">{subjectDetail.lecture}</strong></div>
                 <div>Tutorial (T): <strong className="text-slate-900">{subjectDetail.tutorial}</strong></div>
                 <div>Practical (P): <strong className="text-slate-900">{subjectDetail.practical}</strong></div>
@@ -167,7 +174,7 @@ export default function FacultyDashboard() {
 
               {/* Returned for Correction Warning Box */}
               {subjectDetail.syllabusStatus === 'RETURNED_FOR_CORRECTION' && subjectDetail.submission?.correctionReason && (
-                <div className="p-4 rounded-xl bg-amber-50 border-l-4 border-amber-500 text-xs text-amber-900 space-y-1">
+                <div className="p-4 rounded-2xl bg-amber-50 border-l-4 border-amber-500 text-xs text-amber-900 space-y-1">
                   <p className="font-bold text-amber-900 flex items-center">
                     <RotateCcw className="w-4 h-4 mr-1.5 text-amber-600" />
                     Returned for Correction by Head of Department
@@ -234,16 +241,18 @@ export default function FacultyDashboard() {
             )}
 
             {/* Assigned Subjects Directory Cards */}
-            <div className="bg-white rounded-2xl border border-purple-100 p-6 shadow-sm space-y-4">
-              <h3 className="text-base font-bold text-slate-900">My Assigned Subjects</h3>
+            <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
+              <h3 className="text-base font-bold text-slate-900">
+                {activeTab === 'drafts' ? 'Draft Syllabi' : activeTab === 'completed' ? 'Completed Syllabi' : 'My Assigned Subjects'}
+              </h3>
 
-              {subjects.length === 0 ? (
-                <div className="p-12 text-center text-desc text-xs bg-slate-50 rounded-xl border border-dashed">
-                  No subjects assigned yet. Your HoD will notify you when a subject is assigned.
+              {filteredSubjects.length === 0 ? (
+                <div className="p-12 text-center text-desc text-xs bg-slate-50 rounded-2xl border border-dashed">
+                  No subjects found in this view.
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {subjects.map((subj) => (
+                  {filteredSubjects.map((subj) => (
                     <div
                       key={subj.id}
                       className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 hover:shadow-md transition-all space-y-3 flex flex-col justify-between"
