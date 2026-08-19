@@ -37,6 +37,18 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Lock body scroll when modal is active
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
   useEffect(() => {
     fetchCreditConfig();
   }, []);
@@ -83,11 +95,23 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
   const selectedType = subjectTypes.find((t) => t.id === subjectTypeId);
   const typeCode = selectedType ? selectedType.code : 1;
 
+  // LTPC Validation Rule for Non-Theory Courses (P >= 1)
+  const isNonTheory = selectedType
+    ? selectedType.templateType !== 'THEORY' || selectedType.name.toLowerCase() !== 'theory'
+    : false;
+  const isInvalidNonTheoryPractical = isNonTheory && practical < 1;
+
   // Live preview subject code
   const codePreview = formatSubjectCode(departmentCode, regulationCode, semester, typeCode, editingSubject ? 1 : 1);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isInvalidNonTheoryPractical) {
+      setError('Practical hours (P) must be at least 1 for non-Theory courses.');
+      return;
+    }
+
     if (!creditResult.valid) {
       setError(creditResult.warning || 'Invalid credit combination.');
       return;
@@ -127,8 +151,8 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4">
-      <div className="bg-white/95 backdrop-blur-md rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-purple-100/80 animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-[9999] h-screen w-screen bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white/95 backdrop-blur-md rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-purple-100/80 animate-in fade-in zoom-in-95 duration-150 my-auto">
         <div className="flex items-center justify-between pb-4 border-b border-purple-100">
           <div>
             <h3 className="text-lg font-bold text-slate-900">
@@ -144,10 +168,10 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
           </button>
         </div>
 
-        {error && (
+        {(error || isInvalidNonTheoryPractical) && (
           <div className="mt-4 p-3 rounded-xl bg-red-50 border border-red-200 flex items-start text-xs text-red-700">
             <AlertCircle className="w-4 h-4 mr-2 text-red-500 shrink-0 mt-0.5" />
-            <span>{error}</span>
+            <span>{isInvalidNonTheoryPractical ? 'Practical hours (P) must be at least 1 for non-Theory courses.' : error}</span>
           </div>
         )}
 
@@ -196,10 +220,15 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
             </div>
           </div>
 
-          {/* LTPC Credit Calculator Section (Formula text removed per user instruction) */}
+          {/* LTPC Credit Calculator Section */}
           <div className="bg-purple-50/70 p-4 rounded-2xl border border-purple-100/80">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-bold text-brand-700 uppercase tracking-wider">L-T-P-C Credit Calculation</span>
+              {isNonTheory && (
+                <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-200">
+                  Non-Theory: P ≥ 1 required
+                </span>
+              )}
             </div>
 
             <div className="grid grid-cols-4 gap-3 text-center">
@@ -235,13 +264,15 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
                   max="10"
                   value={practical}
                   onChange={(e) => setPractical(parseInt(e.target.value) || 0)}
-                  className="w-full px-2 py-1.5 text-center text-sm font-semibold border border-slate-300 rounded-lg focus:ring-brand-500"
+                  className={`w-full px-2 py-1.5 text-center text-sm font-semibold border rounded-lg focus:ring-brand-500 ${
+                    isInvalidNonTheoryPractical ? 'border-red-500 bg-red-50 text-red-900 font-bold' : 'border-slate-300'
+                  }`}
                 />
               </div>
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-600 mb-1">C (Credits)</label>
-                <div className={`w-full py-1.5 text-sm font-bold rounded-lg border text-center ${creditResult.valid ? 'bg-brand-600 text-white border-brand-700 shadow-xs' : 'bg-red-100 text-red-700 border-red-300'}`}>
+                <div className={`w-full py-1.5 text-sm font-bold rounded-lg border text-center ${creditResult.valid && !isInvalidNonTheoryPractical ? 'bg-brand-600 text-white border-brand-700 shadow-xs' : 'bg-red-100 text-red-700 border-red-300'}`}>
                   {creditResult.credits}
                 </div>
               </div>
@@ -279,7 +310,7 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
             </button>
             <button
               type="submit"
-              disabled={loading || !creditResult.valid}
+              disabled={loading || !creditResult.valid || isInvalidNonTheoryPractical}
               className="px-5 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md disabled:opacity-50 flex items-center transition-all"
             >
               {loading ? (

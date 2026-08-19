@@ -36,3 +36,35 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #6A1B9A;
 }
+
+/* Dedicated Print View Rules: Hides website UI, sidebars, headers, and buttons when printing */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  
+  #printable-syllabus, #printable-syllabus * {
+    visibility: visible;
+  }
+  
+  #printable-syllabus {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 20px !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: white !important;
+  }
+
+  aside, header, nav, button, .print\:hidden {
+    display: none !important;
+  }
+
+  @page {
+    size: auto;
+    margin: 15mm;
+  }
+}

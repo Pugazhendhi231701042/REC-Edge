@@ -63,7 +63,13 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
     17: 'Partnerships for the Goals',
   };
 
-  const sdgMappingsList = submission.sdgMappings || [];
+  // Sort SDG Mappings: Primary by coNumber (1..5), Secondary by sdgNumber (1..17)
+  const sortedSDGMappings = [...(submission.sdgMappings || [])].sort((a: any, b: any) => {
+    if (a.coNumber !== b.coNumber) {
+      return a.coNumber - b.coNumber;
+    }
+    return a.sdgNumber - b.sdgNumber;
+  });
 
   return (
     <div className="space-y-4">
@@ -77,11 +83,11 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
           onClick={handlePrint}
           className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md flex items-center transition-all"
         >
-          <Printer className="w-4 h-4 mr-2" /> Print / Save Complete PDF
+          <Printer className="w-4 h-4 mr-2" /> Print Acknowledgement
         </button>
       </div>
 
-      {/* Printable Institutional PDF Layout */}
+      {/* Dedicated Printable Institutional PDF Layout */}
       <div id="printable-syllabus" className="bg-white p-8 md:p-12 rounded-3xl border border-slate-200 shadow-lg text-slate-900 print:shadow-none print:border-none print:p-0">
         {/* Header */}
         <div className="text-center border-b-2 border-brand-600 pb-6 mb-6">
@@ -217,8 +223,8 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
           </table>
         </div>
 
-        {/* 8. Sustainable Development Goals (SDG) Mapping Table */}
-        {sdgMappingsList.length > 0 && (
+        {/* 8. Sustainable Development Goals (SDG) Mapping Table (Reordered & Sorted Hierarchy: CO -> SDG) */}
+        {sortedSDGMappings.length > 0 && (
           <div className="mb-6 page-break-inside-avoid">
             <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-3 flex items-center">
               <Globe className="w-4 h-4 mr-1.5 text-brand-600" />
@@ -227,19 +233,19 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
             <table className="w-full text-xs text-left border-collapse border border-slate-300">
               <thead>
                 <tr className="bg-purple-50 font-bold text-brand-900 border-b border-slate-300">
-                  <th className="border border-slate-300 p-2 w-1/3">SDG No. & Theme</th>
                   <th className="border border-slate-300 p-2 w-1/6 text-center">Addressing CO</th>
+                  <th className="border border-slate-300 p-2 w-1/3">SDG No. & Theme</th>
                   <th className="border border-slate-300 p-2">Topic / Activity addressing SDG</th>
                 </tr>
               </thead>
               <tbody>
-                {sdgMappingsList.map((m: any, idx: number) => (
+                {sortedSDGMappings.map((m: any, idx: number) => (
                   <tr key={idx} className="hover:bg-slate-50">
-                    <td className="border border-slate-300 p-2 font-bold text-slate-900">
-                      SDG {m.sdgNumber} — {sdgNames[m.sdgNumber] || 'SDG Goal'}
-                    </td>
                     <td className="border border-slate-300 p-2 font-bold text-brand-700 text-center">
                       CO{m.coNumber}
+                    </td>
+                    <td className="border border-slate-300 p-2 font-bold text-slate-900">
+                      SDG {m.sdgNumber} — {sdgNames[m.sdgNumber] || 'SDG Goal'}
                     </td>
                     <td className="border border-slate-300 p-2 font-medium text-slate-800">
                       • {m.topic}

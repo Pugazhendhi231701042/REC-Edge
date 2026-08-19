@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Seeding Regulation 26 database with SDG Goals...');
+  console.log('Seeding Regulation 26 database with User Codes and SDGs...');
 
   const defaultPasswordHash = await bcrypt.hash('Changeme@123', 10);
 
@@ -122,8 +122,9 @@ async function main() {
   // 6. Users: MasterAdmin & SuperAdmin (Dean)
   const masterAdmin = await prisma.user.upsert({
     where: { email: '231701042@rajalakshmi.edu.in' },
-    update: { password: defaultPasswordHash },
+    update: { password: defaultPasswordHash, userCode: 'ADM01' },
     create: {
+      userCode: 'ADM01',
       email: '231701042@rajalakshmi.edu.in',
       password: defaultPasswordHash,
       name: 'System MasterAdmin',
@@ -134,8 +135,9 @@ async function main() {
 
   const dean = await prisma.user.upsert({
     where: { email: 'dean@rajalakshmi.edu.in' },
-    update: { password: defaultPasswordHash },
+    update: { password: defaultPasswordHash, userCode: 'DEAN01' },
     create: {
+      userCode: 'DEAN01',
       email: 'dean@rajalakshmi.edu.in',
       password: defaultPasswordHash,
       name: 'Dr. Dean Academic Affairs',
@@ -154,10 +156,11 @@ async function main() {
       semesters: 8,
       hodEmail: 'hod.cse@rajalakshmi.edu.in',
       hodName: 'Dr. HoD CSE',
+      hodCode: 'CS101',
       faculty: [
-        { email: 'faculty1.cse@rajalakshmi.edu.in', name: 'Prof. Alan Turing' },
-        { email: 'faculty2.cse@rajalakshmi.edu.in', name: 'Prof. Grace Hopper' },
-        { email: 'faculty3.cse@rajalakshmi.edu.in', name: 'Prof. Donald Knuth' },
+        { email: 'faculty1.cse@rajalakshmi.edu.in', name: 'Prof. Alan Turing', code: 'CS102' },
+        { email: 'faculty2.cse@rajalakshmi.edu.in', name: 'Prof. Grace Hopper', code: 'CS103' },
+        { email: 'faculty3.cse@rajalakshmi.edu.in', name: 'Prof. Donald Knuth', code: 'CS104' },
       ],
     },
     {
@@ -168,9 +171,10 @@ async function main() {
       semesters: 8,
       hodEmail: 'hod.csd@rajalakshmi.edu.in',
       hodName: 'Dr. HoD CSD',
+      hodCode: 'CD101',
       faculty: [
-        { email: 'faculty1.csd@rajalakshmi.edu.in', name: 'Prof. Don Norman' },
-        { email: 'faculty2.csd@rajalakshmi.edu.in', name: 'Prof. John Maeda' },
+        { email: 'faculty1.csd@rajalakshmi.edu.in', name: 'Prof. Don Norman', code: 'CD102' },
+        { email: 'faculty2.csd@rajalakshmi.edu.in', name: 'Prof. John Maeda', code: 'CD103' },
       ],
     },
     {
@@ -181,8 +185,9 @@ async function main() {
       semesters: 8,
       hodEmail: 'hod.csbs@rajalakshmi.edu.in',
       hodName: 'Dr. HoD CSBS',
+      hodCode: 'CB101',
       faculty: [
-        { email: 'faculty1.csbs@rajalakshmi.edu.in', name: 'Prof. Michael Porter' },
+        { email: 'faculty1.csbs@rajalakshmi.edu.in', name: 'Prof. Michael Porter', code: 'CB102' },
       ],
     },
   ];
@@ -193,8 +198,9 @@ async function main() {
   for (const d of depts) {
     const hodUser = await prisma.user.upsert({
       where: { email: d.hodEmail },
-      update: { password: defaultPasswordHash },
+      update: { password: defaultPasswordHash, userCode: d.hodCode },
       create: {
+        userCode: d.hodCode,
         email: d.hodEmail,
         password: defaultPasswordHash,
         name: d.hodName,
@@ -234,8 +240,9 @@ async function main() {
     for (const f of d.faculty) {
       const fac = await prisma.user.upsert({
         where: { email: f.email },
-        update: { password: defaultPasswordHash, departmentId: dept.id },
+        update: { password: defaultPasswordHash, departmentId: dept.id, userCode: f.code },
         create: {
+          userCode: f.code,
           email: f.email,
           password: defaultPasswordHash,
           name: f.name,
@@ -388,7 +395,7 @@ async function main() {
     });
   }
 
-  console.log('Seeding completed successfully with 17 SDGs!');
+  console.log('Seeding completed successfully!');
 }
 
 main()

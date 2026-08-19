@@ -10,7 +10,16 @@ export async function GET() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    include: { department: true },
+    select: {
+      id: true,
+      userCode: true,
+      email: true,
+      name: true,
+      role: true,
+      departmentId: true,
+      createdAt: true,
+      department: { select: { id: true, shortName: true, programmeName: true, departmentCode: true } },
+    },
   });
 
   if (!user) {
@@ -21,12 +30,14 @@ export async function GET() {
     authenticated: true,
     user: {
       id: user.id,
+      userCode: user.userCode || 'N/A',
       email: user.email,
       name: user.name,
       role: user.role,
       departmentId: user.departmentId,
-      department: user.department ? user.department.shortName : null,
-      departmentCode: user.department ? user.department.departmentCode : null,
+      department: user.department?.shortName,
+      programmeName: user.department?.programmeName,
+      createdAt: user.createdAt,
     },
   });
 }

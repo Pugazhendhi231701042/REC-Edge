@@ -7,6 +7,7 @@ import { StatusBadge } from '@/components/common/StatusBadge';
 import { SubjectFormModal } from '@/components/curriculum/SubjectFormModal';
 import { SyllabusPDFGenerator } from '@/components/pdf/SyllabusPDFGenerator';
 import { ActivityTimeline } from '@/components/common/ActivityTimeline';
+import { formatIST } from '@/lib/time';
 import {
   BookOpen,
   Users,
@@ -19,6 +20,7 @@ import {
   Eye,
   ShieldAlert,
   X,
+  Trash2,
   Sparkles,
 } from 'lucide-react';
 
@@ -47,6 +49,11 @@ export default function HoDDashboard() {
   const [showExtensionModal, setShowExtensionModal] = useState(false);
   const [extDeadline, setExtDeadline] = useState('');
   const [extReason, setExtReason] = useState('');
+
+  // Delete Unassigned Subject Modal State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [subjectToDelete, setSubjectToDelete] = useState<any>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -108,6 +115,30 @@ export default function HoDDashboard() {
       }
     } catch (err) {
       console.error('Failed to assign faculty');
+    }
+  };
+
+  const handleConfirmDeleteUnassigned = async () => {
+    if (!subjectToDelete) return;
+    setDeleting(true);
+
+    try {
+      const res = await fetch(`/api/hod/subjects?id=${subjectToDelete.id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to delete subject.');
+      }
+
+      setShowDeleteModal(false);
+      setSubjectToDelete(null);
+      fetchData();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -314,52 +345,102 @@ export default function HoDDashboard() {
                     </td>
                   </tr>
                 ) : (
-                  activeSemSubjects.map((subj) => (
-                    <tr key={subj.id} className="hover:bg-slate-50">
-                      <td className="p-3 font-mono font-bold text-brand-700">{subj.subjectCode}</td>
-                      <td className="p-3 font-bold text-slate-900">{subj.subjectName}</td>
-                      <td className="p-3 text-slate-600">{subj.subjectType?.name}</td>
-                      <td className="p-3 text-slate-600">{subj.subjectCategory?.code}</td>
-                      <td className="p-3 text-center font-semibold text-slate-800">
-                        {subj.lecture}-{subj.tutorial}-{subj.practical}-{subj.credits}
-                      </td>
-                      <td className="p-3 font-semibold text-indigo-900">
-                        {subj.assignedFaculty ? subj.assignedFaculty.name : <span className="text-amber-600 font-normal">Unassigned</span>}
-                      </td>
-                      <td className="p-3">
-                        <StatusBadge status={subj.syllabusStatus} />
-                      </td>
-                      <td className="p-3 text-right space-x-2">
-                        {/* Assign Faculty Button */}
-                        <button
-                          onClick={() => {
-                            setTargetSubjectForAssign(subj);
-                            setSelectedFacultyId(subj.assignedFacultyId || '');
-                            setShowAssignModal(true);
-                          }}
-                          className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-bold rounded-lg border border-indigo-200 text-xs inline-flex items-center"
-                        >
-                          <UserCheck className="w-3.5 h-3.5 mr-1" />
-                          {subj.assignedFaculty ? 'Reassign' : 'Assign'}
-                        </button>
-
-                        {/* Review Syllabus Button if Submitted */}
-                        {(subj.syllabusStatus === 'SUBMITTED' || subj.syllabusStatus === 'RESUBMITTED' || subj.syllabusStatus === 'APPROVED') && (
+                  activeSemSubjects.map((subj) => {
+                    const isUnassigned = !subj.assignedFacultyId && subj.status !== 'ASSIGNED';
+                    return (
+                      <tr key={subj.id} className="hover:bg-slate-50">
+                        <td className="p-3 font-mono font-bold text-brand-700">{subj.subjectCode}</td>
+                        <td className="p-3 font-bold text-slate-900">{subj.subjectName}</td>
+                        <td className="p-3 text-slate-600">{subj.subjectType?.name}</td>
+                        <td className="p-3 text-slate-600">{subj.subjectCategory?.code}</td>
+                        <td className="p-3 text-center font-semibold text-slate-800">
+                          {subj.lecture}-{subj.tutorial}-{subj.practical}-{subj.credits}
+                        </td>
+                        <td className="p-3 font-semibold text-indigo-900">
+                          {subj.assignedFaculty ? (
+                            <span>
+                              {subj.assignedFaculty.name}{' '}
+                              <span className="font-mono text-[10px] text-slate-500">({subj.assignedFaculty.userCode})</span>
+                            </span>
+                          ) : (
+                            <span className="text-amber-600 font-normal">Unassigned</span>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <StatusBadge status={subj.syllabusStatus} />
+                        </td>
+                        <td className="p-3 text-right space-x-2">
+                          {/* Assign / Reassign Faculty Button */}
                           <button
-                            onClick={() => fetchFullSubjectForReview(subj)}
-                            className="px-2.5 py-1 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-lg text-xs inline-flex items-center"
+                            onClick={() => {
+                              setTargetSubjectForAssign(subj);
+                              setSelectedFacultyId(subj.assignedFacultyId || '');
+                              setShowAssignModal(true);
+                            }}
+                            className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-bold rounded-lg border border-indigo-200 text-xs inline-flex items-center"
                           >
-                            <Eye className="w-3.5 h-3.5 mr-1" /> Review
+                            <UserCheck className="w-3.5 h-3.5 mr-1" />
+                            {subj.assignedFaculty ? 'Reassign' : 'Assign'}
                           </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))
+
+                          {/* Delete Unassigned Subject Button (Allowed ONLY if Unassigned per Permission Rule) */}
+                          {isUnassigned && (
+                            <button
+                              onClick={() => {
+                                setSubjectToDelete(subj);
+                                setShowDeleteModal(true);
+                              }}
+                              className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 font-bold rounded-lg border border-red-200 text-xs inline-flex items-center"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
+                            </button>
+                          )}
+
+                          {/* Review Syllabus Button if Submitted */}
+                          {(subj.syllabusStatus === 'SUBMITTED' || subj.syllabusStatus === 'RESUBMITTED' || subj.syllabusStatus === 'APPROVED') && (
+                            <button
+                              onClick={() => fetchFullSubjectForReview(subj)}
+                              className="px-2.5 py-1 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-lg text-xs inline-flex items-center"
+                            >
+                              <Eye className="w-3.5 h-3.5 mr-1" /> Review
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
         </div>
+
+        {/* Delete Subject Confirmation Modal (User Requirement) */}
+        {showDeleteModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+              <h3 className="text-lg font-bold text-slate-900">Delete Subject?</h3>
+              <p className="text-xs text-desc">
+                This subject (<strong>{subjectToDelete?.subjectCode} — {subjectToDelete?.subjectName}</strong>) has not yet been assigned to a faculty. Are you sure you want to permanently delete it?
+              </p>
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t">
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmDeleteUnassigned}
+                  disabled={deleting}
+                  className="px-5 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-md"
+                >
+                  {deleting ? 'Deleting...' : 'Delete Subject'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Subject Form Modal */}
         {showSubjectModal && (
@@ -396,7 +477,7 @@ export default function HoDDashboard() {
                     <option value="">Select Faculty...</option>
                     {department?.users?.map((f: any) => (
                       <option key={f.id} value={f.id}>
-                        {f.name} ({f.email})
+                        {f.name} ({f.userCode || f.email})
                       </option>
                     ))}
                   </select>
@@ -415,7 +496,7 @@ export default function HoDDashboard() {
           </div>
         )}
 
-        {/* Syllabus Review & Approval Modal (User Requirement: Displays Objectives, Units, COs, Textbooks, References, Mappings) */}
+        {/* Syllabus Review & Approval Modal */}
         {showReviewModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
             <div className="bg-white rounded-3xl max-w-4xl w-full p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">

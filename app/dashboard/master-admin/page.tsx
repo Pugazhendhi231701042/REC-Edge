@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { StatCard } from '@/components/common/StatCard';
+import { formatIST } from '@/lib/time';
 import {
   Building2,
   Users,
@@ -29,7 +30,7 @@ export default function MasterAdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // User Directory Filter State (User Requirement)
+  // User Directory Filter State
   const [userSearchText, setUserSearchText] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState('ALL');
   const [userDeptFilter, setUserDeptFilter] = useState('ALL');
@@ -56,13 +57,13 @@ export default function MasterAdminDashboard() {
   const [resetTargetUser, setResetTargetUser] = useState<any>(null);
   const [resetPassword, setResetPassword] = useState('Changeme@123');
 
-  // Subject Type Code Edit Modal State (User Requirement)
+  // Subject Type Code Edit Modal State
   const [showSubjectTypeModal, setShowSubjectTypeModal] = useState(false);
   const [editingSubjectType, setEditingSubjectType] = useState<any>(null);
   const [typeCodeValue, setTypeCodeValue] = useState(1);
   const [typeNameValue, setTypeNameValue] = useState('');
 
-  // Credit Config Weights State (User Requirement)
+  // Credit Config Weights State
   const [lWeight, setLWeight] = useState(1.0);
   const [tWeight, setTWeight] = useState(1.0);
   const [pWeight, setPWeight] = useState(0.5);
@@ -291,7 +292,8 @@ export default function MasterAdminDashboard() {
   const filteredUsers = users.filter((u) => {
     const matchesSearch =
       u.name.toLowerCase().includes(userSearchText.toLowerCase()) ||
-      u.email.toLowerCase().includes(userSearchText.toLowerCase());
+      u.email.toLowerCase().includes(userSearchText.toLowerCase()) ||
+      (u.userCode && u.userCode.toLowerCase().includes(userSearchText.toLowerCase()));
     const matchesRole = userRoleFilter === 'ALL' || u.role === userRoleFilter;
     const matchesDept = userDeptFilter === 'ALL' || u.departmentId === userDeptFilter;
     return matchesSearch && matchesRole && matchesDept;
@@ -304,7 +306,7 @@ export default function MasterAdminDashboard() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">System Master Administration</h1>
-            <p className="text-xs text-desc mt-1">Manage Departments, Users, Subject Type Codes, Credit Multipliers, and PO/PSO Structures</p>
+            <p className="text-xs text-desc mt-1">Manage Departments, Users, User IDs, Subject Type Codes, Credit Multipliers, and PO/PSO Structures</p>
           </div>
         </div>
 
@@ -390,7 +392,7 @@ export default function MasterAdminDashboard() {
                   </div>
                   <div className="pt-2 border-t border-purple-100 text-xs text-slate-700 space-y-1">
                     <p><strong>Configured Semesters:</strong> {d.semesters}</p>
-                    <p><strong>HoD:</strong> {d.hod ? d.hod.name : 'Unassigned'}</p>
+                    <p><strong>HoD:</strong> {d.hod ? `${d.hod.name} (${d.hod.userCode || 'N/A'})` : 'Unassigned'}</p>
                     <p><strong>Faculty Count:</strong> {d._count?.users || 0}</p>
                   </div>
                 </div>
@@ -399,13 +401,13 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB 2: USER DIRECTORY & FILTERING (User Requirement) */}
+        {/* TAB 2: USER DIRECTORY & FILTERING */}
         {activeTab === 'users' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h3 className="text-base font-bold text-slate-900">User Directory</h3>
-                <p className="text-xs text-desc">Search and filter institutional user accounts.</p>
+                <p className="text-xs text-desc">Search and filter institutional user accounts and human-readable User IDs.</p>
               </div>
               <button
                 onClick={() => {
@@ -422,13 +424,13 @@ export default function MasterAdminDashboard() {
               </button>
             </div>
 
-            {/* Filter Bar Controls (User Requirement) */}
+            {/* Filter Bar Controls */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 rounded-2xl bg-purple-50/50 border border-purple-100">
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
-                  placeholder="Search by name or email..."
+                  placeholder="Search by ID, name, or email..."
                   value={userSearchText}
                   onChange={(e) => setUserSearchText(e.target.value)}
                   className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:ring-brand-500"
@@ -469,6 +471,7 @@ export default function MasterAdminDashboard() {
               <table className="w-full text-xs text-left">
                 <thead className="bg-purple-50 text-slate-700 font-semibold">
                   <tr>
+                    <th className="p-3">User ID</th>
                     <th className="p-3">User Name</th>
                     <th className="p-3">College Email</th>
                     <th className="p-3">Role</th>
@@ -479,13 +482,14 @@ export default function MasterAdminDashboard() {
                 <tbody className="divide-y divide-slate-100">
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center text-desc text-xs">
+                      <td colSpan={6} className="p-8 text-center text-desc text-xs">
                         No users match the selected search or filter criteria.
                       </td>
                     </tr>
                   ) : (
                     filteredUsers.map((u) => (
                       <tr key={u.id} className="hover:bg-slate-50">
+                        <td className="p-3 font-mono font-bold text-brand-700">{u.userCode || 'N/A'}</td>
                         <td className="p-3 font-bold text-slate-900">{u.name}</td>
                         <td className="p-3 text-slate-700">{u.email}</td>
                         <td className="p-3">
@@ -515,7 +519,7 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB 3: REGULATIONS & SUBJECT TYPE CODE EDITOR (User Requirement) */}
+        {/* TAB 3: REGULATIONS & SUBJECT TYPE CODES */}
         {activeTab === 'regulations' && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
@@ -551,7 +555,7 @@ export default function MasterAdminDashboard() {
               </div>
             </div>
 
-            {/* Subject Type Code Editor Section (User Requirement) */}
+            {/* Subject Type Code Editor Section */}
             <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
               <h3 className="text-base font-bold text-slate-900">Subject Type Codes Configuration</h3>
               <p className="text-xs text-desc">Configure Subject Type integer codes used in auto subject-code sequence generation.</p>
@@ -581,7 +585,7 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB 4: CREDIT WEIGHTS CONFIGURATION (User Requirement) */}
+        {/* TAB 4: CREDIT WEIGHTS CONFIGURATION */}
         {activeTab === 'creditconfig' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5 max-w-xl">
             <div>
@@ -708,7 +712,7 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB 6: AUDIT LOGS */}
+        {/* TAB 6: AUDIT LOGS (IST Formatted) */}
         {activeTab === 'audit' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
             <h3 className="text-base font-bold text-slate-900">System Audit Trail</h3>
@@ -716,7 +720,7 @@ export default function MasterAdminDashboard() {
               <table className="w-full text-xs text-left">
                 <thead className="bg-purple-50 text-slate-700 font-semibold sticky top-0">
                   <tr>
-                    <th className="p-2.5">Timestamp</th>
+                    <th className="p-2.5">Timestamp (IST)</th>
                     <th className="p-2.5">User</th>
                     <th className="p-2.5">Role</th>
                     <th className="p-2.5">Action</th>
@@ -726,7 +730,7 @@ export default function MasterAdminDashboard() {
                 <tbody className="divide-y divide-slate-100">
                   {auditLogs.map((log) => (
                     <tr key={log.id}>
-                      <td className="p-2.5 text-slate-500 font-mono">{new Date(log.createdAt).toLocaleString()}</td>
+                      <td className="p-2.5 text-slate-500 font-mono">{formatIST(log.createdAt)}</td>
                       <td className="p-2.5 font-bold text-slate-900">{log.user?.name || log.userId}</td>
                       <td className="p-2.5 text-slate-600">{log.userRole}</td>
                       <td className="p-2.5 font-bold text-brand-700">{log.action}</td>
@@ -800,7 +804,7 @@ export default function MasterAdminDashboard() {
                   <select value={hodId} onChange={(e) => setHodId(e.target.value)} className="w-full p-2 border rounded-xl">
                     <option value="">Select User for HoD...</option>
                     {users.map((u) => (
-                      <option key={u.id} value={u.id}>{u.name} ({u.email})</option>
+                      <option key={u.id} value={u.id}>{u.name} ({u.userCode || u.email})</option>
                     ))}
                   </select>
                 </div>
@@ -865,7 +869,7 @@ export default function MasterAdminDashboard() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
               <h3 className="text-base font-bold text-slate-900">Reset User Password</h3>
-              <p className="text-xs text-desc">User: <strong>{resetTargetUser?.name}</strong> ({resetTargetUser?.email})</p>
+              <p className="text-xs text-desc">User: <strong>{resetTargetUser?.name}</strong> ({resetTargetUser?.userCode || resetTargetUser?.email})</p>
               <form onSubmit={handleResetUserPassword} className="space-y-3 text-xs">
                 <div>
                   <label className="block font-semibold mb-1">New Password *</label>
