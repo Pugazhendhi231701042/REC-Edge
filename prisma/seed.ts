@@ -4,11 +4,40 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Seeding Regulation 26 database...');
+  console.log('Seeding Regulation 26 database with SDG Goals...');
 
   const defaultPasswordHash = await bcrypt.hash('Changeme@123', 10);
 
-  // 1. Academic Years
+  // 1. Seed 17 UN Sustainable Development Goals (SDGs)
+  const sdgList = [
+    { number: 1, name: 'No Poverty' },
+    { number: 2, name: 'Zero Hunger' },
+    { number: 3, name: 'Good Health and Well-being' },
+    { number: 4, name: 'Quality Education' },
+    { number: 5, name: 'Gender Equality' },
+    { number: 6, name: 'Clean Water and Sanitation' },
+    { number: 7, name: 'Affordable and Clean Energy' },
+    { number: 8, name: 'Decent Work and Economic Growth' },
+    { number: 9, name: 'Industry, Innovation and Infrastructure' },
+    { number: 10, name: 'Reduced Inequality' },
+    { number: 11, name: 'Sustainable Cities and Communities' },
+    { number: 12, name: 'Responsible Consumption and Production' },
+    { number: 13, name: 'Climate Action' },
+    { number: 14, name: 'Life Below Water' },
+    { number: 15, name: 'Life on Land' },
+    { number: 16, name: 'Peace, Justice and Strong Institutions' },
+    { number: 17, name: 'Partnerships for the Goals' },
+  ];
+
+  for (const sdg of sdgList) {
+    await prisma.sDGGoal.upsert({
+      where: { sdgNumber: sdg.number },
+      update: { name: sdg.name },
+      create: { sdgNumber: sdg.number, name: sdg.name, active: true },
+    });
+  }
+
+  // 2. Academic Years
   const ay2026 = await prisma.academicYear.upsert({
     where: { year: '2026–2027' },
     update: {},
@@ -18,7 +47,7 @@ async function main() {
     },
   });
 
-  // 2. Regulations
+  // 3. Regulations
   const reg26 = await prisma.regulation.upsert({
     where: { code: '26' },
     update: { active: true },
@@ -41,7 +70,7 @@ async function main() {
     },
   });
 
-  // 3. Subject Types
+  // 4. Subject Types
   const subjectTypesData = [
     { name: 'Theory', code: 1, templateType: 'THEORY' },
     { name: 'Lab', code: 2, templateType: 'LAB' },
@@ -66,7 +95,7 @@ async function main() {
     subjectTypesMap[st.name] = created.id;
   }
 
-  // 4. Subject Categories
+  // 5. Subject Categories
   const categoriesData = [
     { code: 'PC', name: 'Professional Core', description: 'Core discipline subjects' },
     { code: 'PE', name: 'Professional Elective', description: 'Elective discipline subjects' },
@@ -90,7 +119,7 @@ async function main() {
     categoriesMap[cat.code] = created.id;
   }
 
-  // 5. Users: MasterAdmin & SuperAdmin (Dean)
+  // 6. Users: MasterAdmin & SuperAdmin (Dean)
   const masterAdmin = await prisma.user.upsert({
     where: { email: '231701042@rajalakshmi.edu.in' },
     update: { password: defaultPasswordHash },
@@ -115,7 +144,7 @@ async function main() {
     },
   });
 
-  // 6. Departments & HoDs & Faculty
+  // 7. Departments & HoDs & Faculty
   const depts = [
     {
       type: 'B.E.',
@@ -231,7 +260,7 @@ async function main() {
     });
   }
 
-  // 7. Academic Stage: Curriculum & Syllabus Formation
+  // 8. Academic Stage: Curriculum & Syllabus Formation
   await prisma.academicStage.upsert({
     where: { id: 'stage-curriculum-formation' },
     update: {
@@ -253,32 +282,9 @@ async function main() {
     },
   });
 
-  await prisma.academicStage.upsert({
-    where: { id: 'stage-dac-meeting' },
-    update: {},
-    create: {
-      id: 'stage-dac-meeting',
-      name: 'DAC Meeting',
-      description: 'Department Advisory Committee review and approval stage.',
-      status: 'INACTIVE',
-    },
-  });
-
-  await prisma.academicStage.upsert({
-    where: { id: 'stage-bos-meeting' },
-    update: {},
-    create: {
-      id: 'stage-bos-meeting',
-      name: 'BoS Meeting',
-      description: 'Board of Studies final ratification and institutional signoff stage.',
-      status: 'INACTIVE',
-    },
-  });
-
-  // 8. Sample Subjects in CSE
+  // 9. Sample Subject in CSE with SDG Mappings
   const cseDept = createdDepts['CSE'];
   const alanTuring = facultyUsers['CSE'][0];
-  const graceHopper = facultyUsers['CSE'][1];
 
   const subj1 = await prisma.subject.upsert({
     where: {
@@ -331,11 +337,11 @@ async function main() {
       },
       syllabusUnits: {
         create: [
-          { unitNumber: 1, unitName: 'Linear Data Structures', content: 'Arrays, Linked Lists, Stacks, Queues and Applications.' },
-          { unitNumber: 2, unitName: 'Trees & Hierarchical Structures', content: 'Binary Trees, AVL Trees, B-Trees, Heaps.' },
-          { unitNumber: 3, unitName: 'Graphs & Algorithms', content: 'Representations, BFS, DFS, Shortest Path, MST.' },
-          { unitNumber: 4, unitName: 'Sorting & Searching', content: 'Bubble, Merge, Quick, Heap sort, Hashing techniques.' },
-          { unitNumber: 5, unitName: 'Algorithm Analysis & Complexity', content: 'Asymptotic notations, Divide & Conquer, Dynamic Programming.' },
+          { unitNumber: 1, unitName: 'Linear Data Structures', content: 'Arrays - Linked Lists - Stacks - Queues and Applications' },
+          { unitNumber: 2, unitName: 'Trees & Hierarchical Structures', content: 'Binary Trees - AVL Trees - B-Trees - Heaps' },
+          { unitNumber: 3, unitName: 'Graphs & Algorithms', content: 'Representations - BFS - DFS - Shortest Path - MST' },
+          { unitNumber: 4, unitName: 'Sorting & Searching', content: 'Bubble - Merge - Quick - Heap sort - Hashing techniques' },
+          { unitNumber: 5, unitName: 'Algorithm Analysis & Complexity', content: 'Asymptotic notations - Divide & Conquer - Dynamic Programming' },
         ],
       },
       courseOutcomes: {
@@ -360,90 +366,29 @@ async function main() {
     },
   });
 
-  for (let co = 1; co <= 5; co++) {
-    for (let po = 1; po <= 12; po++) {
-      const corr = (co + po) % 4;
-      await prisma.cOPOMapping.upsert({
-        where: { syllabusId_coNumber_poKey: { syllabusId: syllabus1.id, coNumber: co, poKey: `PO${po}` } },
-        update: {},
-        create: { syllabusId: syllabus1.id, coNumber: co, poKey: `PO${po}`, correlation: corr },
-      });
-      if (corr > 0) {
-        await prisma.cOPOJustification.upsert({
-          where: { syllabusId_coNumber_poKey: { syllabusId: syllabus1.id, coNumber: co, poKey: `PO${po}` } },
-          update: {},
-          create: {
-            syllabusId: syllabus1.id,
-            coNumber: co,
-            poKey: `PO${po}`,
-            justification: `CO${co} directly applies analytical principles relevant to PO${po}.`,
-          },
-        });
-      }
-    }
+  // Seed sample SDG mappings
+  const sampleSDGMappings = [
+    { coNumber: 1, sdgNumber: 4, topic: 'Arrays' },
+    { coNumber: 1, sdgNumber: 4, topic: 'Linked Lists' },
+    { coNumber: 1, sdgNumber: 9, topic: 'Stacks' },
+    { coNumber: 2, sdgNumber: 9, topic: 'Binary Trees' },
+    { coNumber: 3, sdgNumber: 11, topic: 'Shortest Path' },
+    { coNumber: 4, sdgNumber: 9, topic: 'Quick' },
+    { coNumber: 5, sdgNumber: 9, topic: 'Dynamic Programming' },
+  ];
 
-    for (let pso = 1; pso <= 3; pso++) {
-      const corr = (co + pso) % 3 + 1;
-      await prisma.cOPOMapping.upsert({
-        where: { syllabusId_coNumber_poKey: { syllabusId: syllabus1.id, coNumber: co, poKey: `PSO${pso}` } },
-        update: {},
-        create: { syllabusId: syllabus1.id, coNumber: co, poKey: `PSO${pso}`, correlation: corr },
-      });
-      await prisma.cOPOJustification.upsert({
-        where: { syllabusId_coNumber_poKey: { syllabusId: syllabus1.id, coNumber: co, poKey: `PSO${pso}` } },
-        update: {},
-        create: {
-          syllabusId: syllabus1.id,
-          coNumber: co,
-          poKey: `PSO${pso}`,
-          justification: `CO${co} enhances domain competence in software design for PSO${pso}.`,
-        },
-      });
-    }
+  for (const m of sampleSDGMappings) {
+    await prisma.syllabusSDGMapping.create({
+      data: {
+        syllabusId: syllabus1.id,
+        coNumber: m.coNumber,
+        sdgNumber: m.sdgNumber,
+        topic: m.topic,
+      },
+    });
   }
 
-  await prisma.subject.upsert({
-    where: {
-      departmentId_regulationId_semester_subjectTypeId_subjectCode: {
-        departmentId: cseDept.id,
-        regulationId: reg26.id,
-        semester: 4,
-        subjectTypeId: subjectTypesMap['Lab'],
-        subjectCode: 'CS26421',
-      },
-    },
-    update: {},
-    create: {
-      departmentId: cseDept.id,
-      regulationId: reg26.id,
-      academicYearId: ay2026.id,
-      semester: 4,
-      subjectTypeId: subjectTypesMap['Lab'],
-      subjectCategoryId: categoriesMap['PC'],
-      subjectName: 'Data Structures Laboratory',
-      subjectCode: 'CS26421',
-      lecture: 0,
-      tutorial: 0,
-      practical: 4,
-      credits: 2.0,
-      status: 'ASSIGNED',
-      assignedFacultyId: graceHopper.id,
-      syllabusStatus: 'IN_PROGRESS',
-      createdById: masterAdmin.id,
-    },
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      userId: masterAdmin.id,
-      userRole: 'MASTERADMIN',
-      action: 'SYSTEM_SEEDED',
-      entity: 'System',
-      details: 'Initial database seed complete with default accounts and Regulation 26 defaults.',
-    },
-  });
-
-  console.log('Seeding completed successfully!');
+  console.log('Seeding completed successfully with 17 SDGs!');
 }
 
 main()

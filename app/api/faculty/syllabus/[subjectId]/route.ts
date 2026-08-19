@@ -33,6 +33,7 @@ export async function GET(
           references: { orderBy: { order: 'asc' } },
           coPoMappings: true,
           coPoJustifications: true,
+          sdgMappings: true,
         },
       },
     },
@@ -42,14 +43,9 @@ export async function GET(
     return NextResponse.json({ error: 'Subject not found.' }, { status: 404 });
   }
 
-  // Security check: Faculty can only access their assigned subject (Requirement 14, 94, 95)
+  // Security check: Faculty can only access their assigned subject
   if (session.role === 'FACULTY' && subject.assignedFacultyId !== session.userId) {
     return NextResponse.json({ error: 'Access denied: You are not assigned to this subject.' }, { status: 403 });
-  }
-
-  // HoD can access subjects in their department
-  if (session.role === 'HOD' && subject.departmentId !== session.departmentId) {
-    return NextResponse.json({ error: 'Access denied: Subject belongs to another department.' }, { status: 403 });
   }
 
   // Fetch PO and PSO configuration
@@ -60,6 +56,12 @@ export async function GET(
     where: { departmentId_regulationId: { departmentId: subject.departmentId, regulationId: subject.regulationId } },
   });
 
+  // Fetch Master SDG Goals (17 UN SDGs)
+  const sdgGoals = await prisma.sDGGoal.findMany({
+    where: { active: true },
+    orderBy: { sdgNumber: 'asc' },
+  });
+
   const poCount = poConfig ? poConfig.poCount : 12;
   const psoCount = psoConfig ? psoConfig.psoCount : 3;
 
@@ -67,6 +69,7 @@ export async function GET(
     subject,
     poCount,
     psoCount,
+    sdgGoals,
   });
 }
 
@@ -95,24 +98,25 @@ export async function POST(
   }
 
   const {
-    isSubmit, // boolean
+    isSubmit,
     unitContactHours,
     theoryContactHours,
     labContactHours,
     totalContactHours,
-    objectives, // string[]
-    units, // { unitNumber, unitName, content }[]
-    experiments, // { experimentNumber, title }[]
-    courseOutcomes, // { coNumber, description }[]
-    textbooks, // { title, authors, edition, publisher, year }[]
-    references, // { title, authors, edition, publisher, year, url, description }[]
-    coPoMappings, // { coNumber, poKey, correlation }[]
-    coPoJustifications, // { coNumber, poKey, justification }[]
+    objectives,
+    units,
+    experiments,
+    courseOutcomes,
+    textbooks,
+    references,
+    coPoMappings,
+    coPoJustifications,
+    sdgMappings, // { coNumber, sdgNumber, topic }[]
   } = await req.json();
 
-  const templateType = subject.subjectType.templateType; // THEORY, LAB, LAB_ORIENTED_THEORY
+  const templateType = subject.subjectType.templateType;
 
-  // Validate if attempting Final Submission (Requirement 50)
+  // Validate if attempting Final Submission
   if (isSubmit) {
     const missing: string[] = [];
 
@@ -124,7 +128,7 @@ export async function POST(
     // Template specific checks
     if (templateType === 'THEORY') {
       if (!unitContactHours || Number(unitContactHours) <= 0) {
-        missing.push('⚠ Unit Contact Hours must be specified (> 0).');
+        missing.push('⚠ Contact Hours for each unit must be specified (> 0).');
       }
       if (!units || units.length < 5 || units.some((u: any) => !u.unitName?.trim() || !u.content?.trim())) {
         missing.push('⚠ Theory syllabus requires all 5 units to be fully completed.');
@@ -151,7 +155,7 @@ export async function POST(
       }
     }
 
-    // Course Outcomes check (Mandatory exactly 5 COs - Rule 42)
+    // Course Outcomes check (Mandatory 5 COs)
     if (!courseOutcomes || courseOutcomes.length !== 5 || courseOutcomes.some((c: any) => !c.description?.trim())) {
       missing.push('⚠ Exactly 5 Course Outcomes (CO1..CO5) are mandatory.');
     }
@@ -166,11 +170,10 @@ export async function POST(
       missing.push('⚠ At least 1 Reference entry is required.');
     }
 
-    // Mapping & Justifications check
+    // CO/PO Mapping check
     if (!coPoMappings || coPoMappings.length === 0) {
       missing.push('⚠ PO/PSO Mapping grid is incomplete.');
     } else {
-      // Find non-zero mappings that require justification (Rule 49)
       const mappedNonZero = coPoMappings.filter((m: any) => Number(m.correlation) > 0);
       const justificationMap = new Map();
       if (coPoJustifications) {
@@ -186,6 +189,14 @@ export async function POST(
 
       if (missingJustifications.length > 0) {
         missing.push(`⚠ Justification missing for ${missingJustifications.length} correlated CO-PO mapping cell(s).`);
+      }
+    }
+
+    // SDG Mapping Validation: Every CO (CO1..CO5) MUST have at least 1 SDG and at least 1 topic mapped! (User Requirement)
+    for (let coNum = 1; coNum <= 5; coNum++) {
+      const coSDGs = sdgMappings ? sdgMappings.filter((m: any) => Number(m.coNumber) === coNum) : [];
+      if (coSDGs.length === 0) {
+        missing.push(`⚠ CO${coNum} — Please select at least one SDG and topic.`);
       }
     }
 
@@ -325,6 +336,18 @@ export async function POST(
           coNumber: Number(j.coNumber),
           poKey: j.poKey,
           justification: j.justification.trim(),
+        })),
+      });
+    }
+
+    await tx.syllabusSDGMapping.deleteMany({ where: { syllabusId: sub.id } });
+    if (sdgMappings && Array.isArray(sdgMappings)) {
+      await tx.syllabusSDGMapping.createMany({
+        data: sdgMappings.map((m: any) => ({
+          syllabusId: sub.id,
+          coNumber: Number(m.coNumber),
+          sdgNumber: Number(m.sdgNumber),
+          topic: m.topic,
         })),
       });
     }

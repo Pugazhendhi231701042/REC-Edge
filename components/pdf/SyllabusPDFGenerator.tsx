@@ -1,5 +1,5 @@
 import React from 'react';
-import { Printer, Download, FileCheck } from 'lucide-react';
+import { Printer, Download, FileCheck, Globe } from 'lucide-react';
 
 interface SyllabusPDFGeneratorProps {
   subject: any;
@@ -41,6 +41,30 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
       justificationsMap[`${j.coNumber}_${j.poKey}`] = j.justification;
     });
   }
+
+  // Master SDG List mapping number to name
+  const sdgNames: Record<number, string> = {
+    1: 'No Poverty',
+    2: 'Zero Hunger',
+    3: 'Good Health and Well-being',
+    4: 'Quality Education',
+    5: 'Gender Equality',
+    6: 'Clean Water and Sanitation',
+    7: 'Affordable and Clean Energy',
+    8: 'Decent Work and Economic Growth',
+    9: 'Industry, Innovation and Infrastructure',
+    10: 'Reduced Inequality',
+    11: 'Sustainable Cities and Communities',
+    12: 'Responsible Consumption and Production',
+    13: 'Climate Action',
+    14: 'Life Below Water',
+    15: 'Life on Land',
+    16: 'Peace, Justice and Strong Institutions',
+    17: 'Partnerships for the Goals',
+  };
+
+  // Group SDG Mappings by CO
+  const sdgMappingsList = submission.sdgMappings || [];
 
   return (
     <div className="space-y-4">
@@ -194,10 +218,44 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
           </table>
         </div>
 
-        {/* 7. CO/PO Justifications (Hidden for Dean review view if hideJustifications=true) */}
+        {/* 7. Sustainable Development Goals (SDG) Mapping Table (User Requirement) */}
+        {sdgMappingsList.length > 0 && (
+          <div className="mb-6 page-break-inside-avoid">
+            <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-3 flex items-center">
+              <Globe className="w-4 h-4 mr-1.5 text-brand-600" />
+              7. UN Sustainable Development Goals (SDG) Mapping
+            </h3>
+            <table className="w-full text-xs text-left border-collapse border border-slate-300">
+              <thead>
+                <tr className="bg-purple-50 font-bold text-brand-900 border-b border-slate-300">
+                  <th className="border border-slate-300 p-2 w-1/3">SDG No. & Theme</th>
+                  <th className="border border-slate-300 p-2 w-1/6 text-center">Addressing CO</th>
+                  <th className="border border-slate-300 p-2">Topic / Activity addressing SDG</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sdgMappingsList.map((m: any, idx: number) => (
+                  <tr key={idx} className="hover:bg-slate-50">
+                    <td className="border border-slate-300 p-2 font-bold text-slate-900">
+                      SDG {m.sdgNumber} — {sdgNames[m.sdgNumber] || 'SDG Goal'}
+                    </td>
+                    <td className="border border-slate-300 p-2 font-bold text-brand-700 text-center">
+                      CO{m.coNumber}
+                    </td>
+                    <td className="border border-slate-300 p-2 font-medium text-slate-800">
+                      • {m.topic}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* 8. CO/PO Justifications (Hidden for Dean review view if hideJustifications=true) */}
         {!hideJustifications && Object.keys(justificationsMap).length > 0 && (
           <div className="mb-8 page-break-inside-avoid">
-            <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-3">7. CO / PO Justifications</h3>
+            <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-3">8. CO / PO Justifications</h3>
             <div className="space-y-2 text-xs">
               {Object.entries(justificationsMap).map(([key, just]) => {
                 const [coNum, poKey] = key.split('_');

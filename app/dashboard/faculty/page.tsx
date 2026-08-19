@@ -31,6 +31,7 @@ export default function FacultyDashboard() {
   const [subjectDetail, setSubjectDetail] = useState<any>(null);
   const [poCount, setPoCount] = useState(12);
   const [psoCount, setPsoCount] = useState(3);
+  const [sdgGoals, setSdgGoals] = useState<any[]>([]);
   const [viewingPDF, setViewingPDF] = useState(false);
 
   useEffect(() => {
@@ -65,6 +66,7 @@ export default function FacultyDashboard() {
         setSubjectDetail(data.subject);
         setPoCount(data.poCount || 12);
         setPsoCount(data.psoCount || 3);
+        setSdgGoals(data.sdgGoals || []);
       }
     } catch (err) {
       setError('Failed to load subject details.');
@@ -198,6 +200,7 @@ export default function FacultyDashboard() {
                 subject={subjectDetail}
                 poCount={poCount}
                 psoCount={psoCount}
+                sdgGoals={sdgGoals}
                 onSaveDraft={handleSaveDraft}
                 onSubmitSyllabus={handleSubmitSyllabus}
               />
@@ -209,7 +212,7 @@ export default function FacultyDashboard() {
             <div className="flex flex-col md:flex-row md:items-center justify-between">
               <div>
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">Faculty Syllabus Workspace</h1>
-                <p className="text-xs text-desc mt-1">Manage assigned syllabus preparation, CO/PO mapping, and justifications.</p>
+                <p className="text-xs text-desc mt-1">Manage assigned syllabus preparation, CO/PO mapping, SDG mapping, and justifications.</p>
               </div>
 
               {activeStage && (

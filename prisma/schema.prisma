@@ -135,10 +135,18 @@ model SubjectCategory {
 
 model CreditConfig {
   id        String   @id @default("default-credit-config")
-  lWeight   Float    @default(1.0) // Lecture weight
-  tWeight   Float    @default(1.0) // Tutorial weight
-  pWeight   Float    @default(0.5) // Practical weight
+  lWeight   Float    @default(1.0)
+  tWeight   Float    @default(1.0)
+  pWeight   Float    @default(0.5)
   updatedAt DateTime @updatedAt
+}
+
+model SDGGoal {
+  id        String   @id @default(uuid())
+  sdgNumber Int      @unique // 1 to 17
+  name      String   // e.g. "Quality Education"
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
 }
 
 model POConfiguration {
@@ -216,9 +224,9 @@ model SyllabusSubmission {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
-  subject            Subject             @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-  faculty            User                @relation("FacultySubmissions", fields: [facultyId], references: [id])
-  approvedBy         User?               @relation("ApprovedBySubmissions", fields: [approvedById], references: [id])
+  subject            Subject               @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  faculty            User                  @relation("FacultySubmissions", fields: [facultyId], references: [id])
+  approvedBy         User?                 @relation("ApprovedBySubmissions", fields: [approvedById], references: [id])
   objectives         Objective[]
   syllabusUnits      SyllabusUnit[]
   experiments        Experiment[]
@@ -227,6 +235,7 @@ model SyllabusSubmission {
   references         Reference[]
   coPoMappings       COPOMapping[]
   coPoJustifications COPOJustification[]
+  sdgMappings        SyllabusSDGMapping[]
 }
 
 model Objective {
@@ -316,6 +325,16 @@ model COPOJustification {
   syllabus SyllabusSubmission @relation(fields: [syllabusId], references: [id], onDelete: Cascade)
 
   @@unique([syllabusId, coNumber, poKey])
+}
+
+model SyllabusSDGMapping {
+  id         String @id @default(uuid())
+  syllabusId String
+  coNumber   Int    // 1 to 5
+  sdgNumber  Int    // 1 to 17
+  topic      String // Specific topic from corresponding unit
+
+  syllabus SyllabusSubmission @relation(fields: [syllabusId], references: [id], onDelete: Cascade)
 }
 
 model Notification {

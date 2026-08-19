@@ -15,13 +15,16 @@ import {
   MessageSquare,
   Sparkles,
   Lock,
+  Globe,
 } from 'lucide-react';
 import { COPOMappingTable } from './COPOMappingTable';
+import { SDGMappingForm, SDGGoalItem, SDGMappingItem } from './SDGMappingForm';
 
 interface SyllabusStepperProps {
   subject: any;
   poCount: number;
   psoCount: number;
+  sdgGoals?: SDGGoalItem[];
   onSaveDraft: (data: any) => Promise<void>;
   onSubmitSyllabus: (data: any) => Promise<void>;
 }
@@ -30,6 +33,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
   subject,
   poCount,
   psoCount,
+  sdgGoals = [],
   onSaveDraft,
   onSubmitSyllabus,
 }) => {
@@ -81,6 +85,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
   ]);
   const [coPoMappings, setCoPoMappings] = useState<Record<string, number>>({});
   const [coPoJustifications, setCoPoJustifications] = useState<Record<string, string>>({});
+  const [sdgMappings, setSdgMappings] = useState<SDGMappingItem[]>([]);
 
   useEffect(() => {
     if (existingSub) {
@@ -127,7 +132,6 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
       }
 
       if (existingSub.references?.length > 0) {
-        setTextbooks(existingSub.textbooks);
         setReferences(existingSub.references.map((r: any) => ({
           title: r.title,
           authors: r.authors || '',
@@ -153,6 +157,14 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
         });
         setCoPoJustifications(justObj);
       }
+
+      if (existingSub.sdgMappings?.length > 0) {
+        setSdgMappings(existingSub.sdgMappings.map((m: any) => ({
+          coNumber: m.coNumber,
+          sdgNumber: m.sdgNumber,
+          topic: m.topic,
+        })));
+      }
     }
   }, [existingSub]);
 
@@ -171,8 +183,9 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     { id: 4, label: 'Textbooks', icon: <FileText className="w-4 h-4" /> },
     { id: 5, label: 'References', icon: <FileText className="w-4 h-4" /> },
     { id: 6, label: 'CO/PO Mapping', icon: <Grid className="w-4 h-4" /> },
-    { id: 7, label: 'Justifications', icon: <MessageSquare className="w-4 h-4" /> },
-    { id: 8, label: 'Review & Submit', icon: <Send className="w-4 h-4" /> },
+    { id: 7, label: 'SDG Mapping', icon: <Globe className="w-4 h-4" /> },
+    { id: 8, label: 'Justifications', icon: <MessageSquare className="w-4 h-4" /> },
+    { id: 9, label: 'Review & Submit', icon: <Send className="w-4 h-4" /> },
   ];
 
   const getFormData = () => ({
@@ -194,6 +207,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
       const [coNumber, poKey] = key.split('_');
       return { coNumber: parseInt(coNumber), poKey, justification: val };
     }),
+    sdgMappings,
   });
 
   const handleSaveDraft = async () => {
@@ -218,8 +232,9 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     if (text.includes('Textbook')) return 4;
     if (text.includes('Reference')) return 5;
     if (text.includes('PO/PSO Mapping') || text.includes('Mapping grid')) return 6;
-    if (text.includes('Justification')) return 7;
-    return 8;
+    if (text.includes('SDG') || text.includes('SDG Mapping') || text.includes('CO1 — Please') || text.includes('CO2 — Please') || text.includes('CO3 — Please') || text.includes('CO4 — Please') || text.includes('CO5 — Please')) return 7;
+    if (text.includes('Justification')) return 8;
+    return 9;
   };
 
   const handleFinalSubmit = async () => {
@@ -285,7 +300,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
 
       {/* Stepper Header Bar */}
       <div className="bg-white/90 backdrop-blur-md p-4 rounded-2xl border border-purple-100 shadow-sm overflow-x-auto">
-        <div className="flex items-center justify-between min-w-[700px]">
+        <div className="flex items-center justify-between min-w-[800px]">
           {steps.map((s, idx) => (
             <React.Fragment key={s.id}>
               <button
@@ -373,7 +388,6 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
               <p className="text-xs text-desc">Template: <strong>{templateType}</strong></p>
             </div>
 
-            {/* Theory Component (Updated label per user instruction) */}
             {(templateType === 'THEORY' || templateType === 'LAB_ORIENTED_THEORY') && (
               <div className="space-y-4">
                 <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-100 flex items-center justify-between">
@@ -422,7 +436,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                           updated[idx].content = e.target.value;
                           setUnits(updated);
                         }}
-                        placeholder={`Detailed syllabus content for Unit ${u.unitNumber}...`}
+                        placeholder={`Syllabus topics separated by '-' e.g. Arrays - Linked Lists - Stacks - Queues...`}
                         className="w-full p-3 text-xs border border-slate-300 rounded-xl focus:ring-brand-500 disabled:bg-slate-100"
                       />
                     </div>
@@ -431,7 +445,6 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
               </div>
             )}
 
-            {/* Lab Component */}
             {(templateType === 'LAB' || templateType === 'LAB_ORIENTED_THEORY') && (
               <div className="space-y-4 pt-4 border-t border-slate-200">
                 <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between">
@@ -721,8 +734,19 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
           </div>
         )}
 
-        {/* STEP 7: JUSTIFICATIONS */}
+        {/* STEP 7: SDG MAPPING (New Step per User Requirement) */}
         {activeStep === 7 && (
+          <SDGMappingForm
+            sdgGoals={sdgGoals}
+            units={units}
+            sdgMappings={sdgMappings}
+            onChange={(updated) => !isLocked && setSdgMappings(updated)}
+            disabled={isLocked}
+          />
+        )}
+
+        {/* STEP 8: JUSTIFICATIONS */}
+        {activeStep === 8 && (
           <div className="space-y-4">
             <div>
               <h3 className="text-base font-bold text-slate-900">CO/PO Mapping Justifications</h3>
@@ -767,8 +791,8 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
           </div>
         )}
 
-        {/* STEP 8: REVIEW & SUBMIT */}
-        {activeStep === 8 && (
+        {/* STEP 9: REVIEW & SUBMIT */}
+        {activeStep === 9 && (
           <div className="space-y-5">
             <div>
               <h3 className="text-base font-bold text-slate-900">Review Syllabus & Submit</h3>
@@ -812,9 +836,9 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
               </div>
 
               <div className="p-3 border rounded-2xl bg-slate-50 flex items-center justify-between">
-                <span>CO/PO Mapping Matrix</span>
-                <span className="font-bold text-purple-600 flex items-center">
-                  <Grid className="w-4 h-4 mr-1" /> {Object.keys(coPoMappings).length} Mapped
+                <span>SDG Mappings</span>
+                <span className="font-bold text-brand-700 flex items-center">
+                  <Globe className="w-4 h-4 mr-1" /> {sdgMappings.length} Mapped
                 </span>
               </div>
             </div>
@@ -865,8 +889,8 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
         )}
 
         <button
-          onClick={() => setActiveStep(Math.min(8, activeStep + 1))}
-          disabled={activeStep === 8}
+          onClick={() => setActiveStep(Math.min(9, activeStep + 1))}
+          disabled={activeStep === 9}
           className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs disabled:opacity-40 flex items-center"
         >
           Next Step <ChevronRight className="w-4 h-4 ml-1" />
@@ -900,7 +924,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
         </div>
       )}
 
-      {/* Submitted Successfully Modal (User Requirement) */}
+      {/* Submitted Successfully Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl text-center space-y-4 animate-in fade-in zoom-in-95">
