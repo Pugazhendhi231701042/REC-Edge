@@ -313,54 +313,8 @@ export default function HoDDashboard() {
               </div>
             </div>
 
-            {/* Curriculum Progress & Pending Actions Grid */}
+            {/* Pending Actions Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Consolidated Progress Visualizer */}
-              <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-5">
-                <h3 className="text-base font-bold text-slate-900">Curriculum & Syllabus Progress</h3>
-
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-xs font-bold mb-1">
-                      <span className="text-slate-700">Curriculum Formation</span>
-                      <span className="text-brand-700">100%</span>
-                    </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                      <div className="bg-brand-600 h-2.5 rounded-full" style={{ width: '100%' }}></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs font-bold mb-1">
-                      <span className="text-slate-700">Faculty Assignment</span>
-                      <span className="text-indigo-700">{totalDepartmentSubjects > 0 ? Math.round((assignedCount / totalDepartmentSubjects) * 100) : 0}%</span>
-                    </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                      <div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: `${totalDepartmentSubjects > 0 ? Math.round((assignedCount / totalDepartmentSubjects) * 100) : 0}%` }}></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs font-bold mb-1">
-                      <span className="text-slate-700">Syllabus Submission</span>
-                      <span className="text-blue-700">{totalDepartmentSubjects > 0 ? Math.round((submittedCount / totalDepartmentSubjects) * 100) : 0}%</span>
-                    </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                      <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${totalDepartmentSubjects > 0 ? Math.round((submittedCount / totalDepartmentSubjects) * 100) : 0}%` }}></div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs font-bold mb-1">
-                      <span className="text-slate-700">HoD Approval</span>
-                      <span className="text-emerald-700">{completionPercentage}%</span>
-                    </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                      <div className="bg-emerald-600 h-2.5 rounded-full" style={{ width: `${completionPercentage}%` }}></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
 
               {/* Pending Actions Summary */}
               <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">

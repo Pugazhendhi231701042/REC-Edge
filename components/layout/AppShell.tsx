@@ -157,7 +157,6 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTab, onTabCh
 
       setShowNotifDropdown(false);
 
-      // If notification is for Extension Request, navigate to extension page
       const isExtension =
         notif.type === 'EXTENSION_REQUESTED' ||
         notif.type === 'STAGE_EXTENSION' ||
@@ -201,14 +200,8 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTab, onTabCh
         {/* Top Header Bar */}
         <header className="h-16 bg-white/90 backdrop-blur-md border-b border-purple-100 px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
           <div className="flex items-center space-x-3">
-            <img
-              src="/assets/logo.svg"
-              onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-              alt="REC Logo"
-              className="h-7 w-auto object-contain shrink-0"
-            />
             <h2 className="text-sm font-bold text-slate-900 tracking-tight">
-              Regulation 26 — Curriculum & Syllabus Management System
+              Curriculum & Syllabus Management System
             </h2>
             <span className="hidden sm:inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 text-brand-800 border border-purple-200">
               Regulation 26

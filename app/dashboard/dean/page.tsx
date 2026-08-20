@@ -30,6 +30,7 @@ import {
   ChevronRight,
   MapPin,
   Lock,
+  Edit3,
 } from 'lucide-react';
 
 export default function DeanDashboard() {
@@ -43,7 +44,7 @@ export default function DeanDashboard() {
   // Selected Department for Detail Page
   const [selectedDeptSummary, setSelectedDeptSummary] = useState<any>(null);
 
-  // Stage Initiation Modal State
+  // Stage Initiation / Edit Deadline Modal State
   const [showInitiateModal, setShowInitiateModal] = useState(false);
   const [targetStage, setTargetStage] = useState<any>(null);
   const [initiateDeadline, setInitiateDeadline] = useState('');
@@ -55,11 +56,14 @@ export default function DeanDashboard() {
   const [deanReturnReason, setDeanReturnReason] = useState('');
   const [showReturnModal, setShowReturnModal] = useState(false);
 
-  // Approved Syllabi Dual Mode Interactive State
+  // Approved Syllabi Dual Mode Interactive State (Initially Collapsed = false)
   const [approvedViewMode, setApprovedViewMode] = useState<'BY_DEPT' | 'BY_SEM'>('BY_DEPT');
   const [selectedDeptIdForApproved, setSelectedDeptIdForApproved] = useState('ALL');
   const [selectedSemForApproved, setSelectedSemForApproved] = useState('ALL');
   const [expandedAccordions, setExpandedAccordions] = useState<Record<string, boolean>>({});
+
+  // Hover state for Overall Completion Status Split-up
+  const [showCompletionHover, setShowCompletionHover] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -105,9 +109,13 @@ export default function DeanDashboard() {
     }
 
     setTargetStage(stg);
-    const d = new Date();
-    d.setDate(d.getDate() + 30);
-    setInitiateDeadline(d.toISOString().slice(0, 16));
+    if (stg.deadline) {
+      setInitiateDeadline(new Date(stg.deadline).toISOString().slice(0, 16));
+    } else {
+      const d = new Date();
+      d.setDate(d.getDate() + 30);
+      setInitiateDeadline(d.toISOString().slice(0, 16));
+    }
     setInitiateVenue(stg.venue || 'Main Boardroom');
     setShowInitiateModal(true);
   };
@@ -200,6 +208,15 @@ export default function DeanDashboard() {
   const activeStage = overview?.activeStage || stages.find((s) => s.status === 'ACTIVE') || stages[0];
   const pendingDeanReviewsList = overview?.pendingDeanReviews || [];
   const approvedSyllabiList = overview?.approvedSyllabi || [];
+  const allSubjectsList = overview?.allSubjects || [];
+
+  // Subject status split-up calculations for hover popover
+  const approvedCount = overview?.overallApproved || 0;
+  const pendingDeanCount = pendingDeanReviewsList.length;
+  const submittedHodCount = allSubjectsList.filter((s: any) => s.syllabusStatus === 'SUBMITTED' || s.syllabusStatus === 'RESUBMITTED').length;
+  const returnedCount = allSubjectsList.filter((s: any) => (s.syllabusStatus || '').includes('RETURNED')).length;
+  const inProgressCount = allSubjectsList.filter((s: any) => s.syllabusStatus === 'IN_PROGRESS' || s.syllabusStatus === 'NOT_STARTED').length;
+  const totalSubjsCount = overview?.overallTotalSubjects || allSubjectsList.length || 0;
 
   // Render Modern Stylish Vertical Progress Bar Component
   const renderVerticalStageProgress = () => {
@@ -245,25 +262,44 @@ export default function DeanDashboard() {
                   <div>
                     <div className="flex items-center space-x-2">
                       <h4 className="text-sm font-extrabold text-slate-900">{stg.name}</h4>
-                      <StatusBadge status={stg.status} />
+                      {isMeeting && isInactive ? (
+                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                          Not Scheduled
+                        </span>
+                      ) : (
+                        <StatusBadge status={stg.status} />
+                      )}
                     </div>
                     {stg.description && <p className="text-xs text-desc mt-0.5">{stg.description}</p>}
                   </div>
 
-                  {isInactive && (
-                    isMeetingLocked ? (
-                      <span className="px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[11px] rounded-xl shrink-0 flex items-center">
-                        <Lock className="w-3 h-3 mr-1" /> Complete Curriculum First
-                      </span>
-                    ) : (
+                  <div className="flex items-center space-x-2 shrink-0 self-start md:self-auto">
+                    {/* Update Deadline Option for Active Stages */}
+                    {!isInactive && (
                       <button
                         onClick={() => handleOpenInitiate(stg)}
-                        className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs shrink-0 self-start md:self-auto"
+                        className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-brand-800 font-bold text-xs rounded-xl border border-purple-200 flex items-center shadow-2xs"
+                        title="Update Stage Deadline & Venue"
                       >
-                        {isMeeting ? 'Schedule Meeting →' : 'Initiate Stage →'}
+                        <Edit3 className="w-3.5 h-3.5 mr-1 text-brand-600" /> Update Deadline
                       </button>
-                    )
-                  )}
+                    )}
+
+                    {isInactive && (
+                      isMeetingLocked ? (
+                        <span className="px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[11px] rounded-xl flex items-center">
+                          <Lock className="w-3.5 h-3.5 mr-1" /> Complete Curriculum First
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleOpenInitiate(stg)}
+                          className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs"
+                        >
+                          {isMeeting ? 'Schedule Meeting →' : 'Initiate Stage →'}
+                        </button>
+                      )
+                    )}
+                  </div>
                 </div>
 
                 {/* Deadline / Scheduled Info & Venue */}
@@ -290,12 +326,6 @@ export default function DeanDashboard() {
                         Deadline: <strong>{stg.deadline ? formatIST(stg.deadline) : 'Not Initiated'}</strong>
                       </span>
                     </div>
-                  )}
-
-                  {stg.initiatedBy && (
-                    <span className="text-[10px] text-slate-500 italic">
-                      Initiated by {stg.initiatedBy.name}
-                    </span>
                   )}
                 </div>
               </div>
@@ -339,14 +369,54 @@ export default function DeanDashboard() {
                   )}
                 </div>
 
-                {/* KPIs (Total Departments KPI Card Removed) */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <StatCard
-                    title="Overall Completion"
-                    value={`${overview?.overallCompletionPercentage || 0}%`}
-                    subtitle={`${overview?.overallApproved || 0} / ${overview?.overallTotalSubjects || 0} Syllabi Approved`}
-                    icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />}
-                  />
+                {/* KPIs (Extension Requests Card Removed from Overview as requested) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Overall Completion Card with Hover Split-up Tooltip */}
+                  <div
+                    className="relative"
+                    onMouseEnter={() => setShowCompletionHover(true)}
+                    onMouseLeave={() => setShowCompletionHover(false)}
+                  >
+                    <StatCard
+                      title="Overall Completion"
+                      value={`${overview?.overallCompletionPercentage || 0}%`}
+                      subtitle={`${approvedCount} / ${totalSubjsCount} Syllabi Approved (Hover for details)`}
+                      icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+                    />
+
+                    {/* Hover Status Split-up Card */}
+                    {showCompletionHover && (
+                      <div className="absolute top-full left-0 mt-2 w-72 bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-purple-200 z-50 animate-in fade-in zoom-in-95 space-y-2">
+                        <p className="text-xs font-bold text-slate-900 border-b pb-1.5 flex items-center justify-between">
+                          <span>Syllabus Status Split-up</span>
+                          <span className="text-[10px] text-brand-700 font-mono">Total: {totalSubjsCount}</span>
+                        </p>
+                        <div className="space-y-1.5 text-xs">
+                          <div className="flex justify-between items-center text-emerald-700 font-semibold">
+                            <span className="flex items-center"><Check className="w-3.5 h-3.5 mr-1" /> Dean Approved (Final)</span>
+                            <span className="font-bold">{approvedCount}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-indigo-700 font-semibold">
+                            <span className="flex items-center"><Eye className="w-3.5 h-3.5 mr-1" /> Pending Dean Review</span>
+                            <span className="font-bold">{pendingDeanCount}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-blue-700 font-semibold">
+                            <span className="flex items-center"><FileText className="w-3.5 h-3.5 mr-1" /> Submitted to HoD</span>
+                            <span className="font-bold">{submittedHodCount}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-amber-700 font-semibold">
+                            <span className="flex items-center"><Sparkles className="w-3.5 h-3.5 mr-1" /> In Progress / Draft</span>
+                            <span className="font-bold">{inProgressCount}</span>
+                          </div>
+                          <div className="flex justify-between items-center text-red-600 font-semibold">
+                            <span className="flex items-center"><RotateCcw className="w-3.5 h-3.5 mr-1" /> Returned for Correction</span>
+                            <span className="font-bold">{returnedCount}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <StatCard
                     title="Pending Dean Reviews"
                     value={pendingDeanReviewsList.length}
@@ -360,13 +430,6 @@ export default function DeanDashboard() {
                     subtitle="Final Approved Syllabi Archive"
                     icon={<CheckCircle2 className="w-5 h-5 text-brand-600" />}
                     onClick={() => setActiveTab('approved')}
-                  />
-                  <StatCard
-                    title="Extension Requests"
-                    value={extensionRequests.filter((r) => r.status === 'PENDING').length}
-                    subtitle="Pending HoD Requests"
-                    icon={<ShieldAlert className="w-5 h-5 text-amber-600" />}
-                    onClick={() => setActiveTab('extensions')}
                   />
                 </div>
 
@@ -494,7 +557,7 @@ export default function DeanDashboard() {
               </div>
             )}
 
-            {/* TAB 5: SYLLABUS REVIEWS (PENDING DEAN APPROVAL - FILTERS REMOVED AS REQUESTED) */}
+            {/* TAB 5: SYLLABUS REVIEWS (PENDING DEAN APPROVAL) */}
             {activeTab === 'reviews' && (
               <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
                 <div>
@@ -533,7 +596,7 @@ export default function DeanDashboard() {
               </div>
             )}
 
-            {/* TAB 6: APPROVED SYLLABI DIRECTORY (DUAL INTERACTIVE DROPDOWN / ACCORDION FILTERING - SORTED SEMESTER WISE) */}
+            {/* TAB 6: APPROVED SYLLABI DIRECTORY (EVERY ACCORDION INITIALLY COLLAPSED) */}
             {activeTab === 'approved' && (
               <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
@@ -584,7 +647,7 @@ export default function DeanDashboard() {
                       </select>
                     </div>
 
-                    {/* 8 Semester Dropdown Accordions */}
+                    {/* 8 Semester Dropdown Accordions (Initially Collapsed) */}
                     <div className="space-y-3">
                       {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => {
                         const subjectsInSem = approvedSyllabiList
@@ -595,7 +658,7 @@ export default function DeanDashboard() {
                           .sort((a: any, b: any) => a.subjectCode.localeCompare(b.subjectCode));
 
                         const key = `sem-${sem}`;
-                        const isExpanded = expandedAccordions[key] ?? true;
+                        const isExpanded = expandedAccordions[key] ?? false;
 
                         return (
                           <div key={sem} className="border border-purple-100 rounded-2xl overflow-hidden bg-purple-50/20">
@@ -652,7 +715,7 @@ export default function DeanDashboard() {
                   </div>
                 )}
 
-                {/* MODE 2: BY SEMESTER (CLICKING DEPARTMENT SHOWS SUBJECTS SORTED SEMESTER WISE) */}
+                {/* MODE 2: BY SEMESTER (EVERY ACCORDION INITIALLY COLLAPSED, SORTED SEMESTER-WISE) */}
                 {approvedViewMode === 'BY_SEM' && (
                   <div className="space-y-5">
                     <div className="max-w-md">
@@ -669,7 +732,7 @@ export default function DeanDashboard() {
                       </select>
                     </div>
 
-                    {/* Department Dropdown Accordions */}
+                    {/* Department Dropdown Accordions (Initially Collapsed) */}
                     <div className="space-y-3">
                       {overview?.deptSummaries?.map((dept: any) => {
                         const subjectsInDept = approvedSyllabiList
@@ -683,7 +746,7 @@ export default function DeanDashboard() {
                           });
 
                         const key = `dept-${dept.id}`;
-                        const isExpanded = expandedAccordions[key] ?? true;
+                        const isExpanded = expandedAccordions[key] ?? false;
 
                         return (
                           <div key={dept.id} className="border border-purple-100 rounded-2xl overflow-hidden bg-purple-50/20">
@@ -864,14 +927,14 @@ export default function DeanDashboard() {
           </div>
         )}
 
-        {/* Initiate / Schedule Stage Modal */}
+        {/* Initiate / Update Stage Deadline Modal */}
         {showInitiateModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
               <h3 className="text-base font-bold text-slate-900">
                 {targetStage?.name.includes('DAC') || targetStage?.name.includes('BoS')
                   ? `Schedule Meeting: ${targetStage?.name}`
-                  : `Initiate Stage: ${targetStage?.name}`}
+                  : `Initiate / Update Stage: ${targetStage?.name}`}
               </h3>
               <p className="text-xs text-desc">{targetStage?.description}</p>
 
@@ -880,7 +943,7 @@ export default function DeanDashboard() {
                   <label className="block font-semibold mb-1">
                     {targetStage?.name.includes('DAC') || targetStage?.name.includes('BoS')
                       ? 'Scheduled Meeting Date *'
-                      : 'Set Stage Deadline *'}
+                      : 'Stage Deadline Date & Time *'}
                   </label>
                   <input
                     type="datetime-local"
@@ -911,7 +974,7 @@ export default function DeanDashboard() {
                   disabled={submittingStage}
                   className="px-4 py-1.5 rounded-xl bg-brand-600 text-white font-bold text-xs shadow-xs"
                 >
-                  {submittingStage ? 'Saving...' : 'Confirm Stage Schedule'}
+                  {submittingStage ? 'Saving...' : 'Save Stage Deadline'}
                 </button>
               </div>
             </div>

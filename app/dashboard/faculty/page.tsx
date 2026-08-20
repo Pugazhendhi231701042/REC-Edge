@@ -280,20 +280,25 @@ export default function FacultyDashboard() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {subjects.map((subj) => (
-                    <div key={subj.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 space-y-3 flex items-center justify-between">
-                      <div>
+                    <div key={subj.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 space-y-3">
+                      <div className="flex items-center justify-between">
                         <span className="font-mono text-[10px] font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
                           {subj.subjectCode} | Sem {subj.semester}
                         </span>
-                        <h4 className="text-xs font-bold text-slate-900 mt-1">{subj.subjectName}</h4>
+                        <StatusBadge status={subj.syllabusStatus} />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900">{subj.subjectName}</h4>
                         <p className="text-[11px] text-desc">{subj.subjectType?.name} • {subj.credits} Credits</p>
                       </div>
-                      <button
-                        onClick={() => setActiveSubject(subj)}
-                        className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs"
-                      >
-                        Open Workspace →
-                      </button>
+                      <div className="pt-2 border-t border-purple-100 flex justify-end">
+                        <button
+                          onClick={() => setActiveSubject(subj)}
+                          className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs"
+                        >
+                          Open Workspace →
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
