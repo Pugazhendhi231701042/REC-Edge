@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
+import { StatusBadge } from '@/components/common/StatusBadge';
+import { SyllabusPDFGenerator } from '@/components/pdf/SyllabusPDFGenerator';
 import { formatIST } from '@/lib/time';
 import {
   Building2,
@@ -21,6 +23,11 @@ import {
   ShieldCheck,
   Check,
   Globe,
+  Clock,
+  Eye,
+  UserCheck,
+  Filter,
+  FileCheck,
 } from 'lucide-react';
 
 export default function MasterAdminDashboard() {
@@ -31,8 +38,18 @@ export default function MasterAdminDashboard() {
   const [subjectTypes, setSubjectTypes] = useState<any[]>([]);
   const [sdgGoals, setSdgGoals] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [workflowData, setWorkflowData] = useState<any>({ subjects: [], extensionRequests: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Selected Syllabus for Inspection Modal
+  const [selectedSyllabus, setSelectedSyllabus] = useState<any>(null);
+
+  // Workflow Filters State
+  const [filterDept, setFilterDept] = useState('ALL');
+  const [filterSem, setFilterSem] = useState('ALL');
+  const [filterSearchText, setFilterSearchText] = useState('');
+  const [filterStatus, setFilterStatus] = useState('ALL');
 
   // User Directory Filter State
   const [userSearchText, setUserSearchText] = useState('');
@@ -89,13 +106,14 @@ export default function MasterAdminDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [resDepts, resUsers, resRegs, resLogs, resCredit, resSdgs] = await Promise.all([
+      const [resDepts, resUsers, resRegs, resLogs, resCredit, resSdgs, resWorkflow] = await Promise.all([
         fetch('/api/master-admin/departments'),
         fetch('/api/master-admin/users'),
         fetch('/api/master-admin/regulations'),
         fetch('/api/master-admin/audit-logs'),
         fetch('/api/master-admin/credit-config'),
         fetch('/api/master-admin/sdgs'),
+        fetch('/api/master-admin/workflow'),
       ]);
 
       if (resDepts.ok) {
@@ -129,6 +147,10 @@ export default function MasterAdminDashboard() {
           setTWeight(data.config.tWeight ?? 1.0);
           setPWeight(data.config.pWeight ?? 0.5);
         }
+      }
+      if (resWorkflow.ok) {
+        const data = await resWorkflow.json();
+        setWorkflowData(data);
       }
     } catch (err) {
       setError('Failed to load MasterAdmin data.');
@@ -339,8 +361,23 @@ export default function MasterAdminDashboard() {
     return matchesSearch && matchesRole && matchesDept;
   });
 
+  // Filtered Workflow Subjects List
+  const allWorkflowSubjects = workflowData.subjects || [];
+  const filteredWorkflowSubjects = allWorkflowSubjects.filter((subj: any) => {
+    const matchesDept = filterDept === 'ALL' || subj.departmentId === filterDept;
+    const matchesSem = filterSem === 'ALL' || subj.semester === parseInt(filterSem);
+    const matchesStatus = filterStatus === 'ALL' || subj.syllabusStatus === filterStatus;
+    const matchesSearch =
+      subj.subjectCode.toLowerCase().includes(filterSearchText.toLowerCase()) ||
+      subj.subjectName.toLowerCase().includes(filterSearchText.toLowerCase());
+    return matchesDept && matchesSem && matchesStatus && matchesSearch;
+  });
+
   return (
-    <AppShell activeTab={activeTab} onTabChange={setActiveTab}>
+    <AppShell activeTab={activeTab} onTabChange={(tab) => {
+      setSelectedSyllabus(null);
+      setActiveTab(tab);
+    }}>
       <div className="space-y-8 max-w-7xl mx-auto">
         {/* TAB 1: SYSTEM OVERVIEW */}
         {activeTab === 'overview' && (
@@ -374,10 +411,10 @@ export default function MasterAdminDashboard() {
               </div>
 
               <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
-                <p className="text-xs font-bold text-slate-500">Programmes</p>
-                <p className="text-2xl font-black text-blue-600">{departments.length}</p>
-                <button onClick={() => setActiveTab('departments')} className="text-[11px] font-bold text-brand-600 hover:underline flex items-center mt-1">
-                  Inspect <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                <p className="text-xs font-bold text-slate-500">Total Subjects Formed</p>
+                <p className="text-2xl font-black text-blue-600">{allWorkflowSubjects.length}</p>
+                <button onClick={() => setActiveTab('subjects')} className="text-[11px] font-bold text-brand-600 hover:underline flex items-center mt-1">
+                  Subjects Master <ArrowRight className="w-3.5 h-3.5 ml-1" />
                 </button>
               </div>
 
@@ -431,11 +468,11 @@ export default function MasterAdminDashboard() {
                   <button onClick={openAddUser} className="p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-xs flex items-center justify-center space-x-2">
                     <Plus className="w-4 h-4" /><span>Add User Account</span>
                   </button>
+                  <button onClick={() => setActiveTab('curriculum')} className="p-3 bg-purple-50 hover:bg-purple-100 text-brand-700 border border-purple-200 rounded-2xl flex items-center justify-center space-x-2">
+                    <BookOpen className="w-4 h-4" /><span>View Curriculum</span>
+                  </button>
                   <button onClick={() => setActiveTab('sdgs')} className="p-3 bg-purple-50 hover:bg-purple-100 text-brand-700 border border-purple-200 rounded-2xl flex items-center justify-center space-x-2">
                     <Globe className="w-4 h-4" /><span>Manage 17 SDGs</span>
-                  </button>
-                  <button onClick={() => setActiveTab('creditconfig')} className="p-3 bg-purple-50 hover:bg-purple-100 text-brand-700 border border-purple-200 rounded-2xl flex items-center justify-center space-x-2">
-                    <Sparkles className="w-4 h-4" /><span>Credit Weights</span>
                   </button>
                 </div>
               </div>
@@ -443,7 +480,300 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB 2: DEPARTMENTS & PROGRAMMES */}
+        {/* WORKFLOW TAB: CURRICULUM */}
+        {activeTab === 'curriculum' && (
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Institutional Curriculum Overview</h3>
+                <p className="text-xs text-desc">Global curriculum structures across all departments and semesters.</p>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)} className="px-3 py-1.5 text-xs font-bold border rounded-xl bg-purple-50 text-brand-900">
+                  <option value="ALL">All Departments ({departments.length})</option>
+                  {departments.map((d) => <option key={d.id} value={d.id}>{d.shortName} — {d.programmeName}</option>)}
+                </select>
+                <select value={filterSem} onChange={(e) => setFilterSem(e.target.value)} className="px-3 py-1.5 text-xs font-bold border rounded-xl bg-purple-50 text-brand-900">
+                  <option value="ALL">All Semesters</option>
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => <option key={s} value={s}>Semester {s}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-purple-50 text-slate-700 font-semibold">
+                  <tr>
+                    <th className="p-3">Dept</th>
+                    <th className="p-3">Subject Code</th>
+                    <th className="p-3">Subject Name</th>
+                    <th className="p-3">Type</th>
+                    <th className="p-3">Category</th>
+                    <th className="p-3 text-center">L-T-P-C</th>
+                    <th className="p-3">Assigned Faculty</th>
+                    <th className="p-3">Syllabus Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredWorkflowSubjects.map((s: any) => (
+                    <tr key={s.id} className="hover:bg-slate-50">
+                      <td className="p-3 font-bold text-slate-900">{s.department?.shortName}</td>
+                      <td className="p-3 font-mono font-bold text-brand-700">{s.subjectCode} <span className="text-[10px] text-slate-400">Sem {s.semester}</span></td>
+                      <td className="p-3 font-bold text-slate-800">{s.subjectName}</td>
+                      <td className="p-3 text-slate-600">{s.subjectType?.name}</td>
+                      <td className="p-3 text-slate-600">{s.subjectCategory?.code}</td>
+                      <td className="p-3 text-center font-semibold">{s.lecture}-{s.tutorial}-{s.practical}-{s.credits}</td>
+                      <td className="p-3 font-semibold text-indigo-900">{s.assignedFaculty ? `${s.assignedFaculty.name} (${s.assignedFaculty.userCode})` : 'Unassigned'}</td>
+                      <td className="p-3"><StatusBadge status={s.syllabusStatus} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* WORKFLOW TAB: SUBJECTS MASTER */}
+        {activeTab === 'subjects' && (
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Institutional Subjects Master Directory</h3>
+                <p className="text-xs text-desc">Complete database of formed subjects across Regulation 26.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 rounded-2xl bg-purple-50/50 border border-purple-100">
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Search subject code or title..."
+                  value={filterSearchText}
+                  onChange={(e) => setFilterSearchText(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 text-xs border rounded-xl"
+                />
+              </div>
+
+              <div>
+                <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)} className="w-full px-3 py-1.5 text-xs border rounded-xl font-medium">
+                  <option value="ALL">All Departments</option>
+                  {departments.map((d) => <option key={d.id} value={d.id}>{d.shortName} — {d.programmeName}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <select value={filterSem} onChange={(e) => setFilterSem(e.target.value)} className="w-full px-3 py-1.5 text-xs border rounded-xl font-medium">
+                  <option value="ALL">All Semesters</option>
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => <option key={s} value={s}>Semester {s}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-purple-50 text-slate-700 font-semibold">
+                  <tr>
+                    <th className="p-3">Department</th>
+                    <th className="p-3">Subject Code</th>
+                    <th className="p-3">Subject Title</th>
+                    <th className="p-3">Type</th>
+                    <th className="p-3">Category</th>
+                    <th className="p-3 text-center">L-T-P-C</th>
+                    <th className="p-3">Faculty</th>
+                    <th className="p-3">Syllabus Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredWorkflowSubjects.map((s: any) => (
+                    <tr key={s.id} className="hover:bg-slate-50">
+                      <td className="p-3 font-bold text-slate-900">{s.department?.shortName}</td>
+                      <td className="p-3 font-mono font-bold text-brand-700">{s.subjectCode} <span className="text-[10px] text-slate-400">Sem {s.semester}</span></td>
+                      <td className="p-3 font-bold text-slate-800">{s.subjectName}</td>
+                      <td className="p-3 text-slate-600">{s.subjectType?.name}</td>
+                      <td className="p-3 text-slate-600">{s.subjectCategory?.code}</td>
+                      <td className="p-3 text-center font-semibold">{s.lecture}-{s.tutorial}-{s.practical}-{s.credits}</td>
+                      <td className="p-3 font-semibold text-indigo-900">{s.assignedFaculty ? `${s.assignedFaculty.name} (${s.assignedFaculty.userCode})` : 'Unassigned'}</td>
+                      <td className="p-3"><StatusBadge status={s.syllabusStatus} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* WORKFLOW TAB: FACULTY ASSIGNMENTS */}
+        {activeTab === 'assignments' && (
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Faculty Subject Assignments Directory</h3>
+              <p className="text-xs text-desc">Workload distribution and course assignments across all departments.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {users.filter((u) => u.role === 'FACULTY').map((f) => {
+                const assigned = allWorkflowSubjects.filter((s: any) => s.assignedFacultyId === f.id);
+                return (
+                  <div key={f.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[10px] font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
+                        {f.userCode || 'FACULTY'}
+                      </span>
+                      <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded border border-indigo-200">
+                        {assigned.length} Subject(s)
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">{f.name}</h4>
+                      <p className="text-xs text-desc">{f.email}</p>
+                    </div>
+                    {assigned.length > 0 && (
+                      <div className="pt-2 border-t border-purple-100 text-xs space-y-1">
+                        {assigned.map((s: any) => (
+                          <div key={s.id} className="flex items-center justify-between text-[11px]">
+                            <span className="font-mono font-bold text-slate-800">{s.subjectCode}</span>
+                            <StatusBadge status={s.syllabusStatus} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* WORKFLOW TAB: SYLLABUS PROGRESS */}
+        {activeTab === 'progress' && (
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Institutional Syllabus Progress Tracker</h3>
+              <p className="text-xs text-desc">Real-time status tracking for all Regulation 26 syllabi.</p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-purple-50 text-slate-700 font-semibold">
+                  <tr>
+                    <th className="p-3">Department</th>
+                    <th className="p-3">Subject Code</th>
+                    <th className="p-3">Subject Title</th>
+                    <th className="p-3">Assigned Faculty</th>
+                    <th className="p-3">Syllabus Status</th>
+                    <th className="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {allWorkflowSubjects.map((s: any) => (
+                    <tr key={s.id} className="hover:bg-slate-50">
+                      <td className="p-3 font-bold text-slate-900">{s.department?.shortName}</td>
+                      <td className="p-3 font-mono font-bold text-brand-700">{s.subjectCode}</td>
+                      <td className="p-3 font-bold text-slate-800">{s.subjectName}</td>
+                      <td className="p-3 font-semibold text-indigo-900">{s.assignedFaculty ? s.assignedFaculty.name : 'Unassigned'}</td>
+                      <td className="p-3"><StatusBadge status={s.syllabusStatus} /></td>
+                      <td className="p-3 text-right">
+                        {s.submission ? (
+                          <button onClick={() => setSelectedSyllabus(s)} className="px-3 py-1 bg-brand-600 text-white font-bold text-xs rounded-lg shadow-xs">
+                            Inspect Document
+                          </button>
+                        ) : (
+                          <span className="text-slate-400 text-[11px] italic">No Draft Yet</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* WORKFLOW TAB: SUBMITTED / REVIEW */}
+        {activeTab === 'review' && (
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Institutional Review & Submission Queue</h3>
+              <p className="text-xs text-desc">Inspect all submitted, resubmitted, HoD approved, or returned syllabi.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {allWorkflowSubjects
+                .filter((s: any) => ['SUBMITTED', 'RESUBMITTED', 'HOD_APPROVED', 'RETURNED_FOR_CORRECTION', 'RETURNED_BY_DEAN'].includes(s.syllabusStatus))
+                .map((s: any) => (
+                  <div key={s.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-mono text-xs font-bold text-brand-700">{s.subjectCode}</span>
+                        <StatusBadge status={s.syllabusStatus} />
+                      </div>
+                      <h4 className="text-sm font-bold text-slate-900 mt-1">{s.subjectName}</h4>
+                      <p className="text-xs text-desc">Dept: {s.department?.shortName} | Faculty: {s.assignedFaculty?.name}</p>
+                    </div>
+                    <button onClick={() => setSelectedSyllabus(s)} className="px-3 py-1.5 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-xs">
+                      View Review
+                    </button>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+
+        {/* WORKFLOW TAB: APPROVED SYLLABI */}
+        {activeTab === 'approved' && (
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Approved Syllabi Directory</h3>
+              <p className="text-xs text-desc">Full institutional archive of Dean approved syllabi documents.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {allWorkflowSubjects.filter((s: any) => s.syllabusStatus === 'APPROVED').map((s: any) => (
+                <div key={s.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
+                      APPROVED | {s.subjectCode}
+                    </span>
+                    <h4 className="text-xs font-bold text-slate-900 mt-1">{s.subjectName}</h4>
+                    <p className="text-[11px] text-desc">Dept: {s.department?.shortName} | Faculty: {s.assignedFaculty?.name}</p>
+                  </div>
+                  <button onClick={() => setSelectedSyllabus(s)} className="px-4 py-2 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-xs flex items-center">
+                    <Eye className="w-3.5 h-3.5 mr-1" /> View Document
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* WORKFLOW TAB: EXTENSION REQUESTS */}
+        {activeTab === 'extension' && (
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Institutional Extension Requests</h3>
+              <p className="text-xs text-desc">Stage deadline extension requests across all college departments.</p>
+            </div>
+
+            <div className="space-y-3">
+              {(workflowData.extensionRequests || []).map((req: any) => (
+                <div key={req.id} className="p-4 rounded-2xl border border-purple-100 bg-purple-50/20 flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-bold text-slate-900 text-xs">{req.department?.programmeName} ({req.department?.shortName})</span>
+                      <StatusBadge status={req.status} />
+                    </div>
+                    <p className="text-xs text-desc mt-0.5">Requested by: {req.requestedBy?.name} | Deadline: {formatIST(req.requestedDeadline)}</p>
+                    <p className="text-xs text-slate-700 mt-1 bg-white p-2.5 rounded-xl border border-purple-100">Reason: "{req.reason}"</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB: DEPARTMENTS & PROGRAMMES */}
         {activeTab === 'departments' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
@@ -481,7 +811,7 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB 3: USER DIRECTORY */}
+        {/* TAB: USER DIRECTORY */}
         {activeTab === 'users' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -559,7 +889,7 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB 4: UN SDGS MANAGEMENT (17 Common UN SDGs Editable by MasterAdmin) */}
+        {/* TAB: UN SDGS MANAGEMENT */}
         {activeTab === 'sdgs' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
             <div>
@@ -592,7 +922,7 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB 5: REGULATIONS & SUBJECT TYPE CODES */}
+        {/* TAB: REGULATIONS & SUBJECT TYPE CODES */}
         {activeTab === 'regulations' && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
@@ -655,7 +985,7 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB 6: CREDIT WEIGHTS */}
+        {/* TAB: CREDIT WEIGHTS */}
         {activeTab === 'creditconfig' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5 max-w-xl">
             <h3 className="text-base font-bold text-slate-900">Credit Calculation Formula Config</h3>
@@ -685,7 +1015,7 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB 7: PO / PSO CONFIG */}
+        {/* TAB: PO / PSO CONFIG */}
         {activeTab === 'popso' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5 max-w-xl">
             <h3 className="text-base font-bold text-slate-900">PO & PSO Count Configuration</h3>
@@ -714,7 +1044,7 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB 8: AUDIT LOGS */}
+        {/* TAB: AUDIT LOGS */}
         {activeTab === 'audit' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
             <h3 className="text-base font-bold text-slate-900">System Audit Trail</h3>
@@ -741,6 +1071,30 @@ export default function MasterAdminDashboard() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* Syllabus Inspection Modal */}
+        {selectedSyllabus && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
+            <div className="bg-white rounded-3xl max-w-4xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b pb-3">
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-sm font-bold text-slate-900">MasterAdmin Syllabus Inspection — {selectedSyllabus.subjectCode}</h3>
+                  <StatusBadge status={selectedSyllabus.syllabusStatus} />
+                </div>
+                <button onClick={() => setSelectedSyllabus(null)} className="text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <SyllabusPDFGenerator
+                subject={selectedSyllabus}
+                submission={selectedSyllabus.submission}
+                documentTitle="MasterAdmin Syllabus Inspection"
+                hideJustifications={false}
+              />
             </div>
           </div>
         )}

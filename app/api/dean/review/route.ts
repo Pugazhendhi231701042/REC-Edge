@@ -6,8 +6,8 @@ import { logAudit } from '@/lib/audit';
 
 export async function POST(req: Request) {
   const session = await getCurrentUser();
-  if (!session || session.role !== 'HOD') {
-    return NextResponse.json({ error: 'Unauthorized. HoD role required.' }, { status: 403 });
+  if (!session || (session.role !== 'SUPERADMIN' && session.role !== 'MASTERADMIN')) {
+    return NextResponse.json({ error: 'Unauthorized. Dean role required.' }, { status: 403 });
   }
 
   const { subjectId, action, reason } = await req.json();
@@ -21,11 +21,12 @@ export async function POST(req: Request) {
     include: {
       assignedFaculty: true,
       submission: true,
+      department: true,
     },
   });
 
-  if (!subject || subject.departmentId !== session.departmentId) {
-    return NextResponse.json({ error: 'Subject not found or access denied.' }, { status: 403 });
+  if (!subject) {
+    return NextResponse.json({ error: 'Subject not found.' }, { status: 404 });
   }
 
   if (action === 'RETURN') {
@@ -35,55 +36,45 @@ export async function POST(req: Request) {
 
     await prisma.subject.update({
       where: { id: subjectId },
-      data: { syllabusStatus: 'RETURNED_FOR_CORRECTION' },
+      data: { syllabusStatus: 'RETURNED_BY_DEAN' },
     });
 
     if (subject.submission) {
       await prisma.syllabusSubmission.update({
         where: { id: subject.submission.id },
         data: {
-          correctionReason: `[HoD Feedback]: ${reason.trim()}`,
+          correctionReason: `[Dean Review Feedback]: ${reason.trim()}`,
           returnedAt: new Date(),
         },
       });
     }
 
     if (subject.assignedFaculty) {
-      // In-app Notification
       await prisma.notification.create({
         data: {
           recipientId: subject.assignedFaculty.id,
-          title: `Syllabus Returned for Correction: ${subject.subjectCode}`,
+          title: `Syllabus Returned by Dean: ${subject.subjectCode}`,
           message: `Reason: ${reason.trim()}`,
           type: 'CORRECTION_REQUESTED',
           relatedEntity: subject.id,
         },
-      });
-
-      // Email Notification
-      const emailHtml = buildCorrectionRequestEmail(subject.subjectName, subject.subjectCode, reason.trim());
-      await sendEmail({
-        to: subject.assignedFaculty.email,
-        subject: `[REC Edge] Action Required: Syllabus Returned for Correction (${subject.subjectCode})`,
-        html: emailHtml,
       });
     }
 
     await logAudit({
       userId: session.userId,
       userRole: session.role,
-      action: 'HOD_RETURNED_SYLLABUS',
+      action: 'DEAN_RETURNED_SYLLABUS',
       entity: 'Subject',
       entityId: subject.id,
       details: { reason: reason.trim() },
     });
 
-    return NextResponse.json({ success: true, status: 'RETURNED_FOR_CORRECTION' });
+    return NextResponse.json({ success: true, status: 'RETURNED_BY_DEAN' });
   } else if (action === 'APPROVE') {
-    // HoD approval sets status to HOD_APPROVED (sent to Dean for final review)
     await prisma.subject.update({
       where: { id: subjectId },
-      data: { syllabusStatus: 'HOD_APPROVED' },
+      data: { syllabusStatus: 'APPROVED' },
     });
 
     if (subject.submission) {
@@ -100,8 +91,8 @@ export async function POST(req: Request) {
       await prisma.notification.create({
         data: {
           recipientId: subject.assignedFaculty.id,
-          title: `Syllabus Approved by HoD: ${subject.subjectCode}`,
-          message: `Your syllabus for ${subject.subjectCode} - ${subject.subjectName} has been approved by the HoD and forwarded to the Dean for final institutional approval.`,
+          title: `Final Dean Approval Granted: ${subject.subjectCode}`,
+          message: `Your syllabus for ${subject.subjectCode} - ${subject.subjectName} has received final institutional approval from the Dean.`,
           type: 'SYLLABUS_APPROVED',
           relatedEntity: subject.id,
         },
@@ -111,12 +102,12 @@ export async function POST(req: Request) {
     await logAudit({
       userId: session.userId,
       userRole: session.role,
-      action: 'HOD_APPROVED_SYLLABUS',
+      action: 'DEAN_APPROVED_SYLLABUS',
       entity: 'Subject',
       entityId: subject.id,
     });
 
-    return NextResponse.json({ success: true, status: 'HOD_APPROVED' });
+    return NextResponse.json({ success: true, status: 'APPROVED' });
   }
 
   return NextResponse.json({ error: 'Invalid review action.' }, { status: 400 });

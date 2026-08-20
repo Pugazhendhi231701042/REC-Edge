@@ -25,6 +25,7 @@ import {
   Search,
   ArrowRight,
   Filter,
+  RotateCcw,
 } from 'lucide-react';
 
 export default function DeanDashboard() {
@@ -46,6 +47,8 @@ export default function DeanDashboard() {
 
   // Selected Approved Syllabus for Drilldown Viewer
   const [selectedSyllabus, setSelectedSyllabus] = useState<any>(null);
+  const [deanReturnReason, setDeanReturnReason] = useState('');
+  const [showReturnModal, setShowReturnModal] = useState(false);
 
   // Filters for Approved Syllabi & Reviews
   const [searchQuery, setSearchQuery] = useState('');
@@ -102,6 +105,7 @@ export default function DeanDashboard() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          action: 'INITIATE',
           stageId: targetStage.id,
           deadline: initiateDeadline,
         }),
@@ -119,29 +123,68 @@ export default function DeanDashboard() {
     }
   };
 
-  const handleDecisionExtension = async (requestId: string, action: 'APPROVE' | 'REJECT') => {
+  const handleDecisionExtension = async (requestId: string, decision: 'APPROVE' | 'REJECT') => {
     try {
       const res = await fetch('/api/dean/extensions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId, action }),
+        body: JSON.stringify({ requestId, action: decision }),
       });
-      if (res.ok) {
-        fetchData();
-      }
+      if (res.ok) fetchData();
     } catch (err) {
-      console.error('Failed to update extension request');
+      console.error('Failed to decide extension');
     }
   };
 
-  const activeStage = stages.find((s) => s.status === 'ACTIVE');
-  const pendingExtensions = extensionRequests.filter((r) => r.status === 'PENDING');
+  const handleDeanApproveSyllabus = async (subjectId: string) => {
+    try {
+      const res = await fetch('/api/dean/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subjectId, action: 'APPROVE' }),
+      });
+      if (res.ok) {
+        setSelectedSyllabus(null);
+        fetchData();
+      }
+    } catch (err) {
+      console.error('Failed to approve syllabus');
+    }
+  };
 
-  // Filtered Approved Syllabi List
-  const filteredApprovedSyllabi = (overview?.approvedSyllabi || []).filter((subj: any) => {
+  const handleDeanReturnSyllabus = async () => {
+    if (!selectedSyllabus || !deanReturnReason.trim()) return;
+    try {
+      const res = await fetch('/api/dean/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subjectId: selectedSyllabus.id,
+          action: 'RETURN',
+          reason: deanReturnReason.trim(),
+        }),
+      });
+      if (res.ok) {
+        setShowReturnModal(false);
+        setSelectedSyllabus(null);
+        setDeanReturnReason('');
+        fetchData();
+      }
+    } catch (err) {
+      console.error('Failed to return syllabus');
+    }
+  };
+
+  const activeStage = overview?.activeStage || stages.find((s) => s.status === 'ACTIVE') || stages[0];
+  const pendingDeanReviewsList = overview?.pendingDeanReviews || [];
+  const approvedSyllabiList = overview?.approvedSyllabi || [];
+
+  const listToFilter = activeTab === 'reviews' ? pendingDeanReviewsList : approvedSyllabiList;
+
+  const filteredSyllabi = listToFilter.filter((subj: any) => {
     const matchesSearch =
-      subj.subjectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      subj.subjectCode.toLowerCase().includes(searchQuery.toLowerCase());
+      subj.subjectCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      subj.subjectName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesDept = filterDept === 'ALL' || subj.departmentId === filterDept;
     const matchesSem = filterSem === 'ALL' || subj.semester === parseInt(filterSem);
     return matchesSearch && matchesDept && matchesSem;
@@ -150,10 +193,10 @@ export default function DeanDashboard() {
   return (
     <AppShell activeTab={activeTab} onTabChange={(tab) => {
       setSelectedDeptSummary(null);
+      setSelectedSyllabus(null);
       setActiveTab(tab);
     }}>
       <div className="space-y-8 max-w-7xl mx-auto">
-        {/* Department Detail View if Selected */}
         {selectedDeptSummary ? (
           <DepartmentDetailView
             departmentSummary={selectedDeptSummary}
@@ -163,340 +206,183 @@ export default function DeanDashboard() {
           />
         ) : (
           <>
-            {/* 1. INSTITUTIONAL OVERVIEW (MAIN DEAN DASHBOARD COMMAND CENTER) */}
+            {/* TAB 1: INSTITUTIONAL OVERVIEW (COMMAND CENTER HOME) */}
             {activeTab === 'overview' && (
               <div className="space-y-8">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b pb-4">
                   <div>
-                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">Institutional Academic Command Center</h1>
-                    <p className="text-xs text-desc mt-1">SuperAdmin / Dean Overview — Regulation 26 (AY 2026–2027)</p>
+                    <h1 className="text-2xl font-black text-slate-900 tracking-tight">Institutional Command Center</h1>
+                    <p className="text-xs text-desc mt-1">Dean / SuperAdmin Executive Governance — Regulation 26</p>
                   </div>
-
                   {activeStage && (
-                    <div className="mt-4 md:mt-0 flex items-center space-x-3 bg-purple-50 p-3 rounded-2xl border border-purple-200">
-                      <Clock className="w-5 h-5 text-brand-600 animate-pulse" />
-                      <div>
-                        <p className="text-[10px] uppercase font-bold text-brand-700 tracking-wider">Active Academic Stage</p>
-                        <p className="text-xs font-bold text-slate-900">{activeStage.name}</p>
-                        <p className="text-[10px] text-desc">Deadline: {formatIST(activeStage.deadline, false)}</p>
-                      </div>
-                      <button
-                        onClick={() => setActiveTab('stages')}
-                        className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs ml-2"
-                      >
-                        View Stage
-                      </button>
+                    <div className="mt-3 md:mt-0 px-3.5 py-1.5 rounded-xl bg-purple-50 text-brand-800 border border-purple-200 text-xs font-bold flex items-center space-x-2">
+                      <Clock className="w-4 h-4 text-brand-600 animate-pulse" />
+                      <span>Active Stage: <strong>{activeStage.name}</strong> (Deadline: {activeStage.deadline ? formatIST(activeStage.deadline) : 'N/A'})</span>
                     </div>
                   )}
                 </div>
 
-                {/* Consolidated KPI Section */}
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-                  <div className="bg-white p-4 rounded-2xl border border-purple-100 shadow-sm space-y-1">
-                    <p className="text-[11px] font-bold text-slate-500">Total Programmes</p>
-                    <p className="text-xl font-black text-slate-900">{overview?.deptSummaries?.length || 0}</p>
-                    <button onClick={() => setActiveTab('departments')} className="text-[10px] font-bold text-brand-600 hover:underline flex items-center mt-1">
-                      View Details <ArrowRight className="w-3 h-3 ml-0.5" />
-                    </button>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-2xl border border-purple-100 shadow-sm space-y-1">
-                    <p className="text-[11px] font-bold text-slate-500">Total Subjects</p>
-                    <p className="text-xl font-black text-slate-900">{overview?.overallTotalSubjects || 0}</p>
-                    <button onClick={() => setActiveTab('progress')} className="text-[10px] font-bold text-brand-600 hover:underline flex items-center mt-1">
-                      View Details <ArrowRight className="w-3 h-3 ml-0.5" />
-                    </button>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-2xl border border-purple-100 shadow-sm space-y-1">
-                    <p className="text-[11px] font-bold text-slate-500">Subjects Assigned</p>
-                    <p className="text-xl font-black text-indigo-600">{overview?.overallAssigned || 0}</p>
-                    <button onClick={() => setActiveTab('progress')} className="text-[10px] font-bold text-brand-600 hover:underline flex items-center mt-1">
-                      View Details <ArrowRight className="w-3 h-3 ml-0.5" />
-                    </button>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-2xl border border-purple-100 shadow-sm space-y-1">
-                    <p className="text-[11px] font-bold text-slate-500">Syllabi Submitted</p>
-                    <p className="text-xl font-black text-blue-600">{overview?.overallSubmitted || 0}</p>
-                    <button onClick={() => setActiveTab('approved')} className="text-[10px] font-bold text-brand-600 hover:underline flex items-center mt-1">
-                      View Details <ArrowRight className="w-3 h-3 ml-0.5" />
-                    </button>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-2xl border border-purple-100 shadow-sm space-y-1">
-                    <p className="text-[11px] font-bold text-slate-500">HoD Approved</p>
-                    <p className="text-xl font-black text-emerald-600">{overview?.overallApproved || 0}</p>
-                    <button onClick={() => setActiveTab('approved')} className="text-[10px] font-bold text-brand-600 hover:underline flex items-center mt-1">
-                      View Details <ArrowRight className="w-3 h-3 ml-0.5" />
-                    </button>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-2xl border border-purple-100 shadow-sm space-y-1">
-                    <p className="text-[11px] font-bold text-slate-500">Overall Completion</p>
-                    <p className="text-xl font-black text-amber-600">{overview?.overallCompletionPercentage || 0}%</p>
-                    <button onClick={() => setActiveTab('progress')} className="text-[10px] font-bold text-brand-600 hover:underline flex items-center mt-1">
-                      View Details <ArrowRight className="w-3 h-3 ml-0.5" />
-                    </button>
-                  </div>
+                {/* KPIs */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <StatCard
+                    title="Overall Completion"
+                    value={`${overview?.overallCompletionPercentage || 0}%`}
+                    subtitle={`${overview?.overallApproved || 0} / ${overview?.overallTotalSubjects || 0} Syllabi Approved`}
+                    icon={<CheckCircle2 className="w-5 h-5 text-emerald-600" />}
+                  />
+                  <StatCard
+                    title="Total Departments"
+                    value={overview?.deptSummaries?.length || 0}
+                    subtitle="Active Academic Programmes"
+                    icon={<Building2 className="w-5 h-5 text-brand-600" />}
+                    onClick={() => setActiveTab('departments')}
+                  />
+                  <StatCard
+                    title="Pending Dean Reviews"
+                    value={pendingDeanReviewsList.length}
+                    subtitle="HoD Approved Syllabi Awaiting Dean Review"
+                    icon={<Eye className="w-5 h-5 text-indigo-600" />}
+                    onClick={() => setActiveTab('reviews')}
+                  />
+                  <StatCard
+                    title="Extension Requests"
+                    value={extensionRequests.filter((r) => r.status === 'PENDING').length}
+                    subtitle="Pending HoD Requests"
+                    icon={<ShieldAlert className="w-5 h-5 text-amber-600" />}
+                    onClick={() => setActiveTab('extensions')}
+                  />
                 </div>
 
-                {/* Institutional Progress & Action Required Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Progress Visualization Panel */}
-                  <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-5">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-base font-bold text-slate-900">Institutional Progress Visualization</h3>
-                      <button
-                        onClick={() => setActiveTab('progress')}
-                        className="text-xs font-bold text-brand-700 bg-purple-50 px-3 py-1.5 rounded-xl border border-purple-200 hover:bg-purple-100"
-                      >
-                        View Department Progress
-                      </button>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div>
-                        <div className="flex justify-between text-xs font-bold mb-1">
-                          <span className="text-slate-700">Curriculum Formation</span>
-                          <span className="text-brand-700">100%</span>
-                        </div>
-                        <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                          <div className="bg-brand-600 h-2.5 rounded-full" style={{ width: '100%' }}></div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between text-xs font-bold mb-1">
-                          <span className="text-slate-700">Faculty Assignment</span>
-                          <span className="text-indigo-700">
-                            {overview?.overallTotalSubjects ? Math.round((overview.overallAssigned / overview.overallTotalSubjects) * 100) : 0}%
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                          <div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: `${overview?.overallTotalSubjects ? Math.round((overview.overallAssigned / overview.overallTotalSubjects) * 100) : 0}%` }}></div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between text-xs font-bold mb-1">
-                          <span className="text-slate-700">Syllabus Submission</span>
-                          <span className="text-blue-700">
-                            {overview?.overallTotalSubjects ? Math.round((overview.overallSubmitted / overview.overallTotalSubjects) * 100) : 0}%
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                          <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${overview?.overallTotalSubjects ? Math.round((overview.overallSubmitted / overview.overallTotalSubjects) * 100) : 0}%` }}></div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between text-xs font-bold mb-1">
-                          <span className="text-slate-700">HoD Approval</span>
-                          <span className="text-emerald-700">{overview?.overallCompletionPercentage || 0}%</span>
-                        </div>
-                        <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                          <div className="bg-emerald-600 h-2.5 rounded-full" style={{ width: `${overview?.overallCompletionPercentage || 0}%` }}></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Compact Action Required Alerts Panel */}
-                  <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
-                    <h3 className="text-base font-bold text-slate-900">Action Required & Alerts</h3>
-                    
+                {/* Active Stage & Progress Overview */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="md:col-span-2 bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
+                    <h3 className="text-base font-bold text-slate-900">Academic Workflow Stage Progress</h3>
                     <div className="space-y-3">
-                      {pendingExtensions.length > 0 ? (
-                        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
-                            <div>
-                              <p className="text-xs font-bold text-amber-900">{pendingExtensions.length} Extension Request(s) Pending</p>
-                              <p className="text-[11px] text-amber-800">Requires Dean approval for deadline extension.</p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => setActiveTab('extensions')}
-                            className="px-3 py-1.5 bg-amber-600 text-white font-bold text-xs rounded-xl shrink-0"
-                          >
-                            View →
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-bold flex items-center">
-                          <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-600" />
-                          No pending extension requests.
-                        </div>
-                      )}
-
-                      <div className="p-4 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                      {stages.map((stg) => (
+                        <div key={stg.id} className="p-4 rounded-2xl border border-purple-100 bg-purple-50/30 flex items-center justify-between">
                           <div>
-                            <p className="text-xs font-bold text-slate-900">{overview?.overallApproved || 0} Syllabi HoD Approved</p>
-                            <p className="text-[11px] text-desc">Ready for institutional governance review.</p>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs font-bold text-slate-900">{stg.name}</span>
+                              <StatusBadge status={stg.status} />
+                            </div>
+                            <p className="text-xs text-desc mt-0.5">{stg.description}</p>
                           </div>
+                          {stg.status === 'INACTIVE' && (
+                            <button
+                              onClick={() => handleOpenInitiate(stg)}
+                              className="px-3.5 py-1.5 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-xs"
+                            >
+                              Initiate Stage →
+                            </button>
+                          )}
                         </div>
-                        <button
-                          onClick={() => setActiveTab('approved')}
-                          className="px-3 py-1.5 bg-brand-600 text-white font-bold text-xs rounded-xl shrink-0"
-                        >
-                          View →
-                        </button>
-                      </div>
+                      ))}
                     </div>
                   </div>
-                </div>
 
-                {/* Academic Stage Timeline Summary Panel */}
-                <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-base font-bold text-slate-900">Academic Workflow Stage Timeline</h3>
-                      <p className="text-xs text-desc">Regulation 26 institutional stages summary.</p>
-                    </div>
-                    <button
-                      onClick={() => setActiveTab('stages')}
-                      className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs"
-                    >
-                      Manage Academic Stages
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {stages.map((stg, idx) => (
-                      <div key={stg.id} className="p-4 rounded-2xl border bg-slate-50/50 flex items-center space-x-3">
-                        <span className="w-8 h-8 rounded-xl bg-purple-100 text-brand-800 font-bold text-xs flex items-center justify-center shrink-0">
-                          0{idx + 1}
-                        </span>
-                        <div>
-                          <p className="text-xs font-bold text-slate-900">{stg.name}</p>
-                          <StatusBadge status={stg.status} />
+                  <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
+                    <h3 className="text-base font-bold text-slate-900">Quick Department Summary</h3>
+                    <div className="space-y-3 text-xs">
+                      {overview?.deptSummaries?.map((d: any) => (
+                        <div key={d.id} className="p-3 rounded-2xl bg-purple-50/40 border border-purple-100 flex items-center justify-between">
+                          <div>
+                            <p className="font-bold text-slate-900">{d.programmeName}</p>
+                            <p className="text-[10px] text-desc">HoD: {d.hodName}</p>
+                          </div>
+                          <span className="font-bold text-brand-700">{d.completionPercentage}%</span>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* 2. ACADEMIC STAGES DEDICATED PAGE */}
+            {/* TAB 2: ACADEMIC STAGES DEDICATED PAGE */}
             {activeTab === 'stages' && (
-              <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-6">
+              <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">Academic Stages Management</h3>
-                  <p className="text-xs text-desc">Initiate institutional stages and configure deadlines.</p>
+                  <h3 className="text-base font-bold text-slate-900">Academic Stage Governance</h3>
+                  <p className="text-xs text-desc">Initiate and monitor Curriculum, DAC, and BoS meeting workflows.</p>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-4">
                   {stages.map((stg) => (
-                    <div
-                      key={stg.id}
-                      className={`p-5 rounded-2xl border transition-all ${
-                        stg.status === 'ACTIVE'
-                          ? 'bg-purple-50/50 border-brand-300 shadow-md ring-1 ring-brand-500/20'
-                          : 'bg-slate-50 border-slate-200 opacity-80'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-3">
+                    <div key={stg.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 space-y-3">
+                      <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-slate-900">{stg.name}</span>
                         <StatusBadge status={stg.status} />
                       </div>
-                      <p className="text-xs text-desc min-h-[36px]">{stg.description}</p>
-
-                      {stg.status === 'ACTIVE' ? (
-                        <div className="mt-4 pt-3 border-t border-purple-200 flex items-center justify-between text-xs font-semibold text-brand-800">
-                          <span>Deadline: {formatIST(stg.deadline, false)}</span>
-                          <button
-                            onClick={() => handleOpenInitiate(stg)}
-                            className="px-3 py-1.5 rounded-lg bg-brand-600 text-white font-bold hover:bg-brand-700 text-xs shadow-xs"
-                          >
-                            Update Deadline
+                      <p className="text-xs text-desc">{stg.description}</p>
+                      <div className="pt-2 border-t border-purple-100 text-xs text-slate-700 flex items-center justify-between">
+                        <span>Deadline: <strong>{stg.deadline ? formatIST(stg.deadline) : 'Not Initiated'}</strong></span>
+                        {stg.status === 'INACTIVE' && (
+                          <button onClick={() => handleOpenInitiate(stg)} className="px-4 py-1.5 bg-brand-600 text-white font-bold rounded-xl text-xs">
+                            Initiate Stage →
                           </button>
-                        </div>
-                      ) : stg.name === 'Curriculum & Syllabus Formation' ? (
-                        <button
-                          onClick={() => handleOpenInitiate(stg)}
-                          className="mt-4 w-full py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-sm flex items-center justify-center space-x-2"
-                        >
-                          <Send className="w-3.5 h-3.5" />
-                          <span>Initiate Stage</span>
-                        </button>
-                      ) : (
-                        <div className="mt-4 pt-3 border-t border-slate-200 text-center text-xs font-semibold text-slate-400">
-                          🔒 Upcoming Academic Stage
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* 3. DEPARTMENTS & PROGRAMMES DEDICATED PAGE */}
+            {/* TAB 3: DEPARTMENTS & PROGRAMMES DEDICATED PAGE */}
             {activeTab === 'departments' && (
-              <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-6">
+              <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">Departments & Academic Programmes</h3>
-                  <p className="text-xs text-desc">Select a programme to inspect its detailed curriculum breakdown.</p>
+                  <h3 className="text-base font-bold text-slate-900">Departments & Academic Programmes Directory</h3>
+                  <p className="text-xs text-desc">Select a department to view its complete subject list and semester details.</p>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {overview?.deptSummaries?.map((d: any) => (
-                    <div
-                      key={d.id}
-                      onClick={() => setSelectedDeptSummary(d)}
-                      className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 hover:shadow-md transition-all cursor-pointer space-y-3"
-                    >
-                      <div className="flex items-center justify-between">
+                    <div key={d.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 space-y-3 flex items-center justify-between">
+                      <div>
                         <span className="text-[10px] font-bold text-brand-700 uppercase bg-purple-100 px-2 py-0.5 rounded">
                           {d.programmeType} | Code: {d.departmentCode}
                         </span>
-                        <span className="text-xs font-bold text-emerald-700">{d.completionPercentage}%</span>
+                        <h4 className="text-sm font-bold text-slate-900 mt-1">{d.programmeName}</h4>
+                        <p className="text-xs text-desc mt-0.5">HoD: {d.hodName} | {d.totalSubjects} Subjects</p>
                       </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-slate-900">{d.programmeName}</h4>
-                        <p className="text-xs font-semibold text-desc">HoD: {d.hodName || 'Unassigned'}</p>
-                      </div>
-                      <div className="pt-2 border-t border-purple-100 flex items-center justify-between text-xs text-slate-700">
-                        <span>Subjects: {d.totalSubjects}</span>
-                        <span className="text-brand-600 font-bold hover:underline">Open Details →</span>
-                      </div>
+                      <button
+                        onClick={() => setSelectedDeptSummary(d)}
+                        className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs"
+                      >
+                        Inspect Department →
+                      </button>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* 4. DEPARTMENT PROGRESS DEDICATED PAGE */}
+            {/* TAB 4: DEPARTMENT PROGRESS DEDICATED PAGE */}
             {activeTab === 'progress' && (
-              <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
+              <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">Programme-wise Formation Progress</h3>
-                  <p className="text-xs text-desc">Detailed institutional progress across all departments.</p>
+                  <h3 className="text-base font-bold text-slate-900">Institutional Department Progress</h3>
+                  <p className="text-xs text-desc">Detailed progress breakdown across all college departments.</p>
                 </div>
-
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs text-left">
                     <thead className="bg-purple-50 text-slate-700 font-semibold">
                       <tr>
-                        <th className="p-3">Department / Programme</th>
+                        <th className="p-3">Department</th>
                         <th className="p-3">HoD</th>
-                        <th className="p-3 text-center">Subjects Formed</th>
-                        <th className="p-3 text-center">Faculty Assigned</th>
+                        <th className="p-3 text-center">Total Subjects</th>
+                        <th className="p-3 text-center">Assigned</th>
                         <th className="p-3 text-center">Submitted</th>
-                        <th className="p-3 text-center">HoD Approved</th>
+                        <th className="p-3 text-center">Approved</th>
                         <th className="p-3 text-center">Completion %</th>
-                        <th className="p-3 text-right">Action</th>
+                        <th className="p-3 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {overview?.deptSummaries?.map((d: any) => (
                         <tr key={d.id} className="hover:bg-slate-50">
                           <td className="p-3 font-bold text-slate-900">
-                            {d.programmeName} ({d.shortName})
+                            {d.programmeName}
                             <span className="block text-[10px] text-desc font-normal">Code: {d.departmentCode} | Semesters: {d.semesters}</span>
                           </td>
                           <td className="p-3 text-slate-700">{d.hodName}</td>
@@ -513,10 +399,7 @@ export default function DeanDashboard() {
                             </div>
                           </td>
                           <td className="p-3 text-right">
-                            <button
-                              onClick={() => setSelectedDeptSummary(d)}
-                              className="px-3 py-1 bg-brand-600 text-white font-bold text-xs rounded-lg shadow-xs"
-                            >
+                            <button onClick={() => setSelectedDeptSummary(d)} className="px-3 py-1 bg-brand-600 text-white font-bold text-xs rounded-lg shadow-xs">
                               Inspect →
                             </button>
                           </td>
@@ -528,12 +411,18 @@ export default function DeanDashboard() {
               </div>
             )}
 
-            {/* 5. APPROVED SYLLABI & REVIEWS DEDICATED DIRECTORY PAGE */}
+            {/* TAB 5: APPROVED SYLLABI & REVIEWS DEDICATED DIRECTORY PAGE */}
             {(activeTab === 'approved' || activeTab === 'reviews') && (
               <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">Approved Syllabi Directory (Dean Access)</h3>
-                  <p className="text-xs text-desc">Inspect approved syllabi documents without CO/PO justifications on screen.</p>
+                  <h3 className="text-base font-bold text-slate-900">
+                    {activeTab === 'reviews' ? 'Syllabus Reviews Awaiting Dean Approval' : 'Approved Syllabi Directory (Dean Access)'}
+                  </h3>
+                  <p className="text-xs text-desc">
+                    {activeTab === 'reviews'
+                      ? 'Syllabi approved by HoD requiring final institutional approval from Dean.'
+                      : 'Inspect fully approved syllabi documents.'}
+                  </p>
                 </div>
 
                 {/* Filter Bar */}
@@ -550,11 +439,7 @@ export default function DeanDashboard() {
                   </div>
 
                   <div>
-                    <select
-                      value={filterDept}
-                      onChange={(e) => setFilterDept(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:ring-brand-500 font-medium"
-                    >
+                    <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)} className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:ring-brand-500 font-medium">
                       <option value="ALL">All Departments</option>
                       {overview?.deptSummaries?.map((d: any) => (
                         <option key={d.id} value={d.id}>{d.shortName} — {d.programmeName}</option>
@@ -563,11 +448,7 @@ export default function DeanDashboard() {
                   </div>
 
                   <div>
-                    <select
-                      value={filterSem}
-                      onChange={(e) => setFilterSem(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:ring-brand-500 font-medium"
-                    >
+                    <select value={filterSem} onChange={(e) => setFilterSem(e.target.value)} className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:ring-brand-500 font-medium">
                       <option value="ALL">All Semesters</option>
                       {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
                         <option key={s} value={s}>Semester {s}</option>
@@ -576,20 +457,21 @@ export default function DeanDashboard() {
                   </div>
                 </div>
 
-                {filteredApprovedSyllabi.length === 0 ? (
-                  <p className="text-xs text-desc py-8 text-center">No approved syllabi match the selected filter criteria.</p>
+                {filteredSyllabi.length === 0 ? (
+                  <p className="text-xs text-desc py-8 text-center">No syllabi match the selected filter criteria.</p>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {filteredApprovedSyllabi.map((subj: any) => (
+                    {filteredSyllabi.map((subj: any) => (
                       <div key={subj.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 hover:shadow-md transition-all flex items-center justify-between">
                         <div>
-                          <span className="text-[10px] font-bold text-brand-700 uppercase bg-purple-100 px-2 py-0.5 rounded">
-                            {subj.subjectCode} | Sem {subj.semester}
-                          </span>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-[10px] font-bold text-brand-700 uppercase bg-purple-100 px-2 py-0.5 rounded">
+                              {subj.subjectCode} | Sem {subj.semester}
+                            </span>
+                            <StatusBadge status={subj.syllabusStatus} />
+                          </div>
                           <h4 className="text-xs font-bold text-slate-900 mt-1">{subj.subjectName}</h4>
-                          <p className="text-[11px] text-desc">
-                            Faculty: {subj.assignedFaculty?.name} | Dept: {subj.department?.shortName}
-                          </p>
+                          <p className="text-[11px] text-desc">Faculty: {subj.assignedFaculty?.name} | Dept: {subj.department?.shortName}</p>
                         </div>
                         <button
                           onClick={() => setSelectedSyllabus(subj)}
@@ -604,7 +486,7 @@ export default function DeanDashboard() {
               </div>
             )}
 
-            {/* 6. EXTENSION REQUESTS DEDICATED PAGE */}
+            {/* TAB 6: EXTENSION REQUESTS DEDICATED PAGE */}
             {activeTab === 'extensions' && (
               <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
                 <div>
@@ -620,14 +502,11 @@ export default function DeanDashboard() {
                       <div key={req.id} className="p-4 rounded-2xl border border-purple-100 bg-purple-50/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
                           <div className="flex items-center space-x-2">
-                            <span className="text-xs font-bold text-slate-900">
-                              {req.department?.programmeName} ({req.department?.shortName})
-                            </span>
+                            <span className="text-xs font-bold text-slate-900">{req.department?.programmeName} ({req.department?.shortName})</span>
                             <StatusBadge status={req.status} />
                           </div>
                           <p className="text-xs text-desc mt-0.5">
-                            Requested by: <strong>{req.requestedBy?.name}</strong> | New Requested Deadline:{' '}
-                            <strong className="text-amber-800">{formatIST(req.requestedDeadline)}</strong>
+                            Requested by: <strong>{req.requestedBy?.name}</strong> | New Requested Deadline: <strong className="text-amber-800">{formatIST(req.requestedDeadline)}</strong>
                           </p>
                           <p className="text-xs text-slate-700 mt-1 bg-white p-2.5 rounded-xl border border-purple-100">
                             Reason: "{req.reason}"
@@ -635,16 +514,10 @@ export default function DeanDashboard() {
                         </div>
                         {req.status === 'PENDING' && (
                           <div className="flex items-center space-x-2 shrink-0">
-                            <button
-                              onClick={() => handleDecisionExtension(req.id, 'APPROVE')}
-                              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
-                            >
+                            <button onClick={() => handleDecisionExtension(req.id, 'APPROVE')} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center">
                               <Check className="w-4 h-4 mr-1" /> Approve
                             </button>
-                            <button
-                              onClick={() => handleDecisionExtension(req.id, 'REJECT')}
-                              className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl flex items-center"
-                            >
+                            <button onClick={() => handleDecisionExtension(req.id, 'REJECT')} className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl flex items-center">
                               <X className="w-4 h-4 mr-1" /> Reject
                             </button>
                           </div>
@@ -658,57 +531,105 @@ export default function DeanDashboard() {
           </>
         )}
 
-        {/* Printable PDF Modal for Dean View (User Requirement: Dean Review WITHOUT justifications on screen) */}
+        {/* View Dean Review Modal (Without CO/PO Justification on Screen per Rule 58) */}
         {selectedSyllabus && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
             <div className="bg-white rounded-3xl max-w-4xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between border-b pb-3">
-                <h3 className="text-sm font-bold text-slate-900">Dean Syllabus Review View</h3>
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-sm font-bold text-slate-900">Dean Syllabus Review — {selectedSyllabus.subjectCode}</h3>
+                  <StatusBadge status={selectedSyllabus.syllabusStatus} />
+                </div>
                 <button onClick={() => setSelectedSyllabus(null)} className="text-slate-400 hover:text-slate-600">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
+              {/* Dean On-Screen Viewer suppresses CO/PO Justification */}
               <SyllabusPDFGenerator
                 subject={selectedSyllabus}
                 submission={selectedSyllabus.submission}
-                documentTitle="Approved Syllabus Document (Dean View)"
+                documentTitle="Dean Syllabus Inspection"
                 hideJustifications={true}
               />
+
+              {/* Dean Approval & Return Actions (If status is HOD_APPROVED) */}
+              {selectedSyllabus.syllabusStatus === 'HOD_APPROVED' && (
+                <div className="pt-4 border-t flex items-center justify-between">
+                  <span className="text-xs text-desc font-semibold">
+                    Reviewed by HoD. Grant Final Institutional Approval or return to Faculty.
+                  </span>
+                  <div className="flex items-center space-x-3">
+                    <button
+                      onClick={() => setShowReturnModal(true)}
+                      className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
+                    >
+                      <RotateCcw className="w-4 h-4 mr-1.5" /> Return to Faculty
+                    </button>
+                    <button
+                      onClick={() => handleDeanApproveSyllabus(selectedSyllabus.id)}
+                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center"
+                    >
+                      <ShieldCheck className="w-4 h-4 mr-1.5" /> Grant Final Dean Approval
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* Stage Initiation Modal */}
+        {/* Dean Return Reason Modal */}
+        {showReturnModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+              <h3 className="text-base font-bold text-slate-900">Return Syllabus for Correction</h3>
+              <p className="text-xs text-desc">Specify the reason for returning this syllabus to the faculty member.</p>
+              <textarea
+                rows={4}
+                required
+                value={deanReturnReason}
+                onChange={(e) => setDeanReturnReason(e.target.value)}
+                placeholder="Enter detailed feedback for correction..."
+                className="w-full p-3 text-xs border rounded-xl"
+              />
+              <div className="flex justify-end space-x-2 pt-2 border-t">
+                <button onClick={() => setShowReturnModal(false)} className="px-3 py-1.5 text-xs text-slate-600">Cancel</button>
+                <button onClick={handleDeanReturnSyllabus} disabled={!deanReturnReason.trim()} className="px-4 py-1.5 text-xs bg-amber-600 text-white font-bold rounded-xl disabled:opacity-50">
+                  Return Syllabus
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Initiate Stage Modal */}
         {showInitiateModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-              <h3 className="text-lg font-bold text-slate-900">Initiate Stage: {targetStage?.name}?</h3>
-              <p className="text-xs text-desc">
-                Starting this stage will send an institutional email alert and dashboard activation notification to all active Heads of Department.
-              </p>
+              <h3 className="text-base font-bold text-slate-900">Initiate Stage: {targetStage?.name}</h3>
+              <p className="text-xs text-desc">{targetStage?.description}</p>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Set Completion Deadline *</label>
-                <input
-                  type="datetime-local"
-                  required
-                  value={initiateDeadline}
-                  onChange={(e) => setInitiateDeadline(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border rounded-lg focus:ring-brand-500"
-                />
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-semibold mb-1">Set Stage Deadline *</label>
+                  <input
+                    type="datetime-local"
+                    value={initiateDeadline}
+                    onChange={(e) => setInitiateDeadline(e.target.value)}
+                    className="w-full p-2 border rounded-xl font-bold"
+                  />
+                </div>
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t">
-                <button onClick={() => setShowInitiateModal(false)} className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg">
-                  Cancel
-                </button>
+              <div className="flex justify-end space-x-2 pt-3 border-t">
+                <button onClick={() => setShowInitiateModal(false)} className="px-3 py-1.5 rounded-xl text-xs text-slate-600">Cancel</button>
                 <button
                   onClick={handleConfirmInitiation}
                   disabled={submittingStage}
-                  className="px-5 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-lg shadow-sm"
+                  className="px-4 py-1.5 rounded-xl bg-brand-600 text-white font-bold text-xs shadow-xs"
                 >
-                  {submittingStage ? 'Initiating...' : 'Confirm & Initiate'}
+                  {submittingStage ? 'Initiating...' : 'Confirm Initiation'}
                 </button>
               </div>
             </div>
