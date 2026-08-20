@@ -56,8 +56,8 @@ export default function DeanDashboard() {
   const [deanReturnReason, setDeanReturnReason] = useState('');
   const [showReturnModal, setShowReturnModal] = useState(false);
 
-  // Approved Syllabi Dual Mode Interactive State (Initially Collapsed = false)
-  const [approvedViewMode, setApprovedViewMode] = useState<'BY_DEPT' | 'BY_SEM'>('BY_DEPT');
+  // Approved Syllabi Dual Mode Interactive State (Initially BY_SEM, Every Accordion Collapsed = false)
+  const [approvedViewMode, setApprovedViewMode] = useState<'BY_DEPT' | 'BY_SEM'>('BY_SEM');
   const [selectedDeptIdForApproved, setSelectedDeptIdForApproved] = useState('ALL');
   const [selectedSemForApproved, setSelectedSemForApproved] = useState('ALL');
   const [expandedAccordions, setExpandedAccordions] = useState<Record<string, boolean>>({});
@@ -608,16 +608,6 @@ export default function DeanDashboard() {
                   {/* Mode Selector Toggle */}
                   <div className="flex items-center bg-purple-50 p-1 rounded-2xl border border-purple-100">
                     <button
-                      onClick={() => setApprovedViewMode('BY_DEPT')}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                        approvedViewMode === 'BY_DEPT'
-                          ? 'bg-brand-600 text-white shadow-xs'
-                          : 'text-slate-600 hover:text-brand-700'
-                      }`}
-                    >
-                      <Building2 className="w-3.5 h-3.5 inline mr-1" /> By Department
-                    </button>
-                    <button
                       onClick={() => setApprovedViewMode('BY_SEM')}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                         approvedViewMode === 'BY_SEM'
@@ -626,6 +616,16 @@ export default function DeanDashboard() {
                       }`}
                     >
                       <Calendar className="w-3.5 h-3.5 inline mr-1" /> By Semester
+                    </button>
+                    <button
+                      onClick={() => setApprovedViewMode('BY_DEPT')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        approvedViewMode === 'BY_DEPT'
+                          ? 'bg-brand-600 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-brand-700'
+                      }`}
+                    >
+                      <Building2 className="w-3.5 h-3.5 inline mr-1" /> By Department
                     </button>
                   </div>
                 </div>

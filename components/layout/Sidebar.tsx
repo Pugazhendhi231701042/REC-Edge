@@ -1,24 +1,23 @@
+'use client';
+
 import React from 'react';
 import {
   LayoutDashboard,
   Building2,
   Users,
-  BookOpen,
   Sliders,
-  Layers,
+  CheckCircle2,
   FileCheck,
   ShieldAlert,
-  Sparkles,
-  CheckCircle2,
-  Eye,
-  UserCheck,
-  Clock,
-  Globe,
+  BookOpen,
   Settings,
+  History,
+  Layers,
+  HelpCircle,
 } from 'lucide-react';
 
 interface SidebarProps {
-  userRole: string;
+  userRole?: string;
   userName?: string;
   userEmail?: string;
   departmentName?: string;
@@ -28,8 +27,12 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
-  userRole,
-  activeTab,
+  userRole = 'FACULTY',
+  userName,
+  userEmail,
+  departmentName,
+  onLogout,
+  activeTab = 'overview',
   onTabChange,
 }) => {
   const getDeanSections = () => [
@@ -40,23 +43,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ],
     },
     {
-      title: 'ACADEMIC MANAGEMENT',
+      title: 'ACADEMIC GOVERNANCE',
       items: [
         { id: 'stages', label: 'Academic Stages', icon: <Layers className="w-4 h-4" /> },
         { id: 'departments', label: 'Departments & Programmes', icon: <Building2 className="w-4 h-4" /> },
-        { id: 'progress', label: 'Department Progress', icon: <FileCheck className="w-4 h-4" /> },
+        { id: 'progress', label: 'Department Progress', icon: <CheckCircle2 className="w-4 h-4" /> },
       ],
     },
     {
-      title: 'SYLLABUS',
+      title: 'REVIEWS & APPROVALS',
       items: [
-        { id: 'approved', label: 'Approved Syllabi', icon: <CheckCircle2 className="w-4 h-4" /> },
-        { id: 'reviews', label: 'Syllabus Reviews', icon: <Eye className="w-4 h-4" /> },
-      ],
-    },
-    {
-      title: 'REQUESTS',
-      items: [
+        { id: 'approved', label: 'Approved Syllabi Directory', icon: <BookOpen className="w-4 h-4" /> },
+        { id: 'reviews', label: 'Pending Dean Reviews', icon: <FileCheck className="w-4 h-4" /> },
         { id: 'extensions', label: 'Extension Requests', icon: <ShieldAlert className="w-4 h-4" /> },
       ],
     },
@@ -66,52 +64,48 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       title: 'OVERVIEW',
       items: [
-        { id: 'overview', label: 'System Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
+        { id: 'overview', label: 'Control Center Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
       ],
     },
     {
       title: 'ORGANIZATION',
       items: [
         { id: 'departments', label: 'Departments & Programmes', icon: <Building2 className="w-4 h-4" /> },
-        { id: 'curriculum', label: 'Curriculum', icon: <BookOpen className="w-4 h-4" /> },
-        { id: 'subjects', label: 'Subjects Master', icon: <Building2 className="w-4 h-4" /> },
       ],
     },
     {
       title: 'USERS & ACCESS',
       items: [
         { id: 'users', label: 'User Directory', icon: <Users className="w-4 h-4" /> },
-        { id: 'assignments', label: 'Faculty Assignments', icon: <UserCheck className="w-4 h-4" /> },
       ],
     },
     {
       title: 'ACADEMIC CONFIGURATION',
       items: [
         { id: 'regulations', label: 'Regulations & Types', icon: <Sliders className="w-4 h-4" /> },
-        { id: 'creditconfig', label: 'Credit Weights', icon: <Sparkles className="w-4 h-4" /> },
-        { id: 'sdgs', label: 'UN 17 SDGs Master', icon: <Globe className="w-4 h-4" /> },
-        { id: 'popso', label: 'PO / PSO Configuration', icon: <BookOpen className="w-4 h-4" /> },
+        { id: 'creditconfig', label: 'Credit Weights Config', icon: <BookOpen className="w-4 h-4" /> },
+        { id: 'popso', label: 'PO / PSO Structure', icon: <BookOpen className="w-4 h-4" /> },
+        { id: 'sdgs', label: 'Global SDGs Master', icon: <BookOpen className="w-4 h-4" /> },
       ],
     },
     {
       title: 'SYLLABUS MONITORING',
       items: [
-        { id: 'progress', label: 'Syllabus Progress', icon: <Clock className="w-4 h-4" /> },
-        { id: 'review', label: 'Submitted / Review', icon: <FileCheck className="w-4 h-4" /> },
-        { id: 'approved', label: 'Approved Syllabi', icon: <CheckCircle2 className="w-4 h-4" /> },
+        { id: 'workflow', label: 'System Syllabus Tracker', icon: <CheckCircle2 className="w-4 h-4" /> },
+        { id: 'approved', label: 'Approved Syllabi Archive', icon: <BookOpen className="w-4 h-4" /> },
       ],
     },
     {
       title: 'REQUESTS',
       items: [
-        { id: 'extension', label: 'Extension Requests', icon: <ShieldAlert className="w-4 h-4" /> },
+        { id: 'extensions', label: 'Extension Requests Log', icon: <ShieldAlert className="w-4 h-4" /> },
       ],
     },
     {
       title: 'SECURITY & SYSTEM',
       items: [
-        { id: 'audit', label: 'Audit Logs', icon: <ShieldAlert className="w-4 h-4" /> },
-        { id: 'settings', label: 'System Settings', icon: <Settings className="w-4 h-4" /> },
+        { id: 'auditlogs', label: 'Audit Trail Logs', icon: <History className="w-4 h-4" /> },
+        { id: 'settings', label: 'System Configuration', icon: <Settings className="w-4 h-4" /> },
       ],
     },
   ];
@@ -124,18 +118,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ],
     },
     {
-      title: 'CURRICULUM',
+      title: 'CURRICULUM & FACULTY',
       items: [
-        { id: 'curriculum', label: 'Curriculum', icon: <BookOpen className="w-4 h-4" /> },
-        { id: 'subjects', label: 'Subjects Master', icon: <Building2 className="w-4 h-4" /> },
-        { id: 'assignments', label: 'Faculty Assignments', icon: <UserCheck className="w-4 h-4" /> },
+        { id: 'curriculum', label: 'Department Curriculum', icon: <Building2 className="w-4 h-4" /> },
+        { id: 'assignments', label: 'Faculty Assignments', icon: <Users className="w-4 h-4" /> },
       ],
     },
     {
-      title: 'SYLLABUS',
+      title: 'REVIEW & APPROVALS',
       items: [
-        { id: 'progress', label: 'Syllabus Progress', icon: <Clock className="w-4 h-4" /> },
-        { id: 'review', label: 'Submitted / Review', icon: <FileCheck className="w-4 h-4" /> },
+        { id: 'review', label: 'Submissions Review', icon: <FileCheck className="w-4 h-4" /> },
         { id: 'approved', label: 'Approved Syllabi', icon: <CheckCircle2 className="w-4 h-4" /> },
       ],
     },
@@ -190,6 +182,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Navigation Links */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
         {sectionGroups(sections, activeTab, onTabChange)}
+      </div>
+
+      {/* Sidebar Bottom Footer (AY 2026-2027) */}
+      <div className="p-4 border-t border-purple-100 bg-purple-50/40 text-center">
+        <p className="text-[11px] font-bold text-slate-800">AY 2026–2027</p>
+        <p className="text-[10px] text-desc font-medium">Academic Governance Portal</p>
       </div>
     </aside>
   );

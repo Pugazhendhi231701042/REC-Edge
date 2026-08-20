@@ -98,10 +98,12 @@ async function main() {
   // 5. Subject Categories
   const categoriesData = [
     { code: 'PC', name: 'Professional Core', description: 'Core discipline subjects' },
-    { code: 'PE', name: 'Professional Elective', description: 'Elective discipline subjects' },
-    { code: 'MC', name: 'Mandatory Course', description: 'Non-credit mandatory courses' },
-    { code: 'OE', name: 'Open Elective', description: 'Interdisciplinary courses' },
-    { code: 'EEC', name: 'Employability Enhancement Courses', description: 'Skill and project courses' },
+    { code: 'PE', name: 'Professional Elective', description: 'Specialized elective subjects' },
+    { code: 'OE', name: 'Open Elective', description: 'Interdisciplinary elective subjects' },
+    { code: 'HS', name: 'Humanities & Social Sciences', description: 'Humanities and management' },
+    { code: 'BS', name: 'Basic Sciences', description: 'Mathematics, Physics, Chemistry' },
+    { code: 'ES', name: 'Engineering Sciences', description: 'General engineering foundation' },
+    { code: 'EEC', name: 'Employability Enhancement', description: 'Projects, internships, seminars' },
   ];
 
   const categoriesMap: Record<string, string> = {};
@@ -109,87 +111,82 @@ async function main() {
     const created = await prisma.subjectCategory.upsert({
       where: { code: cat.code },
       update: { name: cat.name, description: cat.description },
-      create: {
-        code: cat.code,
-        name: cat.name,
-        description: cat.description,
-        active: true,
-      },
+      create: { code: cat.code, name: cat.name, description: cat.description, active: true },
     });
     categoriesMap[cat.code] = created.id;
   }
 
-  // 6. Users: MasterAdmin & SuperAdmin (Dean) — Unmapped to any specific department (departmentId = null)
+  // 6. System Core Administrative Users: MasterAdmin & Dean
   const masterAdmin = await prisma.user.upsert({
     where: { email: '231701042@rajalakshmi.edu.in' },
-    update: { password: defaultPasswordHash, userCode: 'ADM01', departmentId: null, role: 'MASTERADMIN', name: 'System MasterAdmin' },
-    create: {
+    update: {
+      role: 'MASTERADMIN',
       userCode: 'ADM01',
+      name: 'System MasterAdmin',
+      active: true,
+    },
+    create: {
       email: '231701042@rajalakshmi.edu.in',
+      userCode: 'ADM01',
       password: defaultPasswordHash,
       name: 'System MasterAdmin',
       role: 'MASTERADMIN',
-      departmentId: null,
       active: true,
     },
   });
 
   const dean = await prisma.user.upsert({
     where: { email: 'dean@rajalakshmi.edu.in' },
-    update: { password: defaultPasswordHash, userCode: 'DEAN01', departmentId: null },
-    create: {
+    update: {
+      role: 'SUPERADMIN',
       userCode: 'DEAN01',
+      name: 'Dr. Dean Academic Affairs',
+      active: true,
+    },
+    create: {
       email: 'dean@rajalakshmi.edu.in',
+      userCode: 'DEAN01',
       password: defaultPasswordHash,
       name: 'Dr. Dean Academic Affairs',
       role: 'SUPERADMIN',
-      departmentId: null,
       active: true,
     },
   });
 
-  // 7. Departments & HoDs & Faculty
-  const depts = [
+  // 7. Departments and HoDs
+  const deptsData = [
     {
-      type: 'B.E.',
-      name: 'Computer Science and Engineering',
       short: 'CSE',
-      code: 'CS',
+      code: '101',
+      type: 'UG',
+      name: 'Computer Science and Engineering',
       semesters: 8,
-      hodEmail: 'hod.cse@rajalakshmi.edu.in',
-      hodName: 'Dr. HoD CSE',
-      hodCode: 'CS101',
+      hod: { email: 'hod.cse@rajalakshmi.edu.in', name: 'Dr. HoD CSE', code: 'CS101' },
       faculty: [
-        { email: 'faculty1.cse@rajalakshmi.edu.in', name: 'Prof. Alan Turing', code: 'CS102' },
-        { email: 'faculty2.cse@rajalakshmi.edu.in', name: 'Prof. Grace Hopper', code: 'CS103' },
-        { email: 'faculty3.cse@rajalakshmi.edu.in', name: 'Prof. Donald Knuth', code: 'CS104' },
+        { email: 'alan.turing@rajalakshmi.edu.in', name: 'Dr. Alan Turing', code: 'CSF01' },
+        { email: 'grace.hopper@rajalakshmi.edu.in', name: 'Dr. Grace Hopper', code: 'CSF02' },
       ],
     },
     {
-      type: 'B.E.',
-      name: 'Computer Science and Design',
-      short: 'CSD',
-      code: 'CD',
+      short: 'ECE',
+      code: '102',
+      type: 'UG',
+      name: 'Electronics and Communication Engineering',
       semesters: 8,
-      hodEmail: 'hod.csd@rajalakshmi.edu.in',
-      hodName: 'Dr. HoD CSD',
-      hodCode: 'CD101',
+      hod: { email: 'hod.ece@rajalakshmi.edu.in', name: 'Dr. HoD ECE', code: 'EC101' },
       faculty: [
-        { email: 'faculty1.csd@rajalakshmi.edu.in', name: 'Prof. Don Norman', code: 'CD102' },
-        { email: 'faculty2.csd@rajalakshmi.edu.in', name: 'Prof. John Maeda', code: 'CD103' },
+        { email: 'claude.shannon@rajalakshmi.edu.in', name: 'Dr. Claude Shannon', code: 'ECF01' },
       ],
     },
     {
-      type: 'B.Tech.',
-      name: 'Computer Science and Business Systems',
-      short: 'CSBS',
-      code: 'CB',
+      short: 'MECH',
+      code: '103',
+      type: 'UG',
+      name: 'Mechanical Engineering',
       semesters: 8,
-      hodEmail: 'hod.csbs@rajalakshmi.edu.in',
-      hodName: 'Dr. HoD CSBS',
-      hodCode: 'CB101',
+      hod: { email: 'hod.mech@rajalakshmi.edu.in', name: 'Dr. HoD MECH', code: 'ME101' },
       faculty: [
-        { email: 'faculty1.csbs@rajalakshmi.edu.in', name: 'Prof. Michael Porter', code: 'CB102' },
+        { email: 'nikola.tesla@rajalakshmi.edu.in', name: 'Dr. Nikola Tesla', code: 'MEF01' },
       ],
     },
   ];
@@ -197,39 +194,52 @@ async function main() {
   const createdDepts: Record<string, any> = {};
   const facultyUsers: Record<string, any[]> = {};
 
-  for (const d of depts) {
+  for (const d of deptsData) {
     const hodUser = await prisma.user.upsert({
-      where: { email: d.hodEmail },
-      update: { password: defaultPasswordHash, userCode: d.hodCode },
+      where: { email: d.hod.email },
+      update: {
+        role: 'HOD',
+        userCode: d.hod.code,
+        name: d.hod.name,
+      },
       create: {
-        userCode: d.hodCode,
-        email: d.hodEmail,
+        email: d.hod.email,
+        userCode: d.hod.code,
         password: defaultPasswordHash,
-        name: d.hodName,
+        name: d.hod.name,
         role: 'HOD',
         active: true,
       },
     });
 
-    const dept = await prisma.department.upsert({
-      where: { departmentCode: d.code },
-      update: {
-        programmeType: d.type,
-        programmeName: d.name,
-        shortName: d.short,
-        semesters: d.semesters,
-        hodId: hodUser.id,
-      },
-      create: {
-        programmeType: d.type,
-        programmeName: d.name,
-        shortName: d.short,
-        departmentCode: d.code,
-        semesters: d.semesters,
-        hodId: hodUser.id,
-        active: true,
-      },
+    let dept = await prisma.department.findFirst({
+      where: { OR: [{ departmentCode: d.code }, { hodId: hodUser.id }] },
     });
+    if (dept) {
+      dept = await prisma.department.update({
+        where: { id: dept.id },
+        data: {
+          programmeType: d.type,
+          programmeName: d.name,
+          shortName: d.short,
+          departmentCode: d.code,
+          semesters: d.semesters,
+          hodId: hodUser.id,
+        },
+      });
+    } else {
+      dept = await prisma.department.create({
+        data: {
+          programmeType: d.type,
+          programmeName: d.name,
+          shortName: d.short,
+          departmentCode: d.code,
+          semesters: d.semesters,
+          hodId: hodUser.id,
+          active: true,
+        },
+      });
+    }
 
     await prisma.user.update({
       where: { id: hodUser.id },
@@ -242,10 +252,15 @@ async function main() {
     for (const f of d.faculty) {
       const fac = await prisma.user.upsert({
         where: { email: f.email },
-        update: { password: defaultPasswordHash, departmentId: dept.id, userCode: f.code },
-        create: {
+        update: {
+          role: 'FACULTY',
           userCode: f.code,
+          name: f.name,
+          departmentId: dept.id,
+        },
+        create: {
           email: f.email,
+          userCode: f.code,
           password: defaultPasswordHash,
           name: f.name,
           role: 'FACULTY',
@@ -269,7 +284,8 @@ async function main() {
     });
   }
 
-  // 8. Academic Stage: Curriculum & Syllabus Formation
+  // 8. Academic Stages
+  // Stage 1: Curriculum & Syllabus Formation
   await prisma.academicStage.upsert({
     where: { id: 'stage-curriculum-formation' },
     update: {
@@ -288,6 +304,42 @@ async function main() {
       deadline: new Date('2026-09-30T23:59:59Z'),
       initiatedById: dean.id,
       initiatedAt: new Date('2026-08-15T09:00:00Z'),
+    },
+  });
+
+  // Stage 2: DAC Meeting (Starts as INACTIVE / Not Scheduled)
+  await prisma.academicStage.upsert({
+    where: { id: 'stage-dac-meeting' },
+    update: {
+      status: 'INACTIVE',
+      deadline: null,
+      venue: null,
+    },
+    create: {
+      id: 'stage-dac-meeting',
+      name: 'DAC Meeting',
+      description: 'Department Academic Advisory Committee review and recommendation meeting.',
+      status: 'INACTIVE',
+      deadline: null,
+      venue: null,
+    },
+  });
+
+  // Stage 3: BoS Meeting (Starts as INACTIVE / Not Scheduled)
+  await prisma.academicStage.upsert({
+    where: { id: 'stage-bos-meeting' },
+    update: {
+      status: 'INACTIVE',
+      deadline: null,
+      venue: null,
+    },
+    create: {
+      id: 'stage-bos-meeting',
+      name: 'BoS Meeting',
+      description: 'Board of Studies formal approval of curriculum, course contents, and scheme of evaluation.',
+      status: 'INACTIVE',
+      deadline: null,
+      venue: null,
     },
   });
 

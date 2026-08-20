@@ -34,10 +34,14 @@ import {
   RotateCcw,
   Settings,
   Lock,
+  Calendar,
+  MapPin,
+  Layers,
 } from 'lucide-react';
 
 export default function MasterAdminDashboard() {
   const [activeTab, setActiveTab] = useState<string>('overview');
+  const [stages, setStages] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [regulations, setRegulations] = useState<any[]>([]);
@@ -117,7 +121,7 @@ export default function MasterAdminDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [resDepts, resUsers, resRegs, resLogs, resCredit, resSdgs, resWorkflow, resSettings] = await Promise.all([
+      const [resDepts, resUsers, resRegs, resLogs, resCredit, resSdgs, resWorkflow, resSettings, resStages] = await Promise.all([
         fetch('/api/master-admin/departments'),
         fetch('/api/master-admin/users'),
         fetch('/api/master-admin/regulations'),
@@ -126,7 +130,13 @@ export default function MasterAdminDashboard() {
         fetch('/api/master-admin/sdgs'),
         fetch('/api/master-admin/workflow'),
         fetch('/api/master-admin/settings'),
+        fetch('/api/dean/stage'),
       ]);
+
+      if (resStages.ok) {
+        const data = await resStages.json();
+        setStages(data.stages || []);
+      }
 
       if (resDepts.ok) {
         const data = await resDepts.json();
@@ -425,6 +435,91 @@ export default function MasterAdminDashboard() {
     return matchesDept && matchesSem && matchesStatus && matchesSearch;
   });
 
+  const renderVerticalStageProgress = () => {
+    return (
+      <div className="relative pl-6 space-y-6 before:absolute before:left-3 before:top-3 before:bottom-3 before:w-0.5 before:bg-purple-200">
+        {stages.map((stg, idx) => {
+          const isCompleted = stg.status === 'COMPLETED';
+          const isActive = stg.status === 'ACTIVE';
+          const isInactive = stg.status === 'INACTIVE';
+          const isMeeting = stg.name.includes('DAC') || stg.name.includes('BoS');
+
+          return (
+            <div key={stg.id} className="relative flex items-start space-x-4">
+              <div
+                className={`absolute -left-6 top-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all z-10 ${
+                  isCompleted
+                    ? 'bg-emerald-600 text-white ring-4 ring-emerald-100 shadow-sm'
+                    : isActive
+                    ? 'bg-brand-600 text-white ring-4 ring-purple-200 shadow-md animate-pulse'
+                    : 'bg-white border-2 border-slate-300 text-slate-400'
+                }`}
+              >
+                {isCompleted ? (
+                  <Check className="w-3.5 h-3.5 stroke-[3]" />
+                ) : isActive ? (
+                  <div className="w-2 h-2 rounded-full bg-white" />
+                ) : (
+                  <span className="text-[10px]">{idx + 1}</span>
+                )}
+              </div>
+
+              <div className={`flex-1 p-4 rounded-2xl border transition-all ${
+                isActive
+                  ? 'bg-purple-50/80 border-purple-300 shadow-sm ring-1 ring-purple-200'
+                  : isCompleted
+                  ? 'bg-emerald-50/40 border-emerald-200'
+                  : 'bg-slate-50/50 border-slate-200 opacity-80'
+              }`}>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <h4 className="text-sm font-extrabold text-slate-900">{stg.name}</h4>
+                      {isMeeting && isInactive ? (
+                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                          Not Scheduled
+                        </span>
+                      ) : (
+                        <StatusBadge status={stg.status} />
+                      )}
+                    </div>
+                    {stg.description && <p className="text-xs text-desc mt-0.5">{stg.description}</p>}
+                  </div>
+                </div>
+
+                <div className="mt-3 pt-2.5 border-t border-purple-100/60 flex flex-wrap items-center justify-between text-xs text-slate-700 gap-2">
+                  {isMeeting ? (
+                    <>
+                      <div className="flex items-center space-x-1.5 font-medium">
+                        <Calendar className="w-4 h-4 text-brand-600 shrink-0" />
+                        <span>
+                          Scheduled on: <strong>{stg.deadline ? formatIST(stg.deadline) : 'Not Scheduled'}</strong>
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-1.5 font-medium">
+                        <MapPin className="w-4 h-4 text-purple-600 shrink-0" />
+                        <span>
+                          Venue: <strong>{stg.venue || 'Not Specified'}</strong>
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center space-x-1.5 font-medium">
+                      <Clock className="w-4 h-4 text-brand-600 shrink-0" />
+                      <span>
+                        Deadline: <strong>{stg.deadline ? formatIST(stg.deadline) : 'Not Initiated'}</strong>
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <AppShell activeTab={activeTab} onTabChange={(tab) => {
       setSelectedSyllabus(null);
@@ -573,6 +668,14 @@ export default function MasterAdminDashboard() {
                   </button>
                 </div>
               </div>
+            </div>
+
+            {/* ACADEMIC WORKFLOW STAGE PROGRESS */}
+            <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
+              <h3 className="text-base font-bold text-slate-900 flex items-center">
+                <Layers className="w-4 h-4 mr-2 text-brand-600" /> Academic Workflow Stage Progress
+              </h3>
+              {renderVerticalStageProgress()}
             </div>
 
             {/* SYSTEM-WIDE ACADEMIC PROGRESS & RECENT ACTIVITY */}
