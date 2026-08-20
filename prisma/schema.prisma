@@ -84,6 +84,7 @@ model AcademicStage {
   description   String?
   startDate     DateTime?
   deadline      DateTime?
+  venue         String?
   status        String    @default("INACTIVE") // INACTIVE, ACTIVE, COMPLETED, OVERDUE
   initiatedById String?
   initiatedAt   DateTime?
