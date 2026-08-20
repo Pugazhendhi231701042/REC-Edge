@@ -172,10 +172,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside className="w-64 bg-white border-r border-purple-100 flex flex-col h-screen sticky top-0 z-30 select-none">
       {/* Branding Header */}
-      <div className="p-6 border-b border-purple-100 flex items-center space-x-3">
-        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand-600 to-purple-800 flex items-center justify-center text-white font-black text-lg shadow-md">
-          R
-        </div>
+      <div className="p-5 border-b border-purple-100 flex items-center space-x-3">
+        <img
+          src="/assets/logo.svg"
+          onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+          alt="REC Logo"
+          className="h-9 w-auto object-contain shrink-0"
+        />
         <div>
           <h2 className="font-extrabold text-sm text-slate-900 tracking-tight leading-none">
             REC <span className="text-brand-600">EDGE</span>

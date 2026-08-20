@@ -29,6 +29,7 @@ import {
   ChevronDown,
   ChevronRight,
   MapPin,
+  Lock,
 } from 'lucide-react';
 
 export default function DeanDashboard() {
@@ -53,11 +54,6 @@ export default function DeanDashboard() {
   const [selectedSyllabus, setSelectedSyllabus] = useState<any>(null);
   const [deanReturnReason, setDeanReturnReason] = useState('');
   const [showReturnModal, setShowReturnModal] = useState(false);
-
-  // Search Query & Filters
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterDept, setFilterDept] = useState('ALL');
-  const [filterSem, setFilterSem] = useState('ALL');
 
   // Approved Syllabi Dual Mode Interactive State
   const [approvedViewMode, setApprovedViewMode] = useState<'BY_DEPT' | 'BY_SEM'>('BY_DEPT');
@@ -97,7 +93,17 @@ export default function DeanDashboard() {
     }
   };
 
+  const curriculumStage = stages.find((s) => s.name.includes('Curriculum') || s.name.includes('Syllabus'));
+  const isCurriculumCompleted = curriculumStage?.status === 'COMPLETED';
+
   const handleOpenInitiate = (stg: any) => {
+    const isMeetingStage = stg.name.includes('DAC') || stg.name.includes('BoS');
+
+    if (isMeetingStage && !isCurriculumCompleted) {
+      alert('DAC Meeting & BoS Meeting can only be started after Curriculum & Syllabus Formation is completed.');
+      return;
+    }
+
     setTargetStage(stg);
     const d = new Date();
     d.setDate(d.getDate() + 30);
@@ -195,17 +201,6 @@ export default function DeanDashboard() {
   const pendingDeanReviewsList = overview?.pendingDeanReviews || [];
   const approvedSyllabiList = overview?.approvedSyllabi || [];
 
-  const listToFilter = activeTab === 'reviews' ? pendingDeanReviewsList : approvedSyllabiList;
-
-  const filteredSyllabi = listToFilter.filter((subj: any) => {
-    const matchesSearch =
-      subj.subjectCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      subj.subjectName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesDept = filterDept === 'ALL' || subj.departmentId === filterDept;
-    const matchesSem = filterSem === 'ALL' || subj.semester === parseInt(filterSem);
-    return matchesSearch && matchesDept && matchesSem;
-  });
-
   // Render Modern Stylish Vertical Progress Bar Component
   const renderVerticalStageProgress = () => {
     return (
@@ -215,6 +210,7 @@ export default function DeanDashboard() {
           const isActive = stg.status === 'ACTIVE';
           const isInactive = stg.status === 'INACTIVE';
           const isMeeting = stg.name.includes('DAC') || stg.name.includes('BoS');
+          const isMeetingLocked = isMeeting && !isCurriculumCompleted;
 
           return (
             <div key={stg.id} className="relative flex items-start space-x-4">
@@ -255,12 +251,18 @@ export default function DeanDashboard() {
                   </div>
 
                   {isInactive && (
-                    <button
-                      onClick={() => handleOpenInitiate(stg)}
-                      className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs shrink-0 self-start md:self-auto"
-                    >
-                      {isMeeting ? 'Schedule Meeting →' : 'Initiate Stage →'}
-                    </button>
+                    isMeetingLocked ? (
+                      <span className="px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[11px] rounded-xl shrink-0 flex items-center">
+                        <Lock className="w-3 h-3 mr-1" /> Complete Curriculum First
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => handleOpenInitiate(stg)}
+                        className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs shrink-0 self-start md:self-auto"
+                      >
+                        {isMeeting ? 'Schedule Meeting →' : 'Initiate Stage →'}
+                      </button>
+                    )
                   )}
                 </div>
 
@@ -492,7 +494,7 @@ export default function DeanDashboard() {
               </div>
             )}
 
-            {/* TAB 5: SYLLABUS REVIEWS (PENDING DEAN APPROVAL) */}
+            {/* TAB 5: SYLLABUS REVIEWS (PENDING DEAN APPROVAL - FILTERS REMOVED AS REQUESTED) */}
             {activeTab === 'reviews' && (
               <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
                 <div>
@@ -500,61 +502,38 @@ export default function DeanDashboard() {
                   <p className="text-xs text-desc">Syllabi approved by HoD requiring final institutional approval from Dean.</p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 rounded-2xl bg-purple-50/50 border border-purple-100">
-                  <div className="relative">
-                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                    <input
-                      type="text"
-                      placeholder="Search subject code or name..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-9 pr-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:ring-brand-500"
-                    />
+                {pendingDeanReviewsList.length === 0 ? (
+                  <div className="p-8 text-center bg-purple-50/30 rounded-2xl border border-purple-100 space-y-2">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+                    <p className="text-sm font-bold text-slate-800">No Pending Reviews</p>
+                    <p className="text-xs text-desc">All submitted syllabi have been reviewed by Dean.</p>
                   </div>
-
-                  <div>
-                    <select value={filterDept} onChange={(e) => setFilterDept(e.target.value)} className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:ring-brand-500 font-medium">
-                      <option value="ALL">All Departments</option>
-                      {overview?.deptSummaries?.map((d: any) => (
-                        <option key={d.id} value={d.id}>{d.shortName} — {d.programmeName}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <select value={filterSem} onChange={(e) => setFilterSem(e.target.value)} className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:ring-brand-500 font-medium">
-                      <option value="ALL">All Semesters</option>
-                      {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
-                        <option key={s} value={s}>Semester {s}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {filteredSyllabi.map((s: any) => (
-                    <div key={s.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 flex items-center justify-between">
-                      <div>
-                        <div className="flex items-center space-x-2">
-                          <span className="font-mono text-xs font-bold text-brand-700">{s.subjectCode}</span>
-                          <StatusBadge status={s.syllabusStatus} />
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {pendingDeanReviewsList.map((s: any) => (
+                      <div key={s.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <span className="font-mono text-xs font-bold text-brand-700">{s.subjectCode}</span>
+                            <StatusBadge status={s.syllabusStatus} />
+                          </div>
+                          <h4 className="text-sm font-bold text-slate-900 mt-1">{s.subjectName}</h4>
+                          <p className="text-xs text-desc">Dept: {s.department?.shortName} | Faculty: {s.assignedFaculty?.name}</p>
                         </div>
-                        <h4 className="text-sm font-bold text-slate-900 mt-1">{s.subjectName}</h4>
-                        <p className="text-xs text-desc">Dept: {s.department?.shortName} | Faculty: {s.assignedFaculty?.name}</p>
+                        <button
+                          onClick={() => setSelectedSyllabus(s)}
+                          className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
+                        >
+                          <Eye className="w-3.5 h-3.5 mr-1" /> Inspect & Review
+                        </button>
                       </div>
-                      <button
-                        onClick={() => setSelectedSyllabus(s)}
-                        className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
-                      >
-                        <Eye className="w-3.5 h-3.5 mr-1" /> Inspect & Review
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* TAB 6: APPROVED SYLLABI DIRECTORY (DUAL INTERACTIVE DROPDOWN / ACCORDION FILTERING) */}
+            {/* TAB 6: APPROVED SYLLABI DIRECTORY (DUAL INTERACTIVE DROPDOWN / ACCORDION FILTERING - SORTED SEMESTER WISE) */}
             {activeTab === 'approved' && (
               <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
@@ -608,10 +587,12 @@ export default function DeanDashboard() {
                     {/* 8 Semester Dropdown Accordions */}
                     <div className="space-y-3">
                       {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => {
-                        const subjectsInSem = approvedSyllabiList.filter((s: any) => {
-                          const matchesDept = selectedDeptIdForApproved === 'ALL' || s.departmentId === selectedDeptIdForApproved;
-                          return matchesDept && s.semester === sem;
-                        });
+                        const subjectsInSem = approvedSyllabiList
+                          .filter((s: any) => {
+                            const matchesDept = selectedDeptIdForApproved === 'ALL' || s.departmentId === selectedDeptIdForApproved;
+                            return matchesDept && s.semester === sem;
+                          })
+                          .sort((a: any, b: any) => a.subjectCode.localeCompare(b.subjectCode));
 
                         const key = `sem-${sem}`;
                         const isExpanded = expandedAccordions[key] ?? true;
@@ -671,11 +652,11 @@ export default function DeanDashboard() {
                   </div>
                 )}
 
-                {/* MODE 2: BY SEMESTER */}
+                {/* MODE 2: BY SEMESTER (CLICKING DEPARTMENT SHOWS SUBJECTS SORTED SEMESTER WISE) */}
                 {approvedViewMode === 'BY_SEM' && (
                   <div className="space-y-5">
                     <div className="max-w-md">
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Select Semester</label>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Select Semester Filter</label>
                       <select
                         value={selectedSemForApproved}
                         onChange={(e) => setSelectedSemForApproved(e.target.value)}
@@ -691,10 +672,15 @@ export default function DeanDashboard() {
                     {/* Department Dropdown Accordions */}
                     <div className="space-y-3">
                       {overview?.deptSummaries?.map((dept: any) => {
-                        const subjectsInDept = approvedSyllabiList.filter((s: any) => {
-                          const matchesSem = selectedSemForApproved === 'ALL' || s.semester === parseInt(selectedSemForApproved);
-                          return matchesSem && s.departmentId === dept.id;
-                        });
+                        const subjectsInDept = approvedSyllabiList
+                          .filter((s: any) => {
+                            const matchesSem = selectedSemForApproved === 'ALL' || s.semester === parseInt(selectedSemForApproved);
+                            return matchesSem && s.departmentId === dept.id;
+                          })
+                          .sort((a: any, b: any) => {
+                            if (a.semester !== b.semester) return a.semester - b.semester;
+                            return a.subjectCode.localeCompare(b.subjectCode);
+                          });
 
                         const key = `dept-${dept.id}`;
                         const isExpanded = expandedAccordions[key] ?? true;
@@ -730,9 +716,11 @@ export default function DeanDashboard() {
                                         <div>
                                           <div className="flex items-center space-x-2">
                                             <span className="font-mono text-xs font-bold text-brand-700">{s.subjectCode}</span>
-                                            <span className="text-[10px] text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded">Sem {s.semester}</span>
+                                            <span className="text-[10px] text-purple-800 font-bold bg-purple-100 px-2 py-0.5 rounded border border-purple-200">
+                                              Sem {s.semester}
+                                            </span>
                                           </div>
-                                          <h5 className="text-xs font-bold text-slate-900 mt-0.5">{s.subjectName}</h5>
+                                          <h5 className="text-xs font-bold text-slate-900 mt-1">{s.subjectName}</h5>
                                           <p className="text-[10px] text-desc">Faculty: {s.assignedFaculty?.name}</p>
                                         </div>
                                         <button

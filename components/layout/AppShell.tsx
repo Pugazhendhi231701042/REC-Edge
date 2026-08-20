@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { formatIST } from '@/lib/time';
@@ -17,6 +17,7 @@ import {
   Mail,
   Award,
   Sparkles,
+  Check,
 } from 'lucide-react';
 
 interface AppShellProps {
@@ -32,6 +33,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTab, onTabCh
 
   // Profile Dropdown State
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   // Profile View Modal State
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -42,13 +44,30 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTab, onTabCh
   const [newPassword, setNewPassword] = useState('');
   const [passwordMsg, setPasswordMsg] = useState({ error: '', success: '' });
 
-  // Notifications
+  // Notifications State & Ref
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchSession();
+  }, []);
+
+  // Click Outside Listener for Notif & Profile Dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setShowNotifDropdown(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setShowProfileDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   const fetchSession = async () => {
@@ -111,13 +130,46 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTab, onTabCh
   };
 
   const markAllNotificationsRead = async () => {
-    await fetch('/api/notifications', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ markAll: true }),
-    });
-    setUnreadCount(0);
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    try {
+      await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markAll: true }),
+      });
+      setUnreadCount(0);
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    } catch (err) {
+      console.error('Failed to mark notifications as read');
+    }
+  };
+
+  const handleNotificationClick = async (notif: any) => {
+    try {
+      if (!notif.read) {
+        await fetch('/api/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notificationId: notif.id }),
+        });
+        setNotifications((prev) => prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n)));
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+
+      setShowNotifDropdown(false);
+
+      // If notification is for Extension Request, navigate to extension page
+      const isExtension =
+        notif.type === 'EXTENSION_REQUESTED' ||
+        notif.type === 'STAGE_EXTENSION' ||
+        notif.title?.toLowerCase().includes('extension') ||
+        notif.message?.toLowerCase().includes('extension');
+
+      if (isExtension && onTabChange) {
+        onTabChange('extensions');
+      }
+    } catch (err) {
+      console.error('Notification click error', err);
+    }
   };
 
   if (loading) {
@@ -149,6 +201,12 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTab, onTabCh
         {/* Top Header Bar */}
         <header className="h-16 bg-white/90 backdrop-blur-md border-b border-purple-100 px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
           <div className="flex items-center space-x-3">
+            <img
+              src="/assets/logo.svg"
+              onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+              alt="REC Logo"
+              className="h-7 w-auto object-contain shrink-0"
+            />
             <h2 className="text-sm font-bold text-slate-900 tracking-tight">
               Regulation 26 — Curriculum & Syllabus Management System
             </h2>
@@ -157,12 +215,13 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTab, onTabCh
             </span>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
             {/* Notification Bell */}
-            <div className="relative">
+            <div className="relative" ref={notifRef}>
               <button
                 onClick={() => setShowNotifDropdown(!showNotifDropdown)}
                 className="p-2 text-slate-600 hover:bg-purple-50 rounded-xl relative transition-colors"
+                title="Notifications"
               >
                 <Bell className="w-5 h-5 text-slate-700" />
                 {unreadCount > 0 && (
@@ -177,8 +236,8 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTab, onTabCh
                   <div className="flex items-center justify-between pb-2 border-b">
                     <h4 className="text-xs font-bold text-slate-900">Notifications</h4>
                     {unreadCount > 0 && (
-                      <button onClick={markAllNotificationsRead} className="text-[10px] font-semibold text-brand-600 hover:underline">
-                        Mark all read
+                      <button onClick={markAllNotificationsRead} className="text-[10px] font-semibold text-brand-600 hover:underline flex items-center">
+                        <Check className="w-3 h-3 mr-1" /> Mark all read
                       </button>
                     )}
                   </div>
@@ -187,7 +246,13 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTab, onTabCh
                       <p className="text-xs text-desc text-center py-4">No notifications.</p>
                     ) : (
                       notifications.map((n) => (
-                        <div key={n.id} className={`p-2.5 rounded-xl text-xs border ${n.read ? 'bg-slate-50 border-slate-100' : 'bg-purple-50/60 border-purple-100'}`}>
+                        <div
+                          key={n.id}
+                          onClick={() => handleNotificationClick(n)}
+                          className={`p-2.5 rounded-xl text-xs border cursor-pointer transition-all ${
+                            n.read ? 'bg-slate-50 border-slate-100 opacity-80' : 'bg-purple-50/70 border-purple-200 hover:border-purple-300'
+                          }`}
+                        >
                           <p className="font-bold text-slate-800">{n.title}</p>
                           <p className="text-desc mt-0.5">{n.message}</p>
                           <p className="text-[9px] text-slate-400 mt-1">{formatIST(n.createdAt)}</p>
@@ -199,20 +264,14 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTab, onTabCh
               )}
             </div>
 
-            {/* Profile Avatar Dropdown Menu */}
-            <div className="relative">
+            {/* Profile Avatar Trigger (Profile Icon Only) */}
+            <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                className="flex items-center space-x-2 p-1.5 rounded-2xl hover:bg-purple-50 border border-slate-200 hover:border-purple-300 transition-all"
+                className="w-9 h-9 rounded-2xl bg-brand-600 hover:bg-brand-700 text-white font-black text-xs flex items-center justify-center shadow-md transition-all ring-2 ring-purple-100 hover:ring-purple-300"
+                title={`${user?.name || 'Profile'} (${user?.userCode || ''})`}
               >
-                <div className="w-8 h-8 rounded-xl bg-brand-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
-                  {user?.name ? user.name.charAt(0) : 'U'}
-                </div>
-                <div className="hidden md:block text-left pr-1">
-                  <p className="text-xs font-bold text-slate-900 leading-tight">{user?.name}</p>
-                  <p className="text-[10px] text-brand-700 font-bold leading-tight">{user?.userCode || user?.role}</p>
-                </div>
-                <ChevronDown className="w-4 h-4 text-slate-400" />
+                {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
               </button>
 
               {showProfileDropdown && (
