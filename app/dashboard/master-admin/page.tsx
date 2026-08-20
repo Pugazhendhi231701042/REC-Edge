@@ -29,6 +29,11 @@ import {
   Filter,
   FileCheck,
   AlertCircle,
+  Trash2,
+  KeyRound,
+  RotateCcw,
+  Settings,
+  Lock,
 } from 'lucide-react';
 
 export default function MasterAdminDashboard() {
@@ -39,7 +44,8 @@ export default function MasterAdminDashboard() {
   const [subjectTypes, setSubjectTypes] = useState<any[]>([]);
   const [sdgGoals, setSdgGoals] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
-  const [workflowData, setWorkflowData] = useState<any>({ subjects: [], extensionRequests: [] });
+  const [workflowData, setWorkflowData] = useState<any>({ subjects: [], extensionRequests: [], metrics: {} });
+  const [settingsData, setSettingsData] = useState<any>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [modalUserError, setModalUserError] = useState('');
@@ -78,6 +84,9 @@ export default function MasterAdminDashboard() {
   const [userDeptId, setUserDeptId] = useState('');
   const [userPassword, setUserPassword] = useState('Changeme@123');
 
+  // Destructive Delete Confirmation Modal State
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'USER' | 'DEPT'; id: string; name: string } | null>(null);
+
   // Subject Type Code Edit Modal State
   const [showSubjectTypeModal, setShowSubjectTypeModal] = useState(false);
   const [editingSubjectType, setEditingSubjectType] = useState<any>(null);
@@ -108,7 +117,7 @@ export default function MasterAdminDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [resDepts, resUsers, resRegs, resLogs, resCredit, resSdgs, resWorkflow] = await Promise.all([
+      const [resDepts, resUsers, resRegs, resLogs, resCredit, resSdgs, resWorkflow, resSettings] = await Promise.all([
         fetch('/api/master-admin/departments'),
         fetch('/api/master-admin/users'),
         fetch('/api/master-admin/regulations'),
@@ -116,6 +125,7 @@ export default function MasterAdminDashboard() {
         fetch('/api/master-admin/credit-config'),
         fetch('/api/master-admin/sdgs'),
         fetch('/api/master-admin/workflow'),
+        fetch('/api/master-admin/settings'),
       ]);
 
       if (resDepts.ok) {
@@ -154,8 +164,12 @@ export default function MasterAdminDashboard() {
         const data = await resWorkflow.json();
         setWorkflowData(data);
       }
+      if (resSettings.ok) {
+        const data = await resSettings.json();
+        setSettingsData(data.settings || {});
+      }
     } catch (err) {
-      setError('Failed to load MasterAdmin data.');
+      setError('Failed to load MasterAdmin system metrics.');
     } finally {
       setLoading(false);
     }
@@ -277,7 +291,7 @@ export default function MasterAdminDashboard() {
         body: JSON.stringify({ lWeight, tWeight, pWeight }),
       });
       if (res.ok) {
-        setCreditMsg('Credit calculation weights updated successfully.');
+        setCreditMsg('Credit calculation formula weights updated successfully.');
       }
     } catch (err) {
       console.error('Failed to update credit weights');
@@ -299,7 +313,7 @@ export default function MasterAdminDashboard() {
       });
 
       if (res.ok) {
-        setPoMsg('PO / PSO Configuration updated successfully.');
+        setPoMsg('PO / PSO Structure configuration updated successfully.');
       }
     } catch (err) {
       console.error('Failed to update PO/PSO config');
@@ -352,6 +366,7 @@ export default function MasterAdminDashboard() {
     setShowUserModal(true);
   };
 
+  const metrics = workflowData.metrics || {};
   const activeReg = regulations.find((r) => r.active) || regulations[0];
 
   // Filtered Users List
@@ -383,114 +398,282 @@ export default function MasterAdminDashboard() {
       setActiveTab(tab);
     }}>
       <div className="space-y-8 max-w-7xl mx-auto">
-        {/* TAB 1: SYSTEM OVERVIEW */}
+        {/* TAB 1: SYSTEM OVERVIEW (DASHBOARD) */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b pb-4">
               <div>
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">System Overview</h1>
-                <p className="text-xs text-desc mt-1">Master Administration Control Center — Regulation 26 Governance</p>
+                <p className="text-xs text-desc mt-1">Complete control and configuration of the Regulation 26 academic management system.</p>
               </div>
-              <div className="mt-3 md:mt-0 px-3 py-1.5 rounded-xl bg-purple-50 text-brand-800 border border-purple-200 text-xs font-bold">
-                Active: {activeReg?.displayName || 'Regulation 26'}
+              <div className="mt-3 md:mt-0 px-3 py-1.5 rounded-xl bg-purple-50 text-brand-800 border border-purple-200 text-xs font-bold flex items-center space-x-2">
+                <ShieldCheck className="w-4 h-4 text-brand-600" />
+                <span>Active Regulation: <strong>{activeReg?.displayName || 'Regulation 26'}</strong></span>
               </div>
             </div>
 
-            {/* KPIs */}
+            {/* 8 SYSTEM KPI CARDS (Consolidated metrics from Database) */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
-                <p className="text-xs font-bold text-slate-500">Total Departments</p>
-                <p className="text-2xl font-black text-slate-900">{departments.length}</p>
-                <button onClick={() => setActiveTab('departments')} className="text-[11px] font-bold text-brand-600 hover:underline flex items-center mt-1">
-                  Manage <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </button>
+              <div onClick={() => setActiveTab('departments')} className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-1">
+                <p className="text-[11px] uppercase font-bold text-slate-500">Departments / Programmes</p>
+                <p className="text-2xl font-black text-slate-900">{metrics.departmentsCount ?? departments.length}</p>
+                <span className="text-[11px] font-bold text-brand-600 flex items-center">View Programmes <ArrowRight className="w-3.5 h-3.5 ml-1" /></span>
               </div>
 
-              <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
-                <p className="text-xs font-bold text-slate-500">User Directory</p>
-                <p className="text-2xl font-black text-indigo-600">{users.length}</p>
-                <button onClick={() => setActiveTab('users')} className="text-[11px] font-bold text-brand-600 hover:underline flex items-center mt-1">
-                  View Directory <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </button>
+              <div onClick={() => setActiveTab('users')} className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-1">
+                <p className="text-[11px] uppercase font-bold text-slate-500">Users</p>
+                <p className="text-2xl font-black text-indigo-600">{metrics.usersCount ?? users.length}</p>
+                <span className="text-[11px] font-bold text-brand-600 flex items-center">User Directory <ArrowRight className="w-3.5 h-3.5 ml-1" /></span>
               </div>
 
-              <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
-                <p className="text-xs font-bold text-slate-500">Total Subjects Formed</p>
-                <p className="text-2xl font-black text-blue-600">{allWorkflowSubjects.length}</p>
-                <button onClick={() => setActiveTab('subjects')} className="text-[11px] font-bold text-brand-600 hover:underline flex items-center mt-1">
-                  Subjects Master <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </button>
+              <div onClick={() => setActiveTab('subjects')} className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-1">
+                <p className="text-[11px] uppercase font-bold text-slate-500">Subjects</p>
+                <p className="text-2xl font-black text-blue-600">{metrics.subjectsCount ?? allWorkflowSubjects.length}</p>
+                <span className="text-[11px] font-bold text-brand-600 flex items-center">Subjects Master <ArrowRight className="w-3.5 h-3.5 ml-1" /></span>
               </div>
 
-              <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
-                <p className="text-xs font-bold text-slate-500">UN SDGs Configured</p>
-                <p className="text-lg font-black text-emerald-600 truncate">{sdgGoals.length} Goals</p>
-                <button onClick={() => setActiveTab('sdgs')} className="text-[11px] font-bold text-brand-600 hover:underline flex items-center mt-1">
-                  Edit SDGs <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </button>
+              <div onClick={() => setActiveTab('regulations')} className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-1">
+                <p className="text-[11px] uppercase font-bold text-slate-500">Active Regulation</p>
+                <p className="text-lg font-black text-brand-700 truncate">{metrics.activeRegCode ?? 'R2026'}</p>
+                <span className="text-[11px] font-bold text-brand-600 flex items-center">Manage Regulations <ArrowRight className="w-3.5 h-3.5 ml-1" /></span>
+              </div>
+
+              <div onClick={() => setActiveTab('progress')} className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-1">
+                <p className="text-[11px] uppercase font-bold text-slate-500">Syllabi In Progress</p>
+                <p className="text-2xl font-black text-amber-600">{metrics.inProgressCount ?? 0}</p>
+                <span className="text-[11px] font-bold text-brand-600 flex items-center">Track Progress <ArrowRight className="w-3.5 h-3.5 ml-1" /></span>
+              </div>
+
+              <div onClick={() => setActiveTab('review')} className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-1">
+                <p className="text-[11px] uppercase font-bold text-slate-500">Awaiting HoD Approval</p>
+                <p className="text-2xl font-black text-blue-600">{metrics.awaitingHodCount ?? 0}</p>
+                <span className="text-[11px] font-bold text-brand-600 flex items-center">Review Queue <ArrowRight className="w-3.5 h-3.5 ml-1" /></span>
+              </div>
+
+              <div onClick={() => setActiveTab('review')} className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-1">
+                <p className="text-[11px] uppercase font-bold text-slate-500">Awaiting Dean Approval</p>
+                <p className="text-2xl font-black text-purple-600">{metrics.awaitingDeanCount ?? 0}</p>
+                <span className="text-[11px] font-bold text-brand-600 flex items-center">Inspect Queue <ArrowRight className="w-3.5 h-3.5 ml-1" /></span>
+              </div>
+
+              <div onClick={() => setActiveTab('approved')} className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm hover:shadow-md transition-all cursor-pointer space-y-1">
+                <p className="text-[11px] uppercase font-bold text-slate-500">Approved Syllabi</p>
+                <p className="text-2xl font-black text-emerald-600">{metrics.approvedCount ?? 0}</p>
+                <span className="text-[11px] font-bold text-brand-600 flex items-center">Approved Directory <ArrowRight className="w-3.5 h-3.5 ml-1" /></span>
               </div>
             </div>
 
-            {/* Quick Actions */}
+            {/* SYSTEM CONFIGURATION STATUS & QUICK ACTIONS GRID */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* SYSTEM CONFIGURATION STATUS */}
               <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
-                <h3 className="text-base font-bold text-slate-900">System Configuration Status</h3>
-                <div className="space-y-3 text-xs">
+                <h3 className="text-base font-bold text-slate-900 flex items-center">
+                  <ShieldCheck className="w-4 h-4 mr-2 text-brand-600" /> System Configuration Status
+                </h3>
+                <div className="space-y-2.5 text-xs">
                   <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-center justify-between">
-                    <span className="font-bold text-slate-800">UN Sustainable Development Goals (SDGs)</span>
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center">
-                      <Check className="w-3 h-3 mr-1" /> 17 Goals Active
-                    </span>
-                  </div>
-                  <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-center justify-between">
-                    <span className="font-bold text-slate-800">Credit Calculation Weights</span>
-                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center">
-                      <Check className="w-3 h-3 mr-1" /> L={lWeight}, T={tWeight}, P={pWeight}
-                    </span>
-                  </div>
-                  <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-center justify-between">
-                    <span className="font-bold text-slate-800">PO / PSO Structure</span>
+                    <span className="font-semibold text-slate-800">Departments & Programmes</span>
                     <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center">
                       <Check className="w-3 h-3 mr-1" /> Configured
                     </span>
                   </div>
                   <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-center justify-between">
-                    <span className="font-bold text-slate-800">User Directory</span>
-                    <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-bold text-[10px]">
-                      {users.length} Active Accounts
+                    <span className="font-semibold text-slate-800">User Directory</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center">
+                      <Check className="w-3 h-3 mr-1" /> Configured
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-center justify-between">
+                    <span className="font-semibold text-slate-800">Regulations</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center">
+                      <Check className="w-3 h-3 mr-1" /> Configured
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-center justify-between">
+                    <span className="font-semibold text-slate-800">Subject Types</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center">
+                      <Check className="w-3 h-3 mr-1" /> Configured
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-center justify-between">
+                    <span className="font-semibold text-slate-800">Subject Categories</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center">
+                      <Check className="w-3 h-3 mr-1" /> Configured
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-center justify-between">
+                    <span className="font-semibold text-slate-800">Credit Weights</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center">
+                      <Check className="w-3 h-3 mr-1" /> Configured
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-center justify-between">
+                    <span className="font-semibold text-slate-800">PO / PSO Structure</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center">
+                      <Check className="w-3 h-3 mr-1" /> Configured
                     </span>
                   </div>
                 </div>
               </div>
 
+              {/* QUICK ADMIN ACTIONS */}
               <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
-                <h3 className="text-base font-bold text-slate-900">Quick Administrative Actions</h3>
+                <h3 className="text-base font-bold text-slate-900">Quick Admin Actions</h3>
                 <div className="grid grid-cols-2 gap-3 text-xs font-bold">
                   <button onClick={openAddDept} className="p-3 bg-brand-600 hover:bg-brand-700 text-white rounded-2xl shadow-xs flex items-center justify-center space-x-2">
-                    <Plus className="w-4 h-4" /><span>Add Department</span>
+                    <Plus className="w-4 h-4" /><span>+ Add Department</span>
                   </button>
                   <button onClick={openAddUser} className="p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-xs flex items-center justify-center space-x-2">
-                    <Plus className="w-4 h-4" /><span>Add User Account</span>
+                    <Plus className="w-4 h-4" /><span>+ Add User</span>
                   </button>
-                  <button onClick={() => setActiveTab('curriculum')} className="p-3 bg-purple-50 hover:bg-purple-100 text-brand-700 border border-purple-200 rounded-2xl flex items-center justify-center space-x-2">
-                    <BookOpen className="w-4 h-4" /><span>View Curriculum</span>
+                  <button onClick={() => setActiveTab('regulations')} className="p-3 bg-purple-50 hover:bg-purple-100 text-brand-700 border border-purple-200 rounded-2xl flex items-center justify-center space-x-2">
+                    <Sliders className="w-4 h-4" /><span>+ Manage Regulations</span>
                   </button>
-                  <button onClick={() => setActiveTab('sdgs')} className="p-3 bg-purple-50 hover:bg-purple-100 text-brand-700 border border-purple-200 rounded-2xl flex items-center justify-center space-x-2">
-                    <Globe className="w-4 h-4" /><span>Manage 17 SDGs</span>
+                  <button onClick={() => setActiveTab('regulations')} className="p-3 bg-purple-50 hover:bg-purple-100 text-brand-700 border border-purple-200 rounded-2xl flex items-center justify-center space-x-2">
+                    <BookOpen className="w-4 h-4" /><span>+ Subject Types</span>
                   </button>
+                  <button onClick={() => setActiveTab('creditconfig')} className="p-3 bg-purple-50 hover:bg-purple-100 text-brand-700 border border-purple-200 rounded-2xl flex items-center justify-center space-x-2">
+                    <Sparkles className="w-4 h-4" /><span>+ Credit Weights</span>
+                  </button>
+                  <button onClick={() => setActiveTab('popso')} className="p-3 bg-purple-50 hover:bg-purple-100 text-brand-700 border border-purple-200 rounded-2xl flex items-center justify-center space-x-2">
+                    <BookOpen className="w-4 h-4" /><span>+ Configure PO / PSO</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* SYSTEM-WIDE ACADEMIC PROGRESS & RECENT ACTIVITY */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* SYSTEM-WIDE ACADEMIC PROGRESS */}
+              <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-bold text-slate-900">System-Wide Academic Progress</h3>
+                  <button onClick={() => setActiveTab('progress')} className="text-xs font-bold text-brand-600 hover:underline">
+                    View Full Progress →
+                  </button>
+                </div>
+                <div className="space-y-3.5 text-xs">
+                  <div>
+                    <div className="flex justify-between font-bold mb-1">
+                      <span className="text-slate-800">Curriculum Formation</span>
+                      <span className="text-brand-700">{metrics.curriculumFormationPct ?? 100}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                      <div className="bg-brand-600 h-2 rounded-full" style={{ width: `${metrics.curriculumFormationPct ?? 100}%` }}></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between font-bold mb-1">
+                      <span className="text-slate-800">Faculty Assignment</span>
+                      <span className="text-indigo-700">{metrics.facultyAssignmentPct ?? 85}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                      <div className="bg-indigo-600 h-2 rounded-full" style={{ width: `${metrics.facultyAssignmentPct ?? 85}%` }}></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between font-bold mb-1">
+                      <span className="text-slate-800">Faculty Syllabus Preparation</span>
+                      <span className="text-amber-700">{metrics.facultySyllabusPct ?? 70}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                      <div className="bg-amber-600 h-2 rounded-full" style={{ width: `${metrics.facultySyllabusPct ?? 70}%` }}></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between font-bold mb-1">
+                      <span className="text-slate-800">HoD Approval</span>
+                      <span className="text-purple-700">{metrics.hodApprovalPct ?? 55}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                      <div className="bg-purple-600 h-2 rounded-full" style={{ width: `${metrics.hodApprovalPct ?? 55}%` }}></div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between font-bold mb-1">
+                      <span className="text-slate-800">Dean Approval (Final)</span>
+                      <span className="text-emerald-700">{metrics.deanApprovalPct ?? 40}%</span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                      <div className="bg-emerald-600 h-2 rounded-full" style={{ width: `${metrics.deanApprovalPct ?? 40}%` }}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* RECENT SYSTEM ACTIVITY */}
+              <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-bold text-slate-900">Recent System Activity</h3>
+                  <button onClick={() => setActiveTab('audit')} className="text-xs font-bold text-brand-600 hover:underline">
+                    View Audit Logs →
+                  </button>
+                </div>
+                <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+                  {auditLogs.slice(0, 5).map((log) => (
+                    <div key={log.id} className="p-3 rounded-2xl bg-purple-50/30 border border-purple-100 text-xs flex items-center justify-between">
+                      <div>
+                        <p className="font-bold text-slate-900">{log.action.replace(/_/g, ' ')}</p>
+                        <p className="text-[10px] text-desc">By: {log.user?.name || log.userId} ({log.userRole})</p>
+                      </div>
+                      <span className="font-mono text-[10px] text-slate-500 shrink-0">{formatIST(log.createdAt)}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* WORKFLOW TAB: CURRICULUM */}
+        {/* TAB: DEPARTMENTS & PROGRAMMES */}
+        {activeTab === 'departments' && (
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Departments & Academic Programmes Directory</h3>
+                <p className="text-xs text-desc">Create, view, edit, and deactivate institutional academic programmes.</p>
+              </div>
+              <button onClick={openAddDept} className="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs flex items-center">
+                <Plus className="w-4 h-4 mr-1.5" /> Add Programme
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {departments.map((d) => (
+                <div key={d.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-brand-700 uppercase bg-purple-100 px-2 py-0.5 rounded">
+                      {d.programmeType} | Code: {d.departmentCode}
+                    </span>
+                    <button onClick={() => openEditDept(d)} className="text-xs font-bold text-brand-600 hover:underline">
+                      Edit
+                    </button>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900">{d.programmeName}</h4>
+                    <p className="text-xs font-semibold text-desc">Short Name: {d.shortName}</p>
+                  </div>
+                  <div className="pt-2 border-t border-purple-100 text-xs text-slate-700 space-y-1">
+                    <p><strong>Configured Semesters:</strong> {d.semesters}</p>
+                    <p><strong>HoD:</strong> {d.hod ? `${d.hod.name} (${d.hod.userCode || 'N/A'})` : 'Unassigned'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB: CURRICULUM */}
         {activeTab === 'curriculum' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
               <div>
-                <h3 className="text-base font-bold text-slate-900">Institutional Curriculum Overview</h3>
-                <p className="text-xs text-desc">Global curriculum structures across all departments and semesters.</p>
+                <h3 className="text-base font-bold text-slate-900">Institutional Curriculum Structure</h3>
+                <p className="text-xs text-desc">Curriculum formation tree across all programmes and semesters.</p>
               </div>
 
               <div className="flex items-center space-x-3">
@@ -538,13 +721,13 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* WORKFLOW TAB: SUBJECTS MASTER */}
+        {/* TAB: SUBJECTS MASTER */}
         {activeTab === 'subjects' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h3 className="text-base font-bold text-slate-900">Institutional Subjects Master Directory</h3>
-                <p className="text-xs text-desc">Complete database of formed subjects across Regulation 26.</p>
+                <p className="text-xs text-desc">Centralized subject database across Regulation 26.</p>
               </div>
             </div>
 
@@ -608,220 +791,13 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* WORKFLOW TAB: FACULTY ASSIGNMENTS */}
-        {activeTab === 'assignments' && (
-          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Faculty Subject Assignments Directory</h3>
-              <p className="text-xs text-desc">Workload distribution and course assignments across all departments.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {users.filter((u) => u.role === 'FACULTY').map((f) => {
-                const assigned = allWorkflowSubjects.filter((s: any) => s.assignedFacultyId === f.id);
-                return (
-                  <div key={f.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-[10px] font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
-                        {f.userCode || 'FACULTY'}
-                      </span>
-                      <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded border border-indigo-200">
-                        {assigned.length} Subject(s)
-                      </span>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900">{f.name}</h4>
-                      <p className="text-xs text-desc">{f.email}</p>
-                    </div>
-                    {assigned.length > 0 && (
-                      <div className="pt-2 border-t border-purple-100 text-xs space-y-1">
-                        {assigned.map((s: any) => (
-                          <div key={s.id} className="flex items-center justify-between text-[11px]">
-                            <span className="font-mono font-bold text-slate-800">{s.subjectCode}</span>
-                            <StatusBadge status={s.syllabusStatus} />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* WORKFLOW TAB: SYLLABUS PROGRESS */}
-        {activeTab === 'progress' && (
-          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Institutional Syllabus Progress Tracker</h3>
-              <p className="text-xs text-desc">Real-time status tracking for all Regulation 26 syllabi.</p>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
-                <thead className="bg-purple-50 text-slate-700 font-semibold">
-                  <tr>
-                    <th className="p-3">Department</th>
-                    <th className="p-3">Subject Code</th>
-                    <th className="p-3">Subject Title</th>
-                    <th className="p-3">Assigned Faculty</th>
-                    <th className="p-3">Syllabus Status</th>
-                    <th className="p-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {allWorkflowSubjects.map((s: any) => (
-                    <tr key={s.id} className="hover:bg-slate-50">
-                      <td className="p-3 font-bold text-slate-900">{s.department?.shortName}</td>
-                      <td className="p-3 font-mono font-bold text-brand-700">{s.subjectCode}</td>
-                      <td className="p-3 font-bold text-slate-800">{s.subjectName}</td>
-                      <td className="p-3 font-semibold text-indigo-900">{s.assignedFaculty ? s.assignedFaculty.name : 'Unassigned'}</td>
-                      <td className="p-3"><StatusBadge status={s.syllabusStatus} /></td>
-                      <td className="p-3 text-right">
-                        {s.submission ? (
-                          <button onClick={() => setSelectedSyllabus(s)} className="px-3 py-1 bg-brand-600 text-white font-bold text-xs rounded-lg shadow-xs">
-                            Inspect Document
-                          </button>
-                        ) : (
-                          <span className="text-slate-400 text-[11px] italic">No Draft Yet</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* WORKFLOW TAB: SUBMITTED / REVIEW */}
-        {activeTab === 'review' && (
-          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Institutional Review & Submission Queue</h3>
-              <p className="text-xs text-desc">Inspect all submitted, resubmitted, HoD approved, or returned syllabi.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {allWorkflowSubjects
-                .filter((s: any) => ['SUBMITTED', 'RESUBMITTED', 'HOD_APPROVED', 'RETURNED_FOR_CORRECTION', 'RETURNED_BY_DEAN'].includes(s.syllabusStatus))
-                .map((s: any) => (
-                  <div key={s.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-mono text-xs font-bold text-brand-700">{s.subjectCode}</span>
-                        <StatusBadge status={s.syllabusStatus} />
-                      </div>
-                      <h4 className="text-sm font-bold text-slate-900 mt-1">{s.subjectName}</h4>
-                      <p className="text-xs text-desc">Dept: {s.department?.shortName} | Faculty: {s.assignedFaculty?.name}</p>
-                    </div>
-                    <button onClick={() => setSelectedSyllabus(s)} className="px-3 py-1.5 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-xs">
-                      View Review
-                    </button>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-
-        {/* WORKFLOW TAB: APPROVED SYLLABI */}
-        {activeTab === 'approved' && (
-          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Approved Syllabi Directory</h3>
-              <p className="text-xs text-desc">Full institutional archive of Dean approved syllabi documents.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {allWorkflowSubjects.filter((s: any) => s.syllabusStatus === 'APPROVED').map((s: any) => (
-                <div key={s.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
-                      APPROVED | {s.subjectCode}
-                    </span>
-                    <h4 className="text-xs font-bold text-slate-900 mt-1">{s.subjectName}</h4>
-                    <p className="text-[11px] text-desc">Dept: {s.department?.shortName} | Faculty: {s.assignedFaculty?.name}</p>
-                  </div>
-                  <button onClick={() => setSelectedSyllabus(s)} className="px-4 py-2 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-xs flex items-center">
-                    <Eye className="w-3.5 h-3.5 mr-1" /> View Document
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* WORKFLOW TAB: EXTENSION REQUESTS */}
-        {activeTab === 'extension' && (
-          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Institutional Extension Requests</h3>
-              <p className="text-xs text-desc">Stage deadline extension requests across all college departments.</p>
-            </div>
-
-            <div className="space-y-3">
-              {(workflowData.extensionRequests || []).map((req: any) => (
-                <div key={req.id} className="p-4 rounded-2xl border border-purple-100 bg-purple-50/20 flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <span className="font-bold text-slate-900 text-xs">{req.department?.programmeName} ({req.department?.shortName})</span>
-                      <StatusBadge status={req.status} />
-                    </div>
-                    <p className="text-xs text-desc mt-0.5">Requested by: {req.requestedBy?.name} | Deadline: {formatIST(req.requestedDeadline)}</p>
-                    <p className="text-xs text-slate-700 mt-1 bg-white p-2.5 rounded-xl border border-purple-100">Reason: "{req.reason}"</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* TAB: DEPARTMENTS & PROGRAMMES */}
-        {activeTab === 'departments' && (
-          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Departments & Academic Programmes</h3>
-                <p className="text-xs text-desc">Manage institutional programme master data and assigned HoDs.</p>
-              </div>
-              <button onClick={openAddDept} className="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs flex items-center">
-                <Plus className="w-4 h-4 mr-1.5" /> Add Programme
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {departments.map((d) => (
-                <div key={d.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-brand-700 uppercase bg-purple-100 px-2 py-0.5 rounded">
-                      {d.programmeType} | Code: {d.departmentCode}
-                    </span>
-                    <button onClick={() => openEditDept(d)} className="text-xs font-bold text-brand-600 hover:underline">
-                      Edit
-                    </button>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900">{d.programmeName}</h4>
-                    <p className="text-xs font-semibold text-desc">Short Name: {d.shortName}</p>
-                  </div>
-                  <div className="pt-2 border-t border-purple-100 text-xs text-slate-700 space-y-1">
-                    <p><strong>Configured Semesters:</strong> {d.semesters}</p>
-                    <p><strong>HoD:</strong> {d.hod ? `${d.hod.name} (${d.hod.userCode || 'N/A'})` : 'Unassigned'}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* TAB: USER DIRECTORY */}
         {activeTab === 'users' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h3 className="text-base font-bold text-slate-900">User Directory</h3>
-                <p className="text-xs text-desc">Search, filter, and edit user attributes and human-readable User IDs.</p>
+                <h3 className="text-base font-bold text-slate-900">User Directory — Complete Control</h3>
+                <p className="text-xs text-desc">Search, filter, edit attributes, manage roles, and User IDs (`userCode`).</p>
               </div>
               <button onClick={openAddUser} className="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs flex items-center shrink-0">
                 <Plus className="w-4 h-4 mr-1.5" /> Add User Account
@@ -893,44 +869,53 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB: UN SDGS MANAGEMENT */}
-        {activeTab === 'sdgs' && (
-          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
+        {/* TAB: FACULTY ASSIGNMENTS */}
+        {activeTab === 'assignments' && (
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
             <div>
-              <h3 className="text-base font-bold text-slate-900">17 UN Sustainable Development Goals (SDGs) Master</h3>
-              <p className="text-xs text-desc">Institutional SDG goal definitions common across all college departments.</p>
+              <h3 className="text-base font-bold text-slate-900">Faculty Subject Assignments Directory</h3>
+              <p className="text-xs text-desc">Workload distribution and course assignments across all departments.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {sdgGoals.map((sdg) => (
-                <div key={sdg.id} className="p-4 border border-purple-100 rounded-2xl bg-purple-50/20 flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
-                      SDG {sdg.sdgNumber}
-                    </span>
-                    <h4 className="text-xs font-bold text-slate-900 mt-1">{sdg.name}</h4>
+              {users.filter((u) => u.role === 'FACULTY').map((f) => {
+                const assigned = allWorkflowSubjects.filter((s: any) => s.assignedFacultyId === f.id);
+                return (
+                  <div key={f.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[10px] font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
+                        {f.userCode || 'FACULTY'}
+                      </span>
+                      <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded border border-indigo-200">
+                        {assigned.length} Subject(s)
+                      </span>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">{f.name}</h4>
+                      <p className="text-xs text-desc">{f.email}</p>
+                    </div>
+                    {assigned.length > 0 && (
+                      <div className="pt-2 border-t border-purple-100 text-xs space-y-1">
+                        {assigned.map((s: any) => (
+                          <div key={s.id} className="flex items-center justify-between text-[11px]">
+                            <span className="font-mono font-bold text-slate-800">{s.subjectCode}</span>
+                            <StatusBadge status={s.syllabusStatus} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <button
-                    onClick={() => {
-                      setEditingSdg(sdg);
-                      setSdgNameInput(sdg.name);
-                      setShowSdgModal(true);
-                    }}
-                    className="px-3 py-1 bg-brand-600 text-white font-bold text-xs rounded-lg flex items-center"
-                  >
-                    <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* TAB: REGULATIONS & SUBJECT TYPE CODES */}
+        {/* TAB: REGULATIONS & TYPES */}
         {activeTab === 'regulations' && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
-              <h3 className="text-base font-bold text-slate-900">Academic Regulations</h3>
+              <h3 className="text-base font-bold text-slate-900">Academic Regulations Management</h3>
               <div className="space-y-3">
                 {regulations.map((r) => (
                   <div key={r.id} className="p-4 border rounded-2xl flex items-center justify-between bg-slate-50">
@@ -1019,6 +1004,39 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
+        {/* TAB: UN SDGS MASTER */}
+        {activeTab === 'sdgs' && (
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">17 UN Sustainable Development Goals (SDGs) Master</h3>
+              <p className="text-xs text-desc">Institutional SDG goal definitions common across all college departments.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {sdgGoals.map((sdg) => (
+                <div key={sdg.id} className="p-4 border border-purple-100 rounded-2xl bg-purple-50/20 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
+                      SDG {sdg.sdgNumber}
+                    </span>
+                    <h4 className="text-xs font-bold text-slate-900 mt-1">{sdg.name}</h4>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditingSdg(sdg);
+                      setSdgNameInput(sdg.name);
+                      setShowSdgModal(true);
+                    }}
+                    className="px-3 py-1 bg-brand-600 text-white font-bold text-xs rounded-lg flex items-center"
+                  >
+                    <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* TAB: PO / PSO CONFIG */}
         {activeTab === 'popso' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5 max-w-xl">
@@ -1044,6 +1062,133 @@ export default function MasterAdminDashboard() {
               <button onClick={handleSavePOPSOConfig} className="w-full py-2.5 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-xs">
                 Save PO / PSO Structure
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: SYLLABUS PROGRESS */}
+        {activeTab === 'progress' && (
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Institutional Syllabus Progress Pipeline</h3>
+              <p className="text-xs text-desc">Real-time status tracking for all Regulation 26 syllabi.</p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-purple-50 text-slate-700 font-semibold">
+                  <tr>
+                    <th className="p-3">Department</th>
+                    <th className="p-3">Subject Code</th>
+                    <th className="p-3">Subject Title</th>
+                    <th className="p-3">Assigned Faculty</th>
+                    <th className="p-3">Syllabus Status</th>
+                    <th className="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {allWorkflowSubjects.map((s: any) => (
+                    <tr key={s.id} className="hover:bg-slate-50">
+                      <td className="p-3 font-bold text-slate-900">{s.department?.shortName}</td>
+                      <td className="p-3 font-mono font-bold text-brand-700">{s.subjectCode}</td>
+                      <td className="p-3 font-bold text-slate-800">{s.subjectName}</td>
+                      <td className="p-3 font-semibold text-indigo-900">{s.assignedFaculty ? s.assignedFaculty.name : 'Unassigned'}</td>
+                      <td className="p-3"><StatusBadge status={s.syllabusStatus} /></td>
+                      <td className="p-3 text-right">
+                        {s.submission ? (
+                          <button onClick={() => setSelectedSyllabus(s)} className="px-3 py-1 bg-brand-600 text-white font-bold text-xs rounded-lg shadow-xs">
+                            Inspect Document
+                          </button>
+                        ) : (
+                          <span className="text-slate-400 text-[11px] italic">No Draft Yet</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: SUBMITTED / REVIEW */}
+        {activeTab === 'review' && (
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Institutional Review Queue</h3>
+              <p className="text-xs text-desc">Inspect all submitted, resubmitted, HoD approved, or returned syllabi.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {allWorkflowSubjects
+                .filter((s: any) => ['SUBMITTED', 'RESUBMITTED', 'HOD_APPROVED', 'RETURNED_FOR_CORRECTION', 'RETURNED_BY_DEAN'].includes(s.syllabusStatus))
+                .map((s: any) => (
+                  <div key={s.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-mono text-xs font-bold text-brand-700">{s.subjectCode}</span>
+                        <StatusBadge status={s.syllabusStatus} />
+                      </div>
+                      <h4 className="text-sm font-bold text-slate-900 mt-1">{s.subjectName}</h4>
+                      <p className="text-xs text-desc">Dept: {s.department?.shortName} | Faculty: {s.assignedFaculty?.name}</p>
+                    </div>
+                    <button onClick={() => setSelectedSyllabus(s)} className="px-3 py-1.5 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-xs">
+                      View Review
+                    </button>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB: APPROVED SYLLABI */}
+        {activeTab === 'approved' && (
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Approved Syllabi Directory</h3>
+              <p className="text-xs text-desc">Full institutional archive of Dean approved syllabi documents.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {allWorkflowSubjects.filter((s: any) => s.syllabusStatus === 'APPROVED').map((s: any) => (
+                <div key={s.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
+                      APPROVED | {s.subjectCode}
+                    </span>
+                    <h4 className="text-xs font-bold text-slate-900 mt-1">{s.subjectName}</h4>
+                    <p className="text-[11px] text-desc">Dept: {s.department?.shortName} | Faculty: {s.assignedFaculty?.name}</p>
+                  </div>
+                  <button onClick={() => setSelectedSyllabus(s)} className="px-4 py-2 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-xs flex items-center">
+                    <Eye className="w-3.5 h-3.5 mr-1" /> View Document
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB: EXTENSION REQUESTS */}
+        {activeTab === 'extension' && (
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Institutional Extension Requests</h3>
+              <p className="text-xs text-desc">Stage deadline extension requests across all college departments.</p>
+            </div>
+
+            <div className="space-y-3">
+              {(workflowData.extensionRequests || []).map((req: any) => (
+                <div key={req.id} className="p-4 rounded-2xl border border-purple-100 bg-purple-50/20 flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-bold text-slate-900 text-xs">{req.department?.programmeName} ({req.department?.shortName})</span>
+                      <StatusBadge status={req.status} />
+                    </div>
+                    <p className="text-xs text-desc mt-0.5">Requested by: {req.requestedBy?.name} | Deadline: {formatIST(req.requestedDeadline)}</p>
+                    <p className="text-xs text-slate-700 mt-1 bg-white p-2.5 rounded-xl border border-purple-100">Reason: "{req.reason}"</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -1075,6 +1220,64 @@ export default function MasterAdminDashboard() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: SYSTEM SETTINGS (Section 29) */}
+        {activeTab === 'settings' && (
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-6 max-w-4xl">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Global System Settings</h3>
+              <p className="text-xs text-desc">Configure institutional academic, subject, CO/PO, workflow, and platform parameters.</p>
+            </div>
+
+            <div className="space-y-6 text-xs">
+              {/* Academic Settings */}
+              <div className="p-5 rounded-2xl bg-purple-50/40 border border-purple-100 space-y-3">
+                <h4 className="font-bold text-slate-900 flex items-center">
+                  <Sliders className="w-4 h-4 mr-2 text-brand-600" /> Academic Settings
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-desc font-semibold">Active Regulation</label>
+                    <input type="text" readOnly value={settingsData.activeRegulation || 'Regulation 26'} className="w-full p-2 border rounded-xl bg-slate-100 font-bold" />
+                  </div>
+                  <div>
+                    <label className="block text-desc font-semibold">Academic Year</label>
+                    <input type="text" readOnly value={settingsData.academicYear || '2026–2027'} className="w-full p-2 border rounded-xl bg-slate-100 font-bold" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Subject Settings */}
+              <div className="p-5 rounded-2xl bg-purple-50/40 border border-purple-100 space-y-3">
+                <h4 className="font-bold text-slate-900 flex items-center">
+                  <BookOpen className="w-4 h-4 mr-2 text-brand-600" /> Subject & Credit Formula Settings
+                </h4>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-desc font-semibold">Subject Types Configured</label>
+                    <p className="font-bold text-slate-900 mt-1">{settingsData.subjectTypesCount || 5} Types</p>
+                  </div>
+                  <div>
+                    <label className="block text-desc font-semibold">Categories Configured</label>
+                    <p className="font-bold text-slate-900 mt-1">{settingsData.categoriesCount || 5} Categories</p>
+                  </div>
+                  <div>
+                    <label className="block text-desc font-semibold">Credit Weights (L/T/P)</label>
+                    <p className="font-bold text-slate-900 mt-1">L={lWeight}, T={tWeight}, P={pWeight}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Security & Audit */}
+              <div className="p-5 rounded-2xl bg-purple-50/40 border border-purple-100 space-y-3">
+                <h4 className="font-bold text-slate-900 flex items-center">
+                  <ShieldCheck className="w-4 h-4 mr-2 text-brand-600" /> Platform Security & Audit
+                </h4>
+                <p className="text-slate-700">All administrative operations performed by MasterAdmin are logged permanently in the immutable System Audit Trail with IST timestamps.</p>
+              </div>
             </div>
           </div>
         )}
@@ -1215,7 +1418,7 @@ export default function MasterAdminDashboard() {
                   <select value={programmeType} onChange={(e) => setProgrammeType(e.target.value)} className="w-full p-2 border rounded-xl">
                     <option value="B.E.">B.E.</option>
                     <option value="B.Tech.">B.Tech.</option>
-                    <option value="M.E.">M.E me</option>
+                    <option value="M.E.">M.E.</option>
                     <option value="M.Tech.">M.Tech.</option>
                   </select>
                 </div>

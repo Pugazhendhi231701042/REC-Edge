@@ -122,7 +122,7 @@ async function main() {
   // 6. Users: MasterAdmin & SuperAdmin (Dean) — Unmapped to any specific department (departmentId = null)
   const masterAdmin = await prisma.user.upsert({
     where: { email: '231701042@rajalakshmi.edu.in' },
-    update: { password: defaultPasswordHash, userCode: 'ADM01', departmentId: null },
+    update: { password: defaultPasswordHash, userCode: 'ADM01', departmentId: null, role: 'MASTERADMIN', name: 'System MasterAdmin' },
     create: {
       userCode: 'ADM01',
       email: '231701042@rajalakshmi.edu.in',

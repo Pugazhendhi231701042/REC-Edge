@@ -14,7 +14,7 @@ export async function GET() {
 
   const regId = activeReg ? activeReg.id : undefined;
 
-  const [subjects, departments, users, extensionRequests] = await Promise.all([
+  const [subjects, departments, users, extensionRequests, subjectTypes, subjectCategories, poConfigs] = await Promise.all([
     prisma.subject.findMany({
       where: regId ? { regulationId: regId } : {},
       include: {
@@ -55,12 +55,48 @@ export async function GET() {
       },
       orderBy: { createdAt: 'desc' },
     }),
+    prisma.subjectType.findMany({ where: { active: true } }),
+    prisma.subjectCategory.findMany({ where: { active: true } }),
+    prisma.pOConfiguration.findMany(),
   ]);
 
+  const metrics = {
+    departmentsCount: departments.length,
+    usersCount: users.length,
+    subjectsCount: subjects.length,
+    activeRegCode: activeReg ? `R${activeReg.code}` : 'R2026',
+    inProgressCount: subjects.filter((s) => s.syllabusStatus === 'IN_PROGRESS' || s.syllabusStatus === 'NOT_STARTED').length,
+    awaitingHodCount: subjects.filter((s) => s.syllabusStatus === 'SUBMITTED' || s.syllabusStatus === 'RESUBMITTED').length,
+    awaitingDeanCount: subjects.filter((s) => s.syllabusStatus === 'HOD_APPROVED').length,
+    approvedCount: subjects.filter((s) => s.syllabusStatus === 'APPROVED').length,
+
+    // Progression Percentages
+    curriculumFormationPct: subjects.length > 0 ? 100 : 0,
+    facultyAssignmentPct: subjects.length > 0 ? Math.round((subjects.filter((s) => s.assignedFacultyId).length / subjects.length) * 100) : 0,
+    facultySyllabusPct: subjects.length > 0 ? Math.round((subjects.filter((s) => s.syllabusStatus !== 'NOT_STARTED').length / subjects.length) * 100) : 0,
+    hodApprovalPct: subjects.length > 0 ? Math.round((subjects.filter((s) => s.syllabusStatus === 'HOD_APPROVED' || s.syllabusStatus === 'APPROVED').length / subjects.length) * 100) : 0,
+    deanApprovalPct: subjects.length > 0 ? Math.round((subjects.filter((s) => s.syllabusStatus === 'APPROVED').length / subjects.length) * 100) : 0,
+
+    // Health Config Status
+    configStatus: {
+      departments: departments.length > 0,
+      users: users.length > 0,
+      regulations: !!activeReg,
+      subjectTypes: subjectTypes.length > 0,
+      subjectCategories: subjectCategories.length > 0,
+      creditWeights: true,
+      poPso: poConfigs.length >= departments.length,
+    },
+  };
+
   return NextResponse.json({
+    metrics,
     subjects,
     departments,
     users,
     extensionRequests,
+    subjectTypes,
+    subjectCategories,
+    activeReg,
   });
 }
