@@ -28,6 +28,7 @@ import {
   UserCheck,
   Filter,
   FileCheck,
+  AlertCircle,
 } from 'lucide-react';
 
 export default function MasterAdminDashboard() {
@@ -41,6 +42,7 @@ export default function MasterAdminDashboard() {
   const [workflowData, setWorkflowData] = useState<any>({ subjects: [], extensionRequests: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [modalUserError, setModalUserError] = useState('');
 
   // Selected Syllabus for Inspection Modal
   const [selectedSyllabus, setSelectedSyllabus] = useState<any>(null);
@@ -189,7 +191,7 @@ export default function MasterAdminDashboard() {
 
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setModalUserError('');
     try {
       const payload: any = {
         action: editingUser ? 'EDIT_USER' : 'CREATE_USER',
@@ -209,12 +211,12 @@ export default function MasterAdminDashboard() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save user.');
+      if (!res.ok) throw new Error(data.error || 'Failed to save user account.');
 
       setShowUserModal(false);
       fetchData();
     } catch (err: any) {
-      setError(err.message);
+      setModalUserError(err.message);
     }
   };
 
@@ -334,6 +336,7 @@ export default function MasterAdminDashboard() {
     setUserRole('FACULTY');
     setUserDeptId(departments[0]?.id || '');
     setUserPassword('Changeme@123');
+    setModalUserError('');
     setShowUserModal(true);
   };
 
@@ -345,6 +348,7 @@ export default function MasterAdminDashboard() {
     setUserRole(u.role || 'FACULTY');
     setUserDeptId(u.departmentId || '');
     setUserPassword('');
+    setModalUserError('');
     setShowUserModal(true);
   };
 
@@ -1125,6 +1129,14 @@ export default function MasterAdminDashboard() {
               <h3 className="text-base font-bold text-slate-900">
                 {editingUser ? 'Edit User Account & Attributes' : 'Create New User Account'}
               </h3>
+
+              {modalUserError && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-semibold flex items-center">
+                  <AlertCircle className="w-4 h-4 mr-1.5 text-red-500 shrink-0" />
+                  <span>{modalUserError}</span>
+                </div>
+              )}
+
               <form onSubmit={handleSaveUser} className="space-y-3 text-xs">
                 <div>
                   <label className="block font-semibold mb-1">User ID (userCode) *</label>
@@ -1203,7 +1215,7 @@ export default function MasterAdminDashboard() {
                   <select value={programmeType} onChange={(e) => setProgrammeType(e.target.value)} className="w-full p-2 border rounded-xl">
                     <option value="B.E.">B.E.</option>
                     <option value="B.Tech.">B.Tech.</option>
-                    <option value="M.E.">M.E.</option>
+                    <option value="M.E.">M.E me</option>
                     <option value="M.Tech.">M.Tech.</option>
                   </select>
                 </div>

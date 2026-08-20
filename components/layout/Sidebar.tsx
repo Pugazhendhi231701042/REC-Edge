@@ -11,29 +11,23 @@ import {
   Sparkles,
   CheckCircle2,
   Eye,
-  LogOut,
   UserCheck,
   Clock,
-  Send,
   Globe,
 } from 'lucide-react';
 
 interface SidebarProps {
   userRole: string;
-  userName: string;
-  userEmail: string;
+  userName?: string;
+  userEmail?: string;
   departmentName?: string;
-  onLogout: () => void;
+  onLogout?: () => void;
   activeTab?: string;
   onTabChange?: (tab: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   userRole,
-  userName,
-  userEmail,
-  departmentName,
-  onLogout,
   activeTab,
   onTabChange,
 }) => {
@@ -206,27 +200,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             })}
           </div>
         ))}
-      </div>
-
-      {/* User Footer Profile */}
-      <div className="p-4 border-t border-purple-100 bg-purple-50/20 flex items-center justify-between">
-        <div className="flex items-center space-x-3 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-brand-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
-            {userName ? userName.charAt(0).toUpperCase() : 'U'}
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-bold text-slate-900 truncate">{userName}</p>
-            <p className="text-[10px] text-desc truncate">{departmentName || userRole}</p>
-          </div>
-        </div>
-
-        <button
-          onClick={onLogout}
-          title="Sign Out"
-          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors shrink-0"
-        >
-          <LogOut className="w-4 h-4" />
-        </button>
       </div>
     </aside>
   );
