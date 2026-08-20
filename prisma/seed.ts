@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Seeding Regulation 26 database with User Codes and SDGs...');
+  console.log('Seeding Regulation 26 database with MasterAdmin, Dean, Departments, and User Codes...');
 
   const defaultPasswordHash = await bcrypt.hash('Changeme@123', 10);
 
@@ -119,29 +119,31 @@ async function main() {
     categoriesMap[cat.code] = created.id;
   }
 
-  // 6. Users: MasterAdmin & SuperAdmin (Dean)
+  // 6. Users: MasterAdmin & SuperAdmin (Dean) — Unmapped to any specific department (departmentId = null)
   const masterAdmin = await prisma.user.upsert({
     where: { email: '231701042@rajalakshmi.edu.in' },
-    update: { password: defaultPasswordHash, userCode: 'ADM01' },
+    update: { password: defaultPasswordHash, userCode: 'ADM01', departmentId: null },
     create: {
       userCode: 'ADM01',
       email: '231701042@rajalakshmi.edu.in',
       password: defaultPasswordHash,
       name: 'System MasterAdmin',
       role: 'MASTERADMIN',
+      departmentId: null,
       active: true,
     },
   });
 
   const dean = await prisma.user.upsert({
     where: { email: 'dean@rajalakshmi.edu.in' },
-    update: { password: defaultPasswordHash, userCode: 'DEAN01' },
+    update: { password: defaultPasswordHash, userCode: 'DEAN01', departmentId: null },
     create: {
       userCode: 'DEAN01',
       email: 'dean@rajalakshmi.edu.in',
       password: defaultPasswordHash,
       name: 'Dr. Dean Academic Affairs',
       role: 'SUPERADMIN',
+      departmentId: null,
       active: true,
     },
   });

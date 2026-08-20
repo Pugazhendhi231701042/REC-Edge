@@ -8,11 +8,20 @@ export async function POST(req: Request) {
     const { email, password } = await req.json();
 
     if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password are required.' }, { status: 400 });
+      return NextResponse.json({ error: 'Email/User ID and password are required.' }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: email.trim().toLowerCase() },
+    const inputClean = email.trim();
+
+    // Support login by either email or User ID (userCode)
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: { equals: inputClean.toLowerCase() } },
+          { userCode: { equals: inputClean } },
+          { userCode: { equals: inputClean.toUpperCase() } },
+        ],
+      },
       include: { department: true },
     });
 
@@ -22,7 +31,7 @@ export async function POST(req: Request) {
 
     const isValid = await comparePassword(password, user.password);
     if (!isValid) {
-      return NextResponse.json({ error: 'Invalid email or password.' }, { status: 401 });
+      return NextResponse.json({ error: 'Invalid User ID/Email or password.' }, { status: 401 });
     }
 
     const sessionPayload = {
@@ -42,7 +51,7 @@ export async function POST(req: Request) {
       action: 'USER_LOGIN',
       entity: 'User',
       entityId: user.id,
-      details: { email: user.email },
+      details: { email: user.email, userCode: user.userCode },
     });
 
     let redirectPath = '/dashboard/faculty';
@@ -54,6 +63,7 @@ export async function POST(req: Request) {
       success: true,
       user: {
         id: user.id,
+        userCode: user.userCode || 'N/A',
         email: user.email,
         name: user.name,
         role: user.role,

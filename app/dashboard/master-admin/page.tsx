@@ -11,7 +11,7 @@ import {
   BookOpen,
   ShieldAlert,
   Plus,
-  Key,
+  Edit,
   CheckCircle2,
   X,
   Save,
@@ -45,17 +45,15 @@ export default function MasterAdminDashboard() {
   const [semesters, setSemesters] = useState(8);
   const [hodId, setHodId] = useState('');
 
-  // User Create / Password Reset Modal State
+  // User Create / Edit Modal State
   const [showUserModal, setShowUserModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<any>(null);
+  const [userCode, setUserCode] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState('FACULTY');
   const [userDeptId, setUserDeptId] = useState('');
   const [userPassword, setUserPassword] = useState('Changeme@123');
-
-  const [showResetModal, setShowResetModal] = useState(false);
-  const [resetTargetUser, setResetTargetUser] = useState<any>(null);
-  const [resetPassword, setResetPassword] = useState('Changeme@123');
 
   // Subject Type Code Edit Modal State
   const [showSubjectTypeModal, setShowSubjectTypeModal] = useState(false);
@@ -153,50 +151,31 @@ export default function MasterAdminDashboard() {
     }
   };
 
-  const handleCreateUser = async (e: React.FormEvent) => {
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     try {
+      const payload: any = {
+        action: editingUser ? 'EDIT_USER' : 'CREATE_USER',
+        userId: editingUser?.id,
+        userCode,
+        email: userEmail,
+        name: userName,
+        role: userRole,
+        departmentId: userDeptId || null,
+        newPassword: userPassword,
+      };
+
       const res = await fetch('/api/master-admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: userEmail,
-          name: userName,
-          role: userRole,
-          departmentId: userDeptId || null,
-          newPassword: userPassword,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create user.');
+      if (!res.ok) throw new Error(data.error || 'Failed to save user.');
 
       setShowUserModal(false);
-      fetchData();
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-
-  const handleResetUserPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    try {
-      const res = await fetch('/api/master-admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'RESET_PASSWORD',
-          userId: resetTargetUser?.id,
-          newPassword: resetPassword,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to reset password.');
-
-      setShowResetModal(false);
       fetchData();
     } catch (err: any) {
       setError(err.message);
@@ -286,6 +265,28 @@ export default function MasterAdminDashboard() {
     setSemesters(dept.semesters);
     setHodId(dept.hodId || '');
     setShowDeptModal(true);
+  };
+
+  const openAddUser = () => {
+    setEditingUser(null);
+    setUserCode(`CS${101 + users.length}`);
+    setUserEmail('');
+    setUserName('');
+    setUserRole('FACULTY');
+    setUserDeptId(departments[0]?.id || '');
+    setUserPassword('Changeme@123');
+    setShowUserModal(true);
+  };
+
+  const openEditUser = (u: any) => {
+    setEditingUser(u);
+    setUserCode(u.userCode || '');
+    setUserEmail(u.email || '');
+    setUserName(u.name || '');
+    setUserRole(u.role || 'FACULTY');
+    setUserDeptId(u.departmentId || '');
+    setUserPassword('');
+    setShowUserModal(true);
   };
 
   // Filtered Users List
@@ -407,17 +408,10 @@ export default function MasterAdminDashboard() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h3 className="text-base font-bold text-slate-900">User Directory</h3>
-                <p className="text-xs text-desc">Search and filter institutional user accounts and human-readable User IDs.</p>
+                <p className="text-xs text-desc">Search, filter, and edit user attributes and human-readable User IDs.</p>
               </div>
               <button
-                onClick={() => {
-                  setUserEmail('');
-                  setUserName('');
-                  setUserRole('FACULTY');
-                  setUserDeptId(departments[0]?.id || '');
-                  setUserPassword('Changeme@123');
-                  setShowUserModal(true);
-                }}
+                onClick={openAddUser}
                 className="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs flex items-center shrink-0"
               >
                 <Plus className="w-4 h-4 mr-1.5" /> Add User Account
@@ -497,17 +491,13 @@ export default function MasterAdminDashboard() {
                             {u.role}
                           </span>
                         </td>
-                        <td className="p-3 text-slate-600">{u.department ? u.department.shortName : 'N/A'}</td>
+                        <td className="p-3 text-slate-600">{u.department ? u.department.shortName : (u.role === 'MASTERADMIN' || u.role === 'SUPERADMIN' ? 'Institutional Global' : 'N/A')}</td>
                         <td className="p-3 text-right">
                           <button
-                            onClick={() => {
-                              setResetTargetUser(u);
-                              setResetPassword('Changeme@123');
-                              setShowResetModal(true);
-                            }}
-                            className="px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold rounded-lg border border-amber-200 text-xs inline-flex items-center"
+                            onClick={() => openEditUser(u)}
+                            className="px-3 py-1 bg-brand-50 hover:bg-brand-100 text-brand-800 font-bold rounded-lg border border-purple-200 text-xs inline-flex items-center"
                           >
-                            <Key className="w-3.5 h-3.5 mr-1" /> Reset Password
+                            <Edit className="w-3.5 h-3.5 mr-1" /> Edit User
                           </button>
                         </td>
                       </tr>
@@ -712,7 +702,7 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB 6: AUDIT LOGS (IST Formatted) */}
+        {/* TAB 6: AUDIT LOGS */}
         {activeTab === 'audit' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
             <h3 className="text-base font-bold text-slate-900">System Audit Trail</h3>
@@ -739,6 +729,81 @@ export default function MasterAdminDashboard() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* User Create / Edit Modal (With Explicit User ID Input) */}
+        {showUserModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+              <h3 className="text-base font-bold text-slate-900">
+                {editingUser ? 'Edit User Account & Attributes' : 'Create New User Account'}
+              </h3>
+              {error && (
+                <div className="p-3 rounded-xl bg-red-50 text-xs text-red-700 border border-red-200">
+                  {error}
+                </div>
+              )}
+              <form onSubmit={handleSaveUser} className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-semibold mb-1">User ID (userCode) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={userCode}
+                    onChange={(e) => setUserCode(e.target.value)}
+                    placeholder="e.g. CS105, CD101, ADM01"
+                    className="w-full p-2 border rounded-xl font-mono font-bold text-brand-700"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1">Full Name *</label>
+                  <input type="text" required value={userName} onChange={(e) => setUserName(e.target.value)} placeholder="Dr. Jane Doe" className="w-full p-2 border rounded-xl" />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1">College Email (@rajalakshmi.edu.in) *</label>
+                  <input type="email" required value={userEmail} onChange={(e) => setUserEmail(e.target.value)} placeholder="name@rajalakshmi.edu.in" className="w-full p-2 border rounded-xl" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold mb-1">Role *</label>
+                    <select value={userRole} onChange={(e) => setUserRole(e.target.value)} className="w-full p-2 border rounded-xl">
+                      <option value="FACULTY">Faculty</option>
+                      <option value="HOD">HoD</option>
+                      <option value="MASTERADMIN">MasterAdmin</option>
+                      <option value="SUPERADMIN">Dean</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold mb-1">Department</label>
+                    <select value={userDeptId} onChange={(e) => setUserDeptId(e.target.value)} className="w-full p-2 border rounded-xl">
+                      <option value="">Global (No Department)</option>
+                      {departments.map((d) => (
+                        <option key={d.id} value={d.id}>{d.shortName}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1">
+                    {editingUser ? 'New Password (Leave blank to keep unchanged)' : 'Initial Password *'}
+                  </label>
+                  <input
+                    type="password"
+                    required={!editingUser}
+                    value={userPassword}
+                    onChange={(e) => setUserPassword(e.target.value)}
+                    className="w-full p-2 border rounded-xl"
+                  />
+                </div>
+                <div className="flex justify-end space-x-2 pt-3 border-t">
+                  <button type="button" onClick={() => setShowUserModal(false)} className="px-3 py-1.5 rounded-xl text-slate-600">Cancel</button>
+                  <button type="submit" className="px-4 py-1.5 rounded-xl bg-brand-600 text-white font-bold">
+                    {editingUser ? 'Update User' : 'Create Account'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
@@ -811,73 +876,6 @@ export default function MasterAdminDashboard() {
                 <div className="flex justify-end space-x-2 pt-3 border-t">
                   <button type="button" onClick={() => setShowDeptModal(false)} className="px-3 py-1.5 rounded-xl text-slate-600">Cancel</button>
                   <button type="submit" className="px-4 py-1.5 rounded-xl bg-brand-600 text-white font-bold">Save Department</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* User Create Modal */}
-        {showUserModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-              <h3 className="text-base font-bold text-slate-900">Create New User Account</h3>
-              <form onSubmit={handleCreateUser} className="space-y-3 text-xs">
-                <div>
-                  <label className="block font-semibold mb-1">Full Name *</label>
-                  <input type="text" required value={userName} onChange={(e) => setUserName(e.target.value)} placeholder="Dr. Jane Doe" className="w-full p-2 border rounded-xl" />
-                </div>
-                <div>
-                  <label className="block font-semibold mb-1">College Email (@rajalakshmi.edu.in) *</label>
-                  <input type="email" required value={userEmail} onChange={(e) => setUserEmail(e.target.value)} placeholder="name@rajalakshmi.edu.in" className="w-full p-2 border rounded-xl" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-semibold mb-1">Role *</label>
-                    <select value={userRole} onChange={(e) => setUserRole(e.target.value)} className="w-full p-2 border rounded-xl">
-                      <option value="FACULTY">Faculty</option>
-                      <option value="HOD">HoD</option>
-                      <option value="MASTERADMIN">MasterAdmin</option>
-                      <option value="SUPERADMIN">Dean</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block font-semibold mb-1">Department</label>
-                    <select value={userDeptId} onChange={(e) => setUserDeptId(e.target.value)} className="w-full p-2 border rounded-xl">
-                      <option value="">Select Dept...</option>
-                      {departments.map((d) => (
-                        <option key={d.id} value={d.id}>{d.shortName}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="block font-semibold mb-1">Initial Password *</label>
-                  <input type="password" required value={userPassword} onChange={(e) => setUserPassword(e.target.value)} className="w-full p-2 border rounded-xl" />
-                </div>
-                <div className="flex justify-end space-x-2 pt-3 border-t">
-                  <button type="button" onClick={() => setShowUserModal(false)} className="px-3 py-1.5 rounded-xl text-slate-600">Cancel</button>
-                  <button type="submit" className="px-4 py-1.5 rounded-xl bg-brand-600 text-white font-bold">Create Account</button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Reset Password Modal */}
-        {showResetModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-              <h3 className="text-base font-bold text-slate-900">Reset User Password</h3>
-              <p className="text-xs text-desc">User: <strong>{resetTargetUser?.name}</strong> ({resetTargetUser?.userCode || resetTargetUser?.email})</p>
-              <form onSubmit={handleResetUserPassword} className="space-y-3 text-xs">
-                <div>
-                  <label className="block font-semibold mb-1">New Password *</label>
-                  <input type="password" required value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} className="w-full p-2 border rounded-xl" />
-                </div>
-                <div className="flex justify-end space-x-2 pt-3 border-t">
-                  <button type="button" onClick={() => setShowResetModal(false)} className="px-3 py-1.5 rounded-xl text-slate-600">Cancel</button>
-                  <button type="submit" className="px-4 py-1.5 rounded-xl bg-amber-600 text-white font-bold">Reset Password</button>
                 </div>
               </form>
             </div>

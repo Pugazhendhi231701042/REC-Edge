@@ -10,10 +10,12 @@ import {
   Layers,
   FileCheck,
   ShieldAlert,
-  Bell,
   Sliders,
   LogOut,
   Sparkles,
+  CheckCircle2,
+  Eye,
+  User as UserIcon,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -37,44 +39,68 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const pathname = usePathname();
 
-  const getNavItems = () => {
+  const getDeanSections = () => [
+    {
+      title: 'OVERVIEW',
+      items: [
+        { id: 'overview', label: 'Institutional Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
+      ],
+    },
+    {
+      title: 'ACADEMIC MANAGEMENT',
+      items: [
+        { id: 'stages', label: 'Academic Stages', icon: <Layers className="w-4 h-4" /> },
+        { id: 'departments', label: 'Departments & Programmes', icon: <Building2 className="w-4 h-4" /> },
+        { id: 'progress', label: 'Department Progress', icon: <FileCheck className="w-4 h-4" /> },
+      ],
+    },
+    {
+      title: 'SYLLABUS',
+      items: [
+        { id: 'approved', label: 'Approved Syllabi', icon: <CheckCircle2 className="w-4 h-4" /> },
+        { id: 'reviews', label: 'Syllabus Reviews', icon: <Eye className="w-4 h-4" /> },
+      ],
+    },
+    {
+      title: 'REQUESTS',
+      items: [
+        { id: 'extensions', label: 'Extension Requests', icon: <ShieldAlert className="w-4 h-4" /> },
+      ],
+    },
+  ];
+
+  const getStandardItems = () => {
     switch (userRole) {
-      case 'SUPERADMIN':
-        return [
-          { id: 'overview', label: 'Institutional Overview', href: '/dashboard/dean', icon: <LayoutDashboard className="w-4 h-4" /> },
-          { id: 'stages', label: 'Academic Stages', href: '/dashboard/dean?tab=stages', icon: <Layers className="w-4 h-4" /> },
-          { id: 'departments', label: 'Departments Progress', href: '/dashboard/dean?tab=departments', icon: <Building2 className="w-4 h-4" /> },
-          { id: 'approved', label: 'Approved Syllabi', href: '/dashboard/dean?tab=approved', icon: <FileCheck className="w-4 h-4" /> },
-          { id: 'extensions', label: 'Extension Requests', href: '/dashboard/dean?tab=extensions', icon: <ShieldAlert className="w-4 h-4" /> },
-        ];
       case 'MASTERADMIN':
         return [
-          { id: 'departments', label: 'Departments & HoDs', href: '/dashboard/master-admin?tab=departments', icon: <Building2 className="w-4 h-4" /> },
-          { id: 'users', label: 'User Directory', href: '/dashboard/master-admin?tab=users', icon: <Users className="w-4 h-4" /> },
-          { id: 'regulations', label: 'Regulations & Types', href: '/dashboard/master-admin?tab=regulations', icon: <Sliders className="w-4 h-4" /> },
-          { id: 'creditconfig', label: 'Credit Weights Config', href: '/dashboard/master-admin?tab=creditconfig', icon: <Sparkles className="w-4 h-4" /> },
-          { id: 'popso', label: 'PO / PSO Config', href: '/dashboard/master-admin?tab=popso', icon: <BookOpen className="w-4 h-4" /> },
-          { id: 'audit', label: 'Audit Logs', href: '/dashboard/master-admin?tab=audit', icon: <ShieldAlert className="w-4 h-4" /> },
+          { id: 'departments', label: 'Departments & HoDs', icon: <Building2 className="w-4 h-4" /> },
+          { id: 'users', label: 'User Directory', icon: <Users className="w-4 h-4" /> },
+          { id: 'regulations', label: 'Regulations & Types', icon: <Sliders className="w-4 h-4" /> },
+          { id: 'creditconfig', label: 'Credit Weights Config', icon: <Sparkles className="w-4 h-4" /> },
+          { id: 'popso', label: 'PO / PSO Config', icon: <BookOpen className="w-4 h-4" /> },
+          { id: 'audit', label: 'Audit Logs', icon: <ShieldAlert className="w-4 h-4" /> },
         ];
       case 'HOD':
         return [
-          { id: 'dashboard', label: 'Department Overview', href: '/dashboard/hod', icon: <LayoutDashboard className="w-4 h-4" /> },
-          { id: 'curriculum', label: 'Curriculum Builder', href: '/dashboard/hod?tab=curriculum', icon: <BookOpen className="w-4 h-4" /> },
-          { id: 'assign', label: 'Faculty Assignments', href: '/dashboard/hod?tab=assign', icon: <Users className="w-4 h-4" /> },
-          { id: 'review', label: 'Syllabus Review', href: '/dashboard/hod?tab=review', icon: <FileCheck className="w-4 h-4" /> },
-          { id: 'extension', label: 'Extension Request', href: '/dashboard/hod?tab=extension', icon: <ShieldAlert className="w-4 h-4" /> },
+          { id: 'dashboard', label: 'Department Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
+          { id: 'curriculum', label: 'Curriculum Builder', icon: <BookOpen className="w-4 h-4" /> },
+          { id: 'assign', label: 'Faculty Assignments', icon: <Users className="w-4 h-4" /> },
+          { id: 'review', label: 'Syllabus Review', icon: <FileCheck className="w-4 h-4" /> },
+          { id: 'extension', label: 'Extension Request', icon: <ShieldAlert className="w-4 h-4" /> },
         ];
       case 'FACULTY':
       default:
         return [
-          { id: 'assigned', label: 'My Assigned Subjects', href: '/dashboard/faculty', icon: <BookOpen className="w-4 h-4" /> },
-          { id: 'drafts', label: 'Draft Syllabi', href: '/dashboard/faculty?tab=drafts', icon: <FileCheck className="w-4 h-4" /> },
-          { id: 'completed', label: 'Completed Syllabi', href: '/dashboard/faculty?tab=completed', icon: <CheckCircleIcon className="w-4 h-4" /> },
+          { id: 'assigned', label: 'My Assigned Subjects', icon: <BookOpen className="w-4 h-4" /> },
+          { id: 'drafts', label: 'Draft Syllabi', icon: <FileCheck className="w-4 h-4" /> },
+          { id: 'completed', label: 'Completed Syllabi', icon: <CheckCircle2 className="w-4 h-4" /> },
         ];
     }
   };
 
-  const navItems = getNavItems();
+  const isDean = userRole === 'SUPERADMIN';
+  const deanSections = getDeanSections();
+  const standardItems = getStandardItems();
 
   return (
     <aside className="w-64 bg-slate-900 text-white min-h-screen flex flex-col justify-between p-4 shadow-xl select-none shrink-0 border-r border-slate-800">
@@ -95,31 +121,54 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* Navigation Items */}
-        <div className="space-y-1">
-          <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Main Navigation</p>
-          {navItems.map((item) => {
-            const isTabActive = activeTab ? activeTab === item.id : pathname === item.href;
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  if (onTabChange) {
-                    onTabChange(item.id);
-                  }
-                }}
-                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left ${
-                  isTabActive
-                    ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <span>{item.icon}</span>
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        {/* Structured Navigation */}
+        {isDean ? (
+          <div className="space-y-4">
+            {deanSections.map((sec) => (
+              <div key={sec.title} className="space-y-1">
+                <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{sec.title}</p>
+                {sec.items.map((item) => {
+                  const isTabActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => onTabChange && onTabChange(item.id)}
+                      className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left ${
+                        isTabActive
+                          ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <span>{item.icon}</span>
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Main Navigation</p>
+            {standardItems.map((item) => {
+              const isTabActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => onTabChange && onTabChange(item.id)}
+                  className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left ${
+                    isTabActive
+                      ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <span>{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* User Footer Profile & Logout */}
@@ -142,9 +191,3 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </aside>
   );
 };
-
-const CheckCircleIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-  </svg>
-);

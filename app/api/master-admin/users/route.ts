@@ -33,28 +33,52 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized. MasterAdmin role required.' }, { status: 403 });
   }
 
-  const { action, userId, newPassword, email, name, role, departmentId } = await req.json();
+  const { action, userId, userCode, email, name, role, departmentId, newPassword } = await req.json();
 
-  if (action === 'RESET_PASSWORD') {
-    if (!userId || !newPassword) {
-      return NextResponse.json({ error: 'User ID and new password required.' }, { status: 400 });
+  // EDIT_USER Action: MasterAdmin can edit all attributes of a user
+  if (action === 'EDIT_USER') {
+    if (!userId || !email || !name || !role) {
+      return NextResponse.json({ error: 'User ID, Email, Name, and Role are required.' }, { status: 400 });
     }
 
-    const hashedPassword = await hashPassword(newPassword);
-    await prisma.user.update({
+    const dataToUpdate: any = {
+      name: name.trim(),
+      email: email.trim(),
+      role,
+      departmentId: departmentId || null,
+    };
+
+    if (userCode && userCode.trim()) {
+      dataToUpdate.userCode = userCode.trim();
+    }
+
+    if (newPassword && newPassword.trim()) {
+      dataToUpdate.password = await hashPassword(newPassword.trim());
+    }
+
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { password: hashedPassword },
+      data: dataToUpdate,
+      select: {
+        id: true,
+        userCode: true,
+        email: true,
+        name: true,
+        role: true,
+        departmentId: true,
+      },
     });
 
     await logAudit({
       userId: session.userId,
       userRole: session.role,
-      action: 'RESET_USER_PASSWORD',
+      action: 'EDIT_USER_ATTRIBUTES',
       entity: 'User',
       entityId: userId,
+      details: { email: updatedUser.email, role: updatedUser.role, userCode: updatedUser.userCode },
     });
 
-    return NextResponse.json({ success: true, message: 'Password reset successfully.' });
+    return NextResponse.json({ success: true, user: updatedUser });
   }
 
   // Create User
@@ -67,28 +91,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'User with this email already exists.' }, { status: 400 });
   }
 
-  // Determine prefix for unique User Code
-  let prefix = 'ADM';
-  if (role === 'SUPERADMIN') prefix = 'DEAN';
+  // Use provided userCode or auto-generate code based on department prefix
+  let finalUserCode = userCode ? userCode.trim() : '';
 
-  if (departmentId) {
-    const dept = await prisma.department.findUnique({ where: { id: departmentId } });
-    if (dept) prefix = dept.departmentCode;
+  if (!finalUserCode) {
+    let prefix = 'ADM';
+    if (role === 'SUPERADMIN') prefix = 'DEAN';
+
+    if (departmentId) {
+      const dept = await prisma.department.findUnique({ where: { id: departmentId } });
+      if (dept) prefix = dept.departmentCode;
+    }
+
+    const count = await prisma.user.count({
+      where: { userCode: { startsWith: prefix } },
+    });
+    finalUserCode = `${prefix}${101 + count}`;
   }
-
-  // Count existing users with prefix to assign sequence
-  const count = await prisma.user.count({
-    where: { userCode: { startsWith: prefix } },
-  });
-  const generatedCode = `${prefix}${101 + count}`;
 
   const hashedPassword = await hashPassword(newPassword || 'Changeme@123');
 
   const createdUser = await prisma.user.create({
     data: {
-      userCode: generatedCode,
-      email,
-      name,
+      userCode: finalUserCode,
+      email: email.trim(),
+      name: name.trim(),
       role,
       departmentId: departmentId || null,
       password: hashedPassword,
@@ -101,7 +128,7 @@ export async function POST(req: Request) {
     action: 'CREATE_USER',
     entity: 'User',
     entityId: createdUser.id,
-    details: { email, role, userCode: generatedCode },
+    details: { email: createdUser.email, role: createdUser.role, userCode: finalUserCode },
   });
 
   return NextResponse.json({ success: true, user: createdUser });
