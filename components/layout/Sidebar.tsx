@@ -184,10 +184,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {sectionGroups(sections, activeTab, onTabChange)}
       </div>
 
-      {/* Sidebar Bottom Footer (AY 2026-2027) */}
+      {/* Sidebar Bottom Footer (ACY 2026-2027) */}
       <div className="p-4 border-t border-purple-100 bg-purple-50/40 text-center">
-        <p className="text-[11px] font-bold text-slate-800">AY 2026–2027</p>
-        <p className="text-[10px] text-desc font-medium">Academic Governance Portal</p>
+        <p className="text-[11px] font-bold text-slate-800">ACY 2026–2027</p>
+        <p className="text-[10px] text-desc font-medium">Curriculum Management Portal</p>
       </div>
     </aside>
   );
