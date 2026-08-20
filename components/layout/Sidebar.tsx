@@ -1,21 +1,20 @@
 import React from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Building2,
   Users,
   BookOpen,
-  Settings,
+  Sliders,
   Layers,
   FileCheck,
   ShieldAlert,
-  Sliders,
-  LogOut,
   Sparkles,
   CheckCircle2,
   Eye,
-  User as UserIcon,
+  LogOut,
+  UserCheck,
+  Clock,
+  Send,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -37,8 +36,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onTabChange,
 }) => {
-  const pathname = usePathname();
-
   const getDeanSections = () => [
     {
       title: 'OVERVIEW',
@@ -69,38 +66,88 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
-  const getStandardItems = () => {
-    switch (userRole) {
-      case 'MASTERADMIN':
-        return [
-          { id: 'departments', label: 'Departments & HoDs', icon: <Building2 className="w-4 h-4" /> },
-          { id: 'users', label: 'User Directory', icon: <Users className="w-4 h-4" /> },
-          { id: 'regulations', label: 'Regulations & Types', icon: <Sliders className="w-4 h-4" /> },
-          { id: 'creditconfig', label: 'Credit Weights Config', icon: <Sparkles className="w-4 h-4" /> },
-          { id: 'popso', label: 'PO / PSO Config', icon: <BookOpen className="w-4 h-4" /> },
-          { id: 'audit', label: 'Audit Logs', icon: <ShieldAlert className="w-4 h-4" /> },
-        ];
-      case 'HOD':
-        return [
-          { id: 'dashboard', label: 'Department Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
-          { id: 'curriculum', label: 'Curriculum Builder', icon: <BookOpen className="w-4 h-4" /> },
-          { id: 'assign', label: 'Faculty Assignments', icon: <Users className="w-4 h-4" /> },
-          { id: 'review', label: 'Syllabus Review', icon: <FileCheck className="w-4 h-4" /> },
-          { id: 'extension', label: 'Extension Request', icon: <ShieldAlert className="w-4 h-4" /> },
-        ];
-      case 'FACULTY':
-      default:
-        return [
-          { id: 'assigned', label: 'My Assigned Subjects', icon: <BookOpen className="w-4 h-4" /> },
-          { id: 'drafts', label: 'Draft Syllabi', icon: <FileCheck className="w-4 h-4" /> },
-          { id: 'completed', label: 'Completed Syllabi', icon: <CheckCircle2 className="w-4 h-4" /> },
-        ];
-    }
-  };
+  const getMasterAdminSections = () => [
+    {
+      title: 'OVERVIEW',
+      items: [
+        { id: 'overview', label: 'System Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
+      ],
+    },
+    {
+      title: 'ORGANIZATION',
+      items: [
+        { id: 'departments', label: 'Departments & Programmes', icon: <Building2 className="w-4 h-4" /> },
+        { id: 'users', label: 'User Directory', icon: <Users className="w-4 h-4" /> },
+      ],
+    },
+    {
+      title: 'ACADEMIC CONFIGURATION',
+      items: [
+        { id: 'regulations', label: 'Regulations & Types', icon: <Sliders className="w-4 h-4" /> },
+        { id: 'creditconfig', label: 'Credit Weights', icon: <Sparkles className="w-4 h-4" /> },
+        { id: 'popso', label: 'PO / PSO Configuration', icon: <BookOpen className="w-4 h-4" /> },
+      ],
+    },
+    {
+      title: 'SECURITY & MONITORING',
+      items: [
+        { id: 'audit', label: 'Audit Logs', icon: <ShieldAlert className="w-4 h-4" /> },
+      ],
+    },
+  ];
 
-  const isDean = userRole === 'SUPERADMIN';
-  const deanSections = getDeanSections();
-  const standardItems = getStandardItems();
+  const getHoDSections = () => [
+    {
+      title: 'OVERVIEW',
+      items: [
+        { id: 'overview', label: 'Department Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
+      ],
+    },
+    {
+      title: 'CURRICULUM',
+      items: [
+        { id: 'curriculum', label: 'Curriculum', icon: <BookOpen className="w-4 h-4" /> },
+        { id: 'subjects', label: 'Subjects Master', icon: <Building2 className="w-4 h-4" /> },
+        { id: 'assignments', label: 'Faculty Assignments', icon: <UserCheck className="w-4 h-4" /> },
+      ],
+    },
+    {
+      title: 'SYLLABUS',
+      items: [
+        { id: 'progress', label: 'Syllabus Progress', icon: <Clock className="w-4 h-4" /> },
+        { id: 'review', label: 'Submitted / Review', icon: <FileCheck className="w-4 h-4" /> },
+        { id: 'approved', label: 'Approved Syllabi', icon: <CheckCircle2 className="w-4 h-4" /> },
+      ],
+    },
+    {
+      title: 'REQUESTS',
+      items: [
+        { id: 'extension', label: 'Extension Request', icon: <ShieldAlert className="w-4 h-4" /> },
+      ],
+    },
+  ];
+
+  const getFacultySections = () => [
+    {
+      title: 'OVERVIEW',
+      items: [
+        { id: 'overview', label: 'My Workspace', icon: <LayoutDashboard className="w-4 h-4" /> },
+      ],
+    },
+    {
+      title: 'SYLLABUS',
+      items: [
+        { id: 'subjects', label: 'My Subjects', icon: <BookOpen className="w-4 h-4" /> },
+        { id: 'review', label: 'Submitted / Review', icon: <Send className="w-4 h-4" /> },
+        { id: 'approved', label: 'Approved Syllabi', icon: <CheckCircle2 className="w-4 h-4" /> },
+      ],
+    },
+  ];
+
+  let sections = getFacultySections();
+  if (userRole === 'SUPERADMIN') sections = getDeanSections();
+  else if (userRole === 'MASTERADMIN') sections = getMasterAdminSections();
+  else if (userRole === 'HOD') sections = getHoDSections();
 
   return (
     <aside className="w-64 bg-slate-900 text-white min-h-screen flex flex-col justify-between p-4 shadow-xl select-none shrink-0 border-r border-slate-800">
@@ -122,53 +169,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Structured Navigation */}
-        {isDean ? (
-          <div className="space-y-4">
-            {deanSections.map((sec) => (
-              <div key={sec.title} className="space-y-1">
-                <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{sec.title}</p>
-                {sec.items.map((item) => {
-                  const isTabActive = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => onTabChange && onTabChange(item.id)}
-                      className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left ${
-                        isTabActive
-                          ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30'
-                          : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                      }`}
-                    >
-                      <span>{item.icon}</span>
-                      <span>{item.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-1">
-            <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Main Navigation</p>
-            {standardItems.map((item) => {
-              const isTabActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => onTabChange && onTabChange(item.id)}
-                  className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left ${
-                    isTabActive
-                      ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                  }`}
-                >
-                  <span>{item.icon}</span>
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+        <div className="space-y-4">
+          {sections.map((sec) => (
+            <div key={sec.title} className="space-y-1">
+              <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{sec.title}</p>
+              {sec.items.map((item) => {
+                const isTabActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => onTabChange && onTabChange(item.id)}
+                    className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left ${
+                      isTabActive
+                        ? 'bg-brand-600 text-white shadow-md shadow-brand-600/30'
+                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    }`}
+                  >
+                    <span>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* User Footer Profile & Logout */}

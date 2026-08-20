@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
-import { StatCard } from '@/components/common/StatCard';
 import { formatIST } from '@/lib/time';
 import {
   Building2,
@@ -18,10 +17,13 @@ import {
   Search,
   Sparkles,
   Edit2,
+  ArrowRight,
+  ShieldCheck,
+  Check,
 } from 'lucide-react';
 
 export default function MasterAdminDashboard() {
-  const [activeTab, setActiveTab] = useState<string>('departments');
+  const [activeTab, setActiveTab] = useState<string>('overview');
   const [departments, setDepartments] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [regulations, setRegulations] = useState<any[]>([]);
@@ -289,6 +291,8 @@ export default function MasterAdminDashboard() {
     setShowUserModal(true);
   };
 
+  const activeReg = regulations.find((r) => r.active) || regulations[0];
+
   // Filtered Users List
   const filteredUsers = users.filter((u) => {
     const matchesSearch =
@@ -303,76 +307,168 @@ export default function MasterAdminDashboard() {
   return (
     <AppShell activeTab={activeTab} onTabChange={setActiveTab}>
       <div className="space-y-8 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">System Master Administration</h1>
-            <p className="text-xs text-desc mt-1">Manage Departments, Users, User IDs, Subject Type Codes, Credit Multipliers, and PO/PSO Structures</p>
+        {/* TAB 1: SYSTEM OVERVIEW (EXECUTIVE DASHBOARD) */}
+        {activeTab === 'overview' && (
+          <div className="space-y-8">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b pb-4">
+              <div>
+                <h1 className="text-2xl font-black text-slate-900 tracking-tight">System Overview</h1>
+                <p className="text-xs text-desc mt-1">Master Administration Control Center — Regulation 26 Governance</p>
+              </div>
+              <div className="mt-3 md:mt-0 px-3 py-1.5 rounded-xl bg-purple-50 text-brand-800 border border-purple-200 text-xs font-bold">
+                Active: {activeReg?.displayName || 'Regulation 26'}
+              </div>
+            </div>
+
+            {/* Consolidated KPI Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
+                <p className="text-xs font-bold text-slate-500">Total Departments</p>
+                <p className="text-2xl font-black text-slate-900">{departments.length}</p>
+                <button onClick={() => setActiveTab('departments')} className="text-[11px] font-bold text-brand-600 hover:underline flex items-center mt-1">
+                  Manage <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </button>
+              </div>
+
+              <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
+                <p className="text-xs font-bold text-slate-500">User Directory</p>
+                <p className="text-2xl font-black text-indigo-600">{users.length}</p>
+                <button onClick={() => setActiveTab('users')} className="text-[11px] font-bold text-brand-600 hover:underline flex items-center mt-1">
+                  View Directory <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </button>
+              </div>
+
+              <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
+                <p className="text-xs font-bold text-slate-500">Programmes</p>
+                <p className="text-2xl font-black text-blue-600">{departments.length}</p>
+                <button onClick={() => setActiveTab('departments')} className="text-[11px] font-bold text-brand-600 hover:underline flex items-center mt-1">
+                  Inspect <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </button>
+              </div>
+
+              <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
+                <p className="text-xs font-bold text-slate-500">Active Regulation</p>
+                <p className="text-lg font-black text-emerald-600 truncate">{activeReg?.code || '26'}</p>
+                <button onClick={() => setActiveTab('regulations')} className="text-[11px] font-bold text-brand-600 hover:underline flex items-center mt-1">
+                  Configure <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </button>
+              </div>
+            </div>
+
+            {/* Configuration Status & Quick Actions Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Configuration Status */}
+              <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
+                <h3 className="text-base font-bold text-slate-900">System Configuration Status</h3>
+                <div className="space-y-3 text-xs">
+                  <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-center justify-between">
+                    <span className="font-bold text-slate-800">Regulations & Types</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center">
+                      <Check className="w-3 h-3 mr-1" /> Configured
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-center justify-between">
+                    <span className="font-bold text-slate-800">Credit Calculation Weights</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center">
+                      <Check className="w-3 h-3 mr-1" /> L={lWeight}, T={tWeight}, P={pWeight}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-center justify-between">
+                    <span className="font-bold text-slate-800">PO / PSO Structure</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center">
+                      <Check className="w-3 h-3 mr-1" /> Configured
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-center justify-between">
+                    <span className="font-bold text-slate-800">User Directory</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-bold text-[10px]">
+                      {users.length} Active Accounts
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Actions Panel */}
+              <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
+                <h3 className="text-base font-bold text-slate-900">Quick Administrative Actions</h3>
+                <div className="grid grid-cols-2 gap-3 text-xs font-bold">
+                  <button
+                    onClick={openAddDept}
+                    className="p-3 bg-brand-600 hover:bg-brand-700 text-white rounded-2xl shadow-xs flex items-center justify-center space-x-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Department</span>
+                  </button>
+
+                  <button
+                    onClick={openAddUser}
+                    className="p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-xs flex items-center justify-center space-x-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add User Account</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('regulations')}
+                    className="p-3 bg-purple-50 hover:bg-purple-100 text-brand-700 border border-purple-200 rounded-2xl flex items-center justify-center space-x-2"
+                  >
+                    <Sliders className="w-4 h-4" />
+                    <span>Manage Regulations</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveTab('creditconfig')}
+                    className="p-3 bg-purple-50 hover:bg-purple-100 text-brand-700 border border-purple-200 rounded-2xl flex items-center justify-center space-x-2"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Configure Credit Weights</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Administrative Activity */}
+            <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-slate-900">Recent Administrative Events</h3>
+                <button
+                  onClick={() => setActiveTab('audit')}
+                  className="text-xs font-bold text-brand-600 hover:underline flex items-center"
+                >
+                  View Audit Logs <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </button>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                {auditLogs.slice(0, 4).map((log) => (
+                  <div key={log.id} className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                    <div>
+                      <span className="font-bold text-slate-900">{log.user?.name || log.userId}</span>
+                      <span className="ml-2 font-semibold text-brand-700">({log.action})</span>
+                      <p className="text-[11px] text-desc mt-0.5">{log.details || log.entity}</p>
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-400">{formatIST(log.createdAt)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Tab Bar */}
-        <div className="flex items-center space-x-2 border-b border-purple-100 pb-2 overflow-x-auto">
-          <button
-            onClick={() => setActiveTab('departments')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'departments' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 hover:bg-white'
-            }`}
-          >
-            🏛️ Departments ({departments.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('users')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'users' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 hover:bg-white'
-            }`}
-          >
-            👥 User Directory ({users.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('regulations')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'regulations' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 hover:bg-white'
-            }`}
-          >
-            📋 Regulations & Types
-          </button>
-          <button
-            onClick={() => setActiveTab('creditconfig')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'creditconfig' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 hover:bg-white'
-            }`}
-          >
-            ✨ Credit Weights Config
-          </button>
-          <button
-            onClick={() => setActiveTab('popso')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'popso' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 hover:bg-white'
-            }`}
-          >
-            🎯 PO / PSO Config
-          </button>
-          <button
-            onClick={() => setActiveTab('audit')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'audit' ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 hover:bg-white'
-            }`}
-          >
-            📜 Audit Logs
-          </button>
-        </div>
-
-        {/* TAB 1: DEPARTMENTS */}
+        {/* TAB 2: DEPARTMENTS & PROGRAMMES */}
         {activeTab === 'departments' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900">Academic Departments</h3>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Departments & Academic Programmes</h3>
+                <p className="text-xs text-desc">Manage institutional programme master data and assigned HoDs.</p>
+              </div>
               <button
                 onClick={openAddDept}
                 className="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs flex items-center"
               >
-                <Plus className="w-4 h-4 mr-1.5" /> Add Department
+                <Plus className="w-4 h-4 mr-1.5" /> Add Programme
               </button>
             </div>
 
@@ -402,7 +498,7 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB 2: USER DIRECTORY & FILTERING */}
+        {/* TAB 3: USER DIRECTORY */}
         {activeTab === 'users' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -509,7 +605,7 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB 3: REGULATIONS & SUBJECT TYPE CODES */}
+        {/* TAB 4: REGULATIONS & SUBJECT TYPE CODES */}
         {activeTab === 'regulations' && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
@@ -575,7 +671,7 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB 4: CREDIT WEIGHTS CONFIGURATION */}
+        {/* TAB 5: CREDIT WEIGHTS CONFIGURATION */}
         {activeTab === 'creditconfig' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5 max-w-xl">
             <div>
@@ -642,7 +738,7 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB 5: PO / PSO CONFIGURATION */}
+        {/* TAB 6: PO / PSO CONFIGURATION */}
         {activeTab === 'popso' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5 max-w-xl">
             <h3 className="text-base font-bold text-slate-900">PO & PSO Count Configuration</h3>
@@ -702,7 +798,7 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB 6: AUDIT LOGS */}
+        {/* TAB 7: AUDIT LOGS */}
         {activeTab === 'audit' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
             <h3 className="text-base font-bold text-slate-900">System Audit Trail</h3>
@@ -733,7 +829,7 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* User Create / Edit Modal (With Explicit User ID Input) */}
+        {/* User Create / Edit Modal */}
         {showUserModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
