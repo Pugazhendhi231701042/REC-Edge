@@ -62,22 +62,21 @@ export default function LoginPage() {
                 REGULATION 26
               </p>
             </div>
+
+            <div className="pt-2 max-w-xs">
+              <h2 className="text-xl lg:text-2xl font-extrabold text-white leading-tight mt-4">
+                Curriculum & Syllabus Management System
+              </h2>
+            </div>
           </div>
 
           <div className="mt-8 pt-6 border-t border-white/10 w-full flex items-center justify-between text-xs text-purple-300 font-semibold">
             <span className="flex items-center">
               <ShieldCheck className="w-4 h-4 mr-1 text-emerald-400" /> Autonomous Institution
             </span>
-            <span>
-              <div className="pt-2 max-w-xs">
-              <span className="inline-flex items-center space-x-1.5 px-4 py-1.5 rounded-full text-xs font-extrabold bg-amber-400/20 text-amber-300 border border-amber-400/30">
+            <span className="inline-flex items-center space-x-1.5 px-4 py-1.5 rounded-full text-xs font-extrabold bg-amber-400/20 text-amber-300 border border-amber-400/30">
                 <Sparkles className="w-4 h-4" />
                 <span>AY 2026-2027</span>
-              </span>
-              <h2 className="text-xl lg:text-2xl font-extrabold text-white leading-tight mt-4">
-                Curriculum & Syllabus Management System
-              </h2>
-            </div>
             </span>
           </div>
         </div>
@@ -85,7 +84,7 @@ export default function LoginPage() {
         {/* Right Side: Clean Institutional Login Card */}
         <div className="p-8 lg:p-12 bg-white flex flex-col justify-center">
           <div className="mb-8">
-            <h3 className="text-2xl font-bold text-slate-900">Welcome Back</h3>
+            <h3 className="text-2xl font-bold text-slate-900">Welcome Back!</h3>
             <p className="text-xs font-medium text-desc mt-1">Sign in to continue to Regulation 26</p>
           </div>
 

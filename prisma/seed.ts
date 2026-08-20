@@ -4,7 +4,42 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Seeding Regulation 26 database with MasterAdmin, Dean, Departments, and User Codes...');
+  console.log('Truncating all existing database tables...');
+
+  // Deleting records in dependent order to respect foreign key constraints
+  await prisma.syllabusSDGMapping.deleteMany();
+  await prisma.cOPOJustification.deleteMany();
+  await prisma.cOPOMapping.deleteMany();
+  await prisma.reference.deleteMany();
+  await prisma.textbook.deleteMany();
+  await prisma.courseOutcome.deleteMany();
+  await prisma.experiment.deleteMany();
+  await prisma.syllabusUnit.deleteMany();
+  await prisma.objective.deleteMany();
+  await prisma.syllabusSubmission.deleteMany();
+  await prisma.subject.deleteMany();
+  await prisma.extensionRequest.deleteMany();
+  await prisma.academicStage.deleteMany();
+  await prisma.notification.deleteMany();
+  await prisma.auditLog.deleteMany();
+  await prisma.pOConfiguration.deleteMany();
+  await prisma.pSOConfiguration.deleteMany();
+  
+  // Unlink department references before deleting users and departments
+  await prisma.user.updateMany({ data: { departmentId: null } });
+  await prisma.department.updateMany({ data: { hodId: null } });
+
+  await prisma.user.deleteMany();
+  await prisma.department.deleteMany();
+  await prisma.subjectCategory.deleteMany();
+  await prisma.subjectType.deleteMany();
+  await prisma.regulation.deleteMany();
+  await prisma.academicYear.deleteMany();
+  await prisma.sDGGoal.deleteMany();
+  await prisma.creditConfig.deleteMany();
+
+  console.log('All tables truncated successfully.');
+  console.log('Seeding minimal 4-user database (1 MasterAdmin, 1 SuperAdmin/Dean, 1 HoD, 1 Faculty)...');
 
   const defaultPasswordHash = await bcrypt.hash('Changeme@123', 10);
 
@@ -30,28 +65,22 @@ async function main() {
   ];
 
   for (const sdg of sdgList) {
-    await prisma.sDGGoal.upsert({
-      where: { sdgNumber: sdg.number },
-      update: { name: sdg.name },
-      create: { sdgNumber: sdg.number, name: sdg.name, active: true },
+    await prisma.sDGGoal.create({
+      data: { sdgNumber: sdg.number, name: sdg.name, active: true },
     });
   }
 
-  // 2. Academic Years
-  const ay2026 = await prisma.academicYear.upsert({
-    where: { year: '2026–2027' },
-    update: {},
-    create: {
+  // 2. Academic Year
+  const ay2026 = await prisma.academicYear.create({
+    data: {
       year: '2026–2027',
       active: true,
     },
   });
 
   // 3. Regulations
-  const reg26 = await prisma.regulation.upsert({
-    where: { code: '26' },
-    update: { active: true },
-    create: {
+  const reg26 = await prisma.regulation.create({
+    data: {
       code: '26',
       name: 'Regulation 26',
       displayName: 'Regulation 26 (2026)',
@@ -59,10 +88,8 @@ async function main() {
     },
   });
 
-  await prisma.regulation.upsert({
-    where: { code: '23' },
-    update: {},
-    create: {
+  await prisma.regulation.create({
+    data: {
       code: '23',
       name: 'Regulation 23',
       displayName: 'Regulation 23 (2023)',
@@ -81,10 +108,8 @@ async function main() {
 
   const subjectTypesMap: Record<string, string> = {};
   for (const st of subjectTypesData) {
-    const created = await prisma.subjectType.upsert({
-      where: { id: `st-${st.code}` },
-      update: { name: st.name, code: st.code, templateType: st.templateType },
-      create: {
+    const created = await prisma.subjectType.create({
+      data: {
         id: `st-${st.code}`,
         name: st.name,
         code: st.code,
@@ -108,24 +133,16 @@ async function main() {
 
   const categoriesMap: Record<string, string> = {};
   for (const cat of categoriesData) {
-    const created = await prisma.subjectCategory.upsert({
-      where: { code: cat.code },
-      update: { name: cat.name, description: cat.description },
-      create: { code: cat.code, name: cat.name, description: cat.description, active: true },
+    const created = await prisma.subjectCategory.create({
+      data: { code: cat.code, name: cat.name, description: cat.description, active: true },
     });
     categoriesMap[cat.code] = created.id;
   }
 
-  // 6. System Core Administrative Users: MasterAdmin & Dean
-  const masterAdmin = await prisma.user.upsert({
-    where: { email: '231701042@rajalakshmi.edu.in' },
-    update: {
-      role: 'MASTERADMIN',
-      userCode: 'ADM01',
-      name: 'System MasterAdmin',
-      active: true,
-    },
-    create: {
+  // 6. Seed the 4 Core System Users:
+  // User 1: MasterAdmin
+  const masterAdmin = await prisma.user.create({
+    data: {
       email: '231701042@rajalakshmi.edu.in',
       userCode: 'ADM01',
       password: defaultPasswordHash,
@@ -135,15 +152,9 @@ async function main() {
     },
   });
 
-  const dean = await prisma.user.upsert({
-    where: { email: 'dean@rajalakshmi.edu.in' },
-    update: {
-      role: 'SUPERADMIN',
-      userCode: 'DEAN01',
-      name: 'Dr. Dean Academic Affairs',
-      active: true,
-    },
-    create: {
+  // User 2: SuperAdmin (Dean)
+  const dean = await prisma.user.create({
+    data: {
       email: 'dean@rajalakshmi.edu.in',
       userCode: 'DEAN01',
       password: defaultPasswordHash,
@@ -153,149 +164,67 @@ async function main() {
     },
   });
 
-  // 7. Departments and HoDs
-  const deptsData = [
-    {
-      short: 'CSE',
-      code: '101',
-      type: 'UG',
-      name: 'Computer Science and Engineering',
-      semesters: 8,
-      hod: { email: 'hod.cse@rajalakshmi.edu.in', name: 'Dr. HoD CSE', code: 'CS101' },
-      faculty: [
-        { email: 'alan.turing@rajalakshmi.edu.in', name: 'Dr. Alan Turing', code: 'CSF01' },
-        { email: 'grace.hopper@rajalakshmi.edu.in', name: 'Dr. Grace Hopper', code: 'CSF02' },
-      ],
+  // User 3: Admin / HoD CSE
+  const hodUser = await prisma.user.create({
+    data: {
+      email: 'hod.cse@rajalakshmi.edu.in',
+      userCode: 'CS101',
+      password: defaultPasswordHash,
+      name: 'Dr. HoD CSE',
+      role: 'HOD',
+      active: true,
     },
-    {
-      short: 'ECE',
-      code: '102',
-      type: 'UG',
-      name: 'Electronics and Communication Engineering',
-      semesters: 8,
-      hod: { email: 'hod.ece@rajalakshmi.edu.in', name: 'Dr. HoD ECE', code: 'EC101' },
-      faculty: [
-        { email: 'claude.shannon@rajalakshmi.edu.in', name: 'Dr. Claude Shannon', code: 'ECF01' },
-      ],
+  });
+
+  // User 4: Faculty CSE
+  const facultyUser = await prisma.user.create({
+    data: {
+      email: 'alan.turing@rajalakshmi.edu.in',
+      userCode: 'CSF01',
+      password: defaultPasswordHash,
+      name: 'Dr. Alan Turing',
+      role: 'FACULTY',
+      active: true,
     },
-    {
-      short: 'MECH',
-      code: '103',
-      type: 'UG',
-      name: 'Mechanical Engineering',
+  });
+
+  // 7. Seed 1 Primary Department: Computer Science and Engineering
+  const cseDept = await prisma.department.create({
+    data: {
+      programmeType: 'UG',
+      programmeName: 'Computer Science and Engineering',
+      shortName: 'CSE',
+      departmentCode: '101',
       semesters: 8,
-      hod: { email: 'hod.mech@rajalakshmi.edu.in', name: 'Dr. HoD MECH', code: 'ME101' },
-      faculty: [
-        { email: 'nikola.tesla@rajalakshmi.edu.in', name: 'Dr. Nikola Tesla', code: 'MEF01' },
-      ],
+      hodId: hodUser.id,
+      active: true,
     },
-  ];
+  });
 
-  const createdDepts: Record<string, any> = {};
-  const facultyUsers: Record<string, any[]> = {};
+  // Link HoD and Faculty users to the CSE department
+  await prisma.user.update({
+    where: { id: hodUser.id },
+    data: { departmentId: cseDept.id },
+  });
 
-  for (const d of deptsData) {
-    const hodUser = await prisma.user.upsert({
-      where: { email: d.hod.email },
-      update: {
-        role: 'HOD',
-        userCode: d.hod.code,
-        name: d.hod.name,
-      },
-      create: {
-        email: d.hod.email,
-        userCode: d.hod.code,
-        password: defaultPasswordHash,
-        name: d.hod.name,
-        role: 'HOD',
-        active: true,
-      },
-    });
+  await prisma.user.update({
+    where: { id: facultyUser.id },
+    data: { departmentId: cseDept.id },
+  });
 
-    let dept = await prisma.department.findFirst({
-      where: { OR: [{ departmentCode: d.code }, { hodId: hodUser.id }] },
-    });
-    if (dept) {
-      dept = await prisma.department.update({
-        where: { id: dept.id },
-        data: {
-          programmeType: d.type,
-          programmeName: d.name,
-          shortName: d.short,
-          departmentCode: d.code,
-          semesters: d.semesters,
-          hodId: hodUser.id,
-        },
-      });
-    } else {
-      dept = await prisma.department.create({
-        data: {
-          programmeType: d.type,
-          programmeName: d.name,
-          shortName: d.short,
-          departmentCode: d.code,
-          semesters: d.semesters,
-          hodId: hodUser.id,
-          active: true,
-        },
-      });
-    }
+  // Default PO (12) and PSO (3) configuration for Regulation 26
+  await prisma.pOConfiguration.create({
+    data: { departmentId: cseDept.id, regulationId: reg26.id, poCount: 12 },
+  });
 
-    await prisma.user.update({
-      where: { id: hodUser.id },
-      data: { departmentId: dept.id },
-    });
-
-    createdDepts[d.short] = dept;
-    facultyUsers[d.short] = [];
-
-    for (const f of d.faculty) {
-      const fac = await prisma.user.upsert({
-        where: { email: f.email },
-        update: {
-          role: 'FACULTY',
-          userCode: f.code,
-          name: f.name,
-          departmentId: dept.id,
-        },
-        create: {
-          email: f.email,
-          userCode: f.code,
-          password: defaultPasswordHash,
-          name: f.name,
-          role: 'FACULTY',
-          departmentId: dept.id,
-          active: true,
-        },
-      });
-      facultyUsers[d.short].push(fac);
-    }
-
-    await prisma.pOConfiguration.upsert({
-      where: { departmentId_regulationId: { departmentId: dept.id, regulationId: reg26.id } },
-      update: { poCount: 12 },
-      create: { departmentId: dept.id, regulationId: reg26.id, poCount: 12 },
-    });
-
-    await prisma.pSOConfiguration.upsert({
-      where: { departmentId_regulationId: { departmentId: dept.id, regulationId: reg26.id } },
-      update: { psoCount: 3 },
-      create: { departmentId: dept.id, regulationId: reg26.id, psoCount: 3 },
-    });
-  }
+  await prisma.pSOConfiguration.create({
+    data: { departmentId: cseDept.id, regulationId: reg26.id, psoCount: 3 },
+  });
 
   // 8. Academic Stages
-  // Stage 1: Curriculum & Syllabus Formation
-  await prisma.academicStage.upsert({
-    where: { id: 'stage-curriculum-formation' },
-    update: {
-      status: 'ACTIVE',
-      startDate: new Date('2026-08-15T00:00:00Z'),
-      deadline: new Date('2026-09-30T23:59:59Z'),
-      initiatedById: dean.id,
-      initiatedAt: new Date('2026-08-15T09:00:00Z'),
-    },
-    create: {
+  // Stage 1: Curriculum & Syllabus Formation (ACTIVE)
+  await prisma.academicStage.create({
+    data: {
       id: 'stage-curriculum-formation',
       name: 'Curriculum & Syllabus Formation',
       description: 'Centralized formation and approval of curriculum structure and detailed syllabus under Regulation 26.',
@@ -307,15 +236,9 @@ async function main() {
     },
   });
 
-  // Stage 2: DAC Meeting (Starts as INACTIVE / Not Scheduled)
-  await prisma.academicStage.upsert({
-    where: { id: 'stage-dac-meeting' },
-    update: {
-      status: 'INACTIVE',
-      deadline: null,
-      venue: null,
-    },
-    create: {
+  // Stage 2: DAC Meeting (INACTIVE / Not Scheduled)
+  await prisma.academicStage.create({
+    data: {
       id: 'stage-dac-meeting',
       name: 'DAC Meeting',
       description: 'Department Academic Advisory Committee review and recommendation meeting.',
@@ -325,15 +248,9 @@ async function main() {
     },
   });
 
-  // Stage 3: BoS Meeting (Starts as INACTIVE / Not Scheduled)
-  await prisma.academicStage.upsert({
-    where: { id: 'stage-bos-meeting' },
-    update: {
-      status: 'INACTIVE',
-      deadline: null,
-      venue: null,
-    },
-    create: {
+  // Stage 3: BoS Meeting (INACTIVE / Not Scheduled)
+  await prisma.academicStage.create({
+    data: {
       id: 'stage-bos-meeting',
       name: 'BoS Meeting',
       description: 'Board of Studies formal approval of curriculum, course contents, and scheme of evaluation.',
@@ -343,22 +260,9 @@ async function main() {
     },
   });
 
-  // 9. Sample Subject in CSE with SDG Mappings
-  const cseDept = createdDepts['CSE'];
-  const alanTuring = facultyUsers['CSE'][0];
-
-  const subj1 = await prisma.subject.upsert({
-    where: {
-      departmentId_regulationId_semester_subjectTypeId_subjectCode: {
-        departmentId: cseDept.id,
-        regulationId: reg26.id,
-        semester: 4,
-        subjectTypeId: subjectTypesMap['Theory'],
-        subjectCode: 'CS26411',
-      },
-    },
-    update: {},
-    create: {
+  // 9. Sample Approved Subject assigned to Dr. Alan Turing
+  const subj1 = await prisma.subject.create({
+    data: {
       departmentId: cseDept.id,
       regulationId: reg26.id,
       academicYearId: ay2026.id,
@@ -372,23 +276,21 @@ async function main() {
       practical: 0,
       credits: 3.0,
       status: 'ASSIGNED',
-      assignedFacultyId: alanTuring.id,
+      assignedFacultyId: facultyUser.id,
       syllabusStatus: 'APPROVED',
       createdById: masterAdmin.id,
     },
   });
 
-  const syllabus1 = await prisma.syllabusSubmission.upsert({
-    where: { subjectId: subj1.id },
-    update: {},
-    create: {
+  const syllabus1 = await prisma.syllabusSubmission.create({
+    data: {
       subjectId: subj1.id,
-      facultyId: alanTuring.id,
+      facultyId: facultyUser.id,
       unitContactHours: 9,
       theoryContactHours: 45,
       totalContactHours: 45,
       approvedAt: new Date('2026-08-18T14:30:00Z'),
-      approvedById: cseDept.hodId,
+      approvedById: hodUser.id,
       objectives: {
         create: [
           { order: 1, description: 'To understand linear and non-linear data structures.' },
@@ -449,12 +351,16 @@ async function main() {
     });
   }
 
-  console.log('Seeding completed successfully!');
+  console.log('Successfully truncated all tables and seeded minimal 4-user database!');
+  console.log('MasterAdmin: 231701042@rajalakshmi.edu.in (ADM01)');
+  console.log('SuperAdmin:  dean@rajalakshmi.edu.in (DEAN01)');
+  console.log('HoD Admin:   hod.cse@rajalakshmi.edu.in (CS101)');
+  console.log('Faculty:     alan.turing@rajalakshmi.edu.in (CSF01)');
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error('Error during database truncation and seeding:', e);
     process.exit(1);
   })
   .finally(async () => {

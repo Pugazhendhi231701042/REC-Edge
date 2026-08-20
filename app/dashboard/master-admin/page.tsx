@@ -1582,6 +1582,17 @@ export default function MasterAdminDashboard() {
                   <label className="block font-semibold mb-1">Semesters *</label>
                   <input type="number" required min="1" max="10" value={semesters} onChange={(e) => setSemesters(parseInt(e.target.value) || 8)} className="w-full p-2 border rounded-xl" />
                 </div>
+                <div>
+                  <label className="block font-semibold mb-1">Head of Department (HoD) <span className="text-slate-400 font-normal">(Optional)</span></label>
+                  <select value={hodId} onChange={(e) => setHodId(e.target.value)} className="w-full p-2 border rounded-xl">
+                    <option value="">No HoD Assigned (Unassigned)</option>
+                    {users.filter((u) => u.role === 'HOD' || u.role === 'FACULTY').map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.userCode || u.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="flex justify-end space-x-2 pt-3 border-t">
                   <button type="button" onClick={() => setShowDeptModal(false)} className="px-3 py-1.5 rounded-xl text-slate-600">Cancel</button>
                   <button type="submit" className="px-4 py-1.5 rounded-xl bg-brand-600 text-white font-bold">Save Department</button>
