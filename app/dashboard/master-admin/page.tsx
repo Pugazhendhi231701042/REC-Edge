@@ -20,6 +20,7 @@ import {
   ArrowRight,
   ShieldCheck,
   Check,
+  Globe,
 } from 'lucide-react';
 
 export default function MasterAdminDashboard() {
@@ -28,6 +29,7 @@ export default function MasterAdminDashboard() {
   const [users, setUsers] = useState<any[]>([]);
   const [regulations, setRegulations] = useState<any[]>([]);
   const [subjectTypes, setSubjectTypes] = useState<any[]>([]);
+  const [sdgGoals, setSdgGoals] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -63,6 +65,11 @@ export default function MasterAdminDashboard() {
   const [typeCodeValue, setTypeCodeValue] = useState(1);
   const [typeNameValue, setTypeNameValue] = useState('');
 
+  // SDG Edit Modal State
+  const [showSdgModal, setShowSdgModal] = useState(false);
+  const [editingSdg, setEditingSdg] = useState<any>(null);
+  const [sdgNameInput, setSdgNameInput] = useState('');
+
   // Credit Config Weights State
   const [lWeight, setLWeight] = useState(1.0);
   const [tWeight, setTWeight] = useState(1.0);
@@ -82,12 +89,13 @@ export default function MasterAdminDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [resDepts, resUsers, resRegs, resLogs, resCredit] = await Promise.all([
+      const [resDepts, resUsers, resRegs, resLogs, resCredit, resSdgs] = await Promise.all([
         fetch('/api/master-admin/departments'),
         fetch('/api/master-admin/users'),
         fetch('/api/master-admin/regulations'),
         fetch('/api/master-admin/audit-logs'),
         fetch('/api/master-admin/credit-config'),
+        fetch('/api/master-admin/sdgs'),
       ]);
 
       if (resDepts.ok) {
@@ -105,6 +113,10 @@ export default function MasterAdminDashboard() {
         const data = await resRegs.json();
         setRegulations(data.regulations || []);
         setSubjectTypes(data.subjectTypes || []);
+      }
+      if (resSdgs.ok) {
+        const data = await resSdgs.json();
+        setSdgGoals(data.sdgs || []);
       }
       if (resLogs.ok) {
         const data = await resLogs.json();
@@ -208,6 +220,29 @@ export default function MasterAdminDashboard() {
     }
   };
 
+  const handleSaveSdgGoal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSdg) return;
+
+    try {
+      const res = await fetch('/api/master-admin/sdgs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingSdg.id,
+          name: sdgNameInput,
+        }),
+      });
+
+      if (res.ok) {
+        setShowSdgModal(false);
+        fetchData();
+      }
+    } catch (err) {
+      console.error('Failed to update SDG Goal');
+    }
+  };
+
   const handleSaveCreditWeights = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreditMsg('');
@@ -307,10 +342,9 @@ export default function MasterAdminDashboard() {
   return (
     <AppShell activeTab={activeTab} onTabChange={setActiveTab}>
       <div className="space-y-8 max-w-7xl mx-auto">
-        {/* TAB 1: SYSTEM OVERVIEW (EXECUTIVE DASHBOARD) */}
+        {/* TAB 1: SYSTEM OVERVIEW */}
         {activeTab === 'overview' && (
           <div className="space-y-8">
-            {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b pb-4">
               <div>
                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">System Overview</h1>
@@ -321,7 +355,7 @@ export default function MasterAdminDashboard() {
               </div>
             </div>
 
-            {/* Consolidated KPI Cards */}
+            {/* KPIs */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
                 <p className="text-xs font-bold text-slate-500">Total Departments</p>
@@ -348,24 +382,23 @@ export default function MasterAdminDashboard() {
               </div>
 
               <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
-                <p className="text-xs font-bold text-slate-500">Active Regulation</p>
-                <p className="text-lg font-black text-emerald-600 truncate">{activeReg?.code || '26'}</p>
-                <button onClick={() => setActiveTab('regulations')} className="text-[11px] font-bold text-brand-600 hover:underline flex items-center mt-1">
-                  Configure <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                <p className="text-xs font-bold text-slate-500">UN SDGs Configured</p>
+                <p className="text-lg font-black text-emerald-600 truncate">{sdgGoals.length} Goals</p>
+                <button onClick={() => setActiveTab('sdgs')} className="text-[11px] font-bold text-brand-600 hover:underline flex items-center mt-1">
+                  Edit SDGs <ArrowRight className="w-3.5 h-3.5 ml-1" />
                 </button>
               </div>
             </div>
 
-            {/* Configuration Status & Quick Actions Grid */}
+            {/* Quick Actions */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Configuration Status */}
               <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
                 <h3 className="text-base font-bold text-slate-900">System Configuration Status</h3>
                 <div className="space-y-3 text-xs">
                   <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-center justify-between">
-                    <span className="font-bold text-slate-800">Regulations & Types</span>
+                    <span className="font-bold text-slate-800">UN Sustainable Development Goals (SDGs)</span>
                     <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center">
-                      <Check className="w-3 h-3 mr-1" /> Configured
+                      <Check className="w-3 h-3 mr-1" /> 17 Goals Active
                     </span>
                   </div>
                   <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-100 flex items-center justify-between">
@@ -389,68 +422,22 @@ export default function MasterAdminDashboard() {
                 </div>
               </div>
 
-              {/* Quick Actions Panel */}
               <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
                 <h3 className="text-base font-bold text-slate-900">Quick Administrative Actions</h3>
                 <div className="grid grid-cols-2 gap-3 text-xs font-bold">
-                  <button
-                    onClick={openAddDept}
-                    className="p-3 bg-brand-600 hover:bg-brand-700 text-white rounded-2xl shadow-xs flex items-center justify-center space-x-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Add Department</span>
+                  <button onClick={openAddDept} className="p-3 bg-brand-600 hover:bg-brand-700 text-white rounded-2xl shadow-xs flex items-center justify-center space-x-2">
+                    <Plus className="w-4 h-4" /><span>Add Department</span>
                   </button>
-
-                  <button
-                    onClick={openAddUser}
-                    className="p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-xs flex items-center justify-center space-x-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Add User Account</span>
+                  <button onClick={openAddUser} className="p-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-xs flex items-center justify-center space-x-2">
+                    <Plus className="w-4 h-4" /><span>Add User Account</span>
                   </button>
-
-                  <button
-                    onClick={() => setActiveTab('regulations')}
-                    className="p-3 bg-purple-50 hover:bg-purple-100 text-brand-700 border border-purple-200 rounded-2xl flex items-center justify-center space-x-2"
-                  >
-                    <Sliders className="w-4 h-4" />
-                    <span>Manage Regulations</span>
+                  <button onClick={() => setActiveTab('sdgs')} className="p-3 bg-purple-50 hover:bg-purple-100 text-brand-700 border border-purple-200 rounded-2xl flex items-center justify-center space-x-2">
+                    <Globe className="w-4 h-4" /><span>Manage 17 SDGs</span>
                   </button>
-
-                  <button
-                    onClick={() => setActiveTab('creditconfig')}
-                    className="p-3 bg-purple-50 hover:bg-purple-100 text-brand-700 border border-purple-200 rounded-2xl flex items-center justify-center space-x-2"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    <span>Configure Credit Weights</span>
+                  <button onClick={() => setActiveTab('creditconfig')} className="p-3 bg-purple-50 hover:bg-purple-100 text-brand-700 border border-purple-200 rounded-2xl flex items-center justify-center space-x-2">
+                    <Sparkles className="w-4 h-4" /><span>Credit Weights</span>
                   </button>
                 </div>
-              </div>
-            </div>
-
-            {/* Recent Administrative Activity */}
-            <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-slate-900">Recent Administrative Events</h3>
-                <button
-                  onClick={() => setActiveTab('audit')}
-                  className="text-xs font-bold text-brand-600 hover:underline flex items-center"
-                >
-                  View Audit Logs <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </button>
-              </div>
-
-              <div className="space-y-2 text-xs">
-                {auditLogs.slice(0, 4).map((log) => (
-                  <div key={log.id} className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
-                    <div>
-                      <span className="font-bold text-slate-900">{log.user?.name || log.userId}</span>
-                      <span className="ml-2 font-semibold text-brand-700">({log.action})</span>
-                      <p className="text-[11px] text-desc mt-0.5">{log.details || log.entity}</p>
-                    </div>
-                    <span className="text-[10px] font-mono text-slate-400">{formatIST(log.createdAt)}</span>
-                  </div>
-                ))}
               </div>
             </div>
           </div>
@@ -464,10 +451,7 @@ export default function MasterAdminDashboard() {
                 <h3 className="text-base font-bold text-slate-900">Departments & Academic Programmes</h3>
                 <p className="text-xs text-desc">Manage institutional programme master data and assigned HoDs.</p>
               </div>
-              <button
-                onClick={openAddDept}
-                className="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs flex items-center"
-              >
+              <button onClick={openAddDept} className="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs flex items-center">
                 <Plus className="w-4 h-4 mr-1.5" /> Add Programme
               </button>
             </div>
@@ -490,7 +474,6 @@ export default function MasterAdminDashboard() {
                   <div className="pt-2 border-t border-purple-100 text-xs text-slate-700 space-y-1">
                     <p><strong>Configured Semesters:</strong> {d.semesters}</p>
                     <p><strong>HoD:</strong> {d.hod ? `${d.hod.name} (${d.hod.userCode || 'N/A'})` : 'Unassigned'}</p>
-                    <p><strong>Faculty Count:</strong> {d._count?.users || 0}</p>
                   </div>
                 </div>
               ))}
@@ -506,15 +489,11 @@ export default function MasterAdminDashboard() {
                 <h3 className="text-base font-bold text-slate-900">User Directory</h3>
                 <p className="text-xs text-desc">Search, filter, and edit user attributes and human-readable User IDs.</p>
               </div>
-              <button
-                onClick={openAddUser}
-                className="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs flex items-center shrink-0"
-              >
+              <button onClick={openAddUser} className="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs flex items-center shrink-0">
                 <Plus className="w-4 h-4 mr-1.5" /> Add User Account
               </button>
             </div>
 
-            {/* Filter Bar Controls */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 rounded-2xl bg-purple-50/50 border border-purple-100">
               <div className="relative">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -528,12 +507,8 @@ export default function MasterAdminDashboard() {
               </div>
 
               <div>
-                <select
-                  value={userRoleFilter}
-                  onChange={(e) => setUserRoleFilter(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:ring-brand-500 font-medium"
-                >
-                  <option value="ALL">Filter by Role (All Roles)</option>
+                <select value={userRoleFilter} onChange={(e) => setUserRoleFilter(e.target.value)} className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-xl font-medium">
+                  <option value="ALL">All Roles</option>
                   <option value="SUPERADMIN">Dean (SuperAdmin)</option>
                   <option value="MASTERADMIN">MasterAdmin</option>
                   <option value="HOD">HoD</option>
@@ -542,16 +517,10 @@ export default function MasterAdminDashboard() {
               </div>
 
               <div>
-                <select
-                  value={userDeptFilter}
-                  onChange={(e) => setUserDeptFilter(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:ring-brand-500 font-medium"
-                >
-                  <option value="ALL">Filter by Department (All Depts)</option>
+                <select value={userDeptFilter} onChange={(e) => setUserDeptFilter(e.target.value)} className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-xl font-medium">
+                  <option value="ALL">All Depts</option>
                   {departments.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.shortName} — {d.programmeName}
-                    </option>
+                    <option key={d.id} value={d.id}>{d.shortName} — {d.programmeName}</option>
                   ))}
                 </select>
               </div>
@@ -570,42 +539,60 @@ export default function MasterAdminDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredUsers.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="p-8 text-center text-desc text-xs">
-                        No users match the selected search or filter criteria.
+                  {filteredUsers.map((u) => (
+                    <tr key={u.id} className="hover:bg-slate-50">
+                      <td className="p-3 font-mono font-bold text-brand-700">{u.userCode || 'N/A'}</td>
+                      <td className="p-3 font-bold text-slate-900">{u.name}</td>
+                      <td className="p-3 text-slate-700">{u.email}</td>
+                      <td className="p-3"><span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100">{u.role}</span></td>
+                      <td className="p-3 text-slate-600">{u.department ? u.department.shortName : (u.role === 'MASTERADMIN' || u.role === 'SUPERADMIN' ? 'Institutional Global' : 'N/A')}</td>
+                      <td className="p-3 text-right">
+                        <button onClick={() => openEditUser(u)} className="px-3 py-1 bg-brand-50 text-brand-800 font-bold rounded-lg border border-purple-200 text-xs inline-flex items-center">
+                          <Edit className="w-3.5 h-3.5 mr-1" /> Edit User
+                        </button>
                       </td>
                     </tr>
-                  ) : (
-                    filteredUsers.map((u) => (
-                      <tr key={u.id} className="hover:bg-slate-50">
-                        <td className="p-3 font-mono font-bold text-brand-700">{u.userCode || 'N/A'}</td>
-                        <td className="p-3 font-bold text-slate-900">{u.name}</td>
-                        <td className="p-3 text-slate-700">{u.email}</td>
-                        <td className="p-3">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100 text-slate-800">
-                            {u.role}
-                          </span>
-                        </td>
-                        <td className="p-3 text-slate-600">{u.department ? u.department.shortName : (u.role === 'MASTERADMIN' || u.role === 'SUPERADMIN' ? 'Institutional Global' : 'N/A')}</td>
-                        <td className="p-3 text-right">
-                          <button
-                            onClick={() => openEditUser(u)}
-                            className="px-3 py-1 bg-brand-50 hover:bg-brand-100 text-brand-800 font-bold rounded-lg border border-purple-200 text-xs inline-flex items-center"
-                          >
-                            <Edit className="w-3.5 h-3.5 mr-1" /> Edit User
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
+                  ))}
                 </tbody>
               </table>
             </div>
           </div>
         )}
 
-        {/* TAB 4: REGULATIONS & SUBJECT TYPE CODES */}
+        {/* TAB 4: UN SDGS MANAGEMENT (17 Common UN SDGs Editable by MasterAdmin) */}
+        {activeTab === 'sdgs' && (
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">17 UN Sustainable Development Goals (SDGs) Master</h3>
+              <p className="text-xs text-desc">Institutional SDG goal definitions common across all college departments.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {sdgGoals.map((sdg) => (
+                <div key={sdg.id} className="p-4 border border-purple-100 rounded-2xl bg-purple-50/20 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
+                      SDG {sdg.sdgNumber}
+                    </span>
+                    <h4 className="text-xs font-bold text-slate-900 mt-1">{sdg.name}</h4>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditingSdg(sdg);
+                      setSdgNameInput(sdg.name);
+                      setShowSdgModal(true);
+                    }}
+                    className="px-3 py-1 bg-brand-600 text-white font-bold text-xs rounded-lg flex items-center"
+                  >
+                    <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: REGULATIONS & SUBJECT TYPE CODES */}
         {activeTab === 'regulations' && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
@@ -641,11 +628,8 @@ export default function MasterAdminDashboard() {
               </div>
             </div>
 
-            {/* Subject Type Code Editor Section */}
             <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
               <h3 className="text-base font-bold text-slate-900">Subject Type Codes Configuration</h3>
-              <p className="text-xs text-desc">Configure Subject Type integer codes used in auto subject-code sequence generation.</p>
-
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {subjectTypes.map((st) => (
                   <div key={st.id} className="p-4 border border-purple-100 rounded-2xl bg-purple-50/30 flex items-center justify-between">
@@ -660,7 +644,7 @@ export default function MasterAdminDashboard() {
                         setTypeNameValue(st.name);
                         setShowSubjectTypeModal(true);
                       }}
-                      className="px-3 py-1 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-lg flex items-center"
+                      className="px-3 py-1 bg-brand-600 text-white font-bold text-xs rounded-lg flex items-center"
                     >
                       <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit Code
                     </button>
@@ -671,134 +655,66 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB 5: CREDIT WEIGHTS CONFIGURATION */}
+        {/* TAB 6: CREDIT WEIGHTS */}
         {activeTab === 'creditconfig' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5 max-w-xl">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Credit Calculation Formula Config</h3>
-              <p className="text-xs text-desc">Configure credit calculation multiplier weights for L, T, and P.</p>
-            </div>
-
-            {creditMsg && (
-              <div className="p-3 rounded-xl bg-emerald-50 text-xs text-emerald-700 border border-emerald-200">
-                {creditMsg}
-              </div>
-            )}
-
+            <h3 className="text-base font-bold text-slate-900">Credit Calculation Formula Config</h3>
+            {creditMsg && <div className="p-3 rounded-xl bg-emerald-50 text-xs text-emerald-700 border border-emerald-200">{creditMsg}</div>}
             <form onSubmit={handleSaveCreditWeights} className="space-y-4">
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Lecture Weight (L)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    required
-                    value={lWeight}
-                    onChange={(e) => setLWeight(parseFloat(e.target.value) || 1.0)}
-                    className="w-full px-3 py-2 text-xs border rounded-xl font-bold text-center"
-                  />
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Lecture (L)</label>
+                  <input type="number" step="0.1" required value={lWeight} onChange={(e) => setLWeight(parseFloat(e.target.value) || 1.0)} className="w-full p-2 text-xs border rounded-xl text-center font-bold" />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Tutorial Weight (T)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    required
-                    value={tWeight}
-                    onChange={(e) => setTWeight(parseFloat(e.target.value) || 1.0)}
-                    className="w-full px-3 py-2 text-xs border rounded-xl font-bold text-center"
-                  />
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Tutorial (T)</label>
+                  <input type="number" step="0.1" required value={tWeight} onChange={(e) => setTWeight(parseFloat(e.target.value) || 1.0)} className="w-full p-2 text-xs border rounded-xl text-center font-bold" />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Practical Weight (P)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    required
-                    value={pWeight}
-                    onChange={(e) => setPWeight(parseFloat(e.target.value) || 0.5)}
-                    className="w-full px-3 py-2 text-xs border rounded-xl font-bold text-center"
-                  />
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Practical (P)</label>
+                  <input type="number" step="0.1" required value={pWeight} onChange={(e) => setPWeight(parseFloat(e.target.value) || 0.5)} className="w-full p-2 text-xs border rounded-xl text-center font-bold" />
                 </div>
               </div>
-
               <div className="p-3 bg-purple-50 text-brand-800 rounded-xl text-xs font-semibold">
-                Current Active Calculation: Credits = (L × {lWeight}) + (T × {tWeight}) + (P × {pWeight})
+                Formula: Credits = (L × {lWeight}) + (T × {tWeight}) + (P × {pWeight})
               </div>
-
-              <button
-                type="submit"
-                className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md"
-              >
+              <button type="submit" className="w-full py-2.5 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-md">
                 Save Credit Formula Config
               </button>
             </form>
           </div>
         )}
 
-        {/* TAB 6: PO / PSO CONFIGURATION */}
+        {/* TAB 7: PO / PSO CONFIG */}
         {activeTab === 'popso' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5 max-w-xl">
             <h3 className="text-base font-bold text-slate-900">PO & PSO Count Configuration</h3>
-            <p className="text-xs text-desc">Configure program outcome counts for department programmes.</p>
-
-            {poMsg && (
-              <div className="p-3 rounded-xl bg-emerald-50 text-xs text-emerald-700 border border-emerald-200">
-                {poMsg}
-              </div>
-            )}
-
+            {poMsg && <div className="p-3 rounded-xl bg-emerald-50 text-xs text-emerald-700 border border-emerald-200">{poMsg}</div>}
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">Select Department</label>
-                <select
-                  value={selectedDeptForConfig}
-                  onChange={(e) => setSelectedDeptForConfig(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border rounded-xl"
-                >
-                  {departments.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.programmeName} ({d.shortName})
-                    </option>
-                  ))}
+                <select value={selectedDeptForConfig} onChange={(e) => setSelectedDeptForConfig(e.target.value)} className="w-full p-2 text-xs border rounded-xl">
+                  {departments.map((d) => <option key={d.id} value={d.id}>{d.programmeName} ({d.shortName})</option>)}
                 </select>
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Program Outcomes (POs)</label>
-                  <input
-                    type="number"
-                    value={poCount}
-                    onChange={(e) => setPoCount(parseInt(e.target.value) || 12)}
-                    className="w-full px-3 py-2 text-xs border rounded-xl font-bold"
-                  />
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">POs Count</label>
+                  <input type="number" value={poCount} onChange={(e) => setPoCount(parseInt(e.target.value) || 12)} className="w-full p-2 text-xs border rounded-xl font-bold" />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Program Specific Outcomes (PSOs)</label>
-                  <input
-                    type="number"
-                    value={psoCount}
-                    onChange={(e) => setPsoCount(parseInt(e.target.value) || 3)}
-                    className="w-full px-3 py-2 text-xs border rounded-xl font-bold"
-                  />
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">PSOs Count</label>
+                  <input type="number" value={psoCount} onChange={(e) => setPsoCount(parseInt(e.target.value) || 3)} className="w-full p-2 text-xs border rounded-xl font-bold" />
                 </div>
               </div>
-
-              <button
-                onClick={handleSavePOPSOConfig}
-                className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs"
-              >
+              <button onClick={handleSavePOPSOConfig} className="w-full py-2.5 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-xs">
                 Save PO / PSO Structure
               </button>
             </div>
           </div>
         )}
 
-        {/* TAB 7: AUDIT LOGS */}
+        {/* TAB 8: AUDIT LOGS */}
         {activeTab === 'audit' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
             <h3 className="text-base font-bold text-slate-900">System Audit Trail</h3>
@@ -829,6 +745,25 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
+        {/* SDG Edit Modal */}
+        {showSdgModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+              <h3 className="text-base font-bold text-slate-900">Edit UN SDG Goal {editingSdg?.sdgNumber}</h3>
+              <form onSubmit={handleSaveSdgGoal} className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-semibold mb-1">SDG Name / Theme *</label>
+                  <input type="text" required value={sdgNameInput} onChange={(e) => setSdgNameInput(e.target.value)} className="w-full p-2 border rounded-xl font-bold" />
+                </div>
+                <div className="flex justify-end space-x-2 pt-3 border-t">
+                  <button type="button" onClick={() => setShowSdgModal(false)} className="px-3 py-1.5 rounded-xl text-slate-600">Cancel</button>
+                  <button type="submit" className="px-4 py-1.5 rounded-xl bg-brand-600 text-white font-bold">Save SDG Goal</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* User Create / Edit Modal */}
         {showUserModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
@@ -836,30 +771,18 @@ export default function MasterAdminDashboard() {
               <h3 className="text-base font-bold text-slate-900">
                 {editingUser ? 'Edit User Account & Attributes' : 'Create New User Account'}
               </h3>
-              {error && (
-                <div className="p-3 rounded-xl bg-red-50 text-xs text-red-700 border border-red-200">
-                  {error}
-                </div>
-              )}
               <form onSubmit={handleSaveUser} className="space-y-3 text-xs">
                 <div>
                   <label className="block font-semibold mb-1">User ID (userCode) *</label>
-                  <input
-                    type="text"
-                    required
-                    value={userCode}
-                    onChange={(e) => setUserCode(e.target.value)}
-                    placeholder="e.g. CS105, CD101, ADM01"
-                    className="w-full p-2 border rounded-xl font-mono font-bold text-brand-700"
-                  />
+                  <input type="text" required value={userCode} onChange={(e) => setUserCode(e.target.value)} className="w-full p-2 border rounded-xl font-mono font-bold text-brand-700" />
                 </div>
                 <div>
                   <label className="block font-semibold mb-1">Full Name *</label>
-                  <input type="text" required value={userName} onChange={(e) => setUserName(e.target.value)} placeholder="Dr. Jane Doe" className="w-full p-2 border rounded-xl" />
+                  <input type="text" required value={userName} onChange={(e) => setUserName(e.target.value)} className="w-full p-2 border rounded-xl" />
                 </div>
                 <div>
                   <label className="block font-semibold mb-1">College Email (@rajalakshmi.edu.in) *</label>
-                  <input type="email" required value={userEmail} onChange={(e) => setUserEmail(e.target.value)} placeholder="name@rajalakshmi.edu.in" className="w-full p-2 border rounded-xl" />
+                  <input type="email" required value={userEmail} onChange={(e) => setUserEmail(e.target.value)} className="w-full p-2 border rounded-xl" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -875,29 +798,17 @@ export default function MasterAdminDashboard() {
                     <label className="block font-semibold mb-1">Department</label>
                     <select value={userDeptId} onChange={(e) => setUserDeptId(e.target.value)} className="w-full p-2 border rounded-xl">
                       <option value="">Global (No Department)</option>
-                      {departments.map((d) => (
-                        <option key={d.id} value={d.id}>{d.shortName}</option>
-                      ))}
+                      {departments.map((d) => <option key={d.id} value={d.id}>{d.shortName}</option>)}
                     </select>
                   </div>
                 </div>
                 <div>
-                  <label className="block font-semibold mb-1">
-                    {editingUser ? 'New Password (Leave blank to keep unchanged)' : 'Initial Password *'}
-                  </label>
-                  <input
-                    type="password"
-                    required={!editingUser}
-                    value={userPassword}
-                    onChange={(e) => setUserPassword(e.target.value)}
-                    className="w-full p-2 border rounded-xl"
-                  />
+                  <label className="block font-semibold mb-1">{editingUser ? 'New Password (Optional)' : 'Initial Password *'}</label>
+                  <input type="password" required={!editingUser} value={userPassword} onChange={(e) => setUserPassword(e.target.value)} className="w-full p-2 border rounded-xl" />
                 </div>
                 <div className="flex justify-end space-x-2 pt-3 border-t">
                   <button type="button" onClick={() => setShowUserModal(false)} className="px-3 py-1.5 rounded-xl text-slate-600">Cancel</button>
-                  <button type="submit" className="px-4 py-1.5 rounded-xl bg-brand-600 text-white font-bold">
-                    {editingUser ? 'Update User' : 'Create Account'}
-                  </button>
+                  <button type="submit" className="px-4 py-1.5 rounded-xl bg-brand-600 text-white font-bold">{editingUser ? 'Update User' : 'Create Account'}</button>
                 </div>
               </form>
             </div>
@@ -944,30 +855,21 @@ export default function MasterAdminDashboard() {
                 </div>
                 <div>
                   <label className="block font-semibold mb-1">Programme Name *</label>
-                  <input type="text" required value={programmeName} onChange={(e) => setProgrammeName(e.target.value)} placeholder="Computer Science and Engineering" className="w-full p-2 border rounded-xl" />
+                  <input type="text" required value={programmeName} onChange={(e) => setProgrammeName(e.target.value)} className="w-full p-2 border rounded-xl" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block font-semibold mb-1">Short Name *</label>
-                    <input type="text" required value={shortName} onChange={(e) => setShortName(e.target.value)} placeholder="CSE" className="w-full p-2 border rounded-xl" />
+                    <input type="text" required value={shortName} onChange={(e) => setShortName(e.target.value)} className="w-full p-2 border rounded-xl" />
                   </div>
                   <div>
                     <label className="block font-semibold mb-1">Department Code *</label>
-                    <input type="text" required value={departmentCode} onChange={(e) => setDepartmentCode(e.target.value)} placeholder="CS" className="w-full p-2 border rounded-xl uppercase" />
+                    <input type="text" required value={departmentCode} onChange={(e) => setDepartmentCode(e.target.value)} className="w-full p-2 border rounded-xl uppercase" />
                   </div>
                 </div>
                 <div>
-                  <label className="block font-semibold mb-1">Number of Semesters *</label>
+                  <label className="block font-semibold mb-1">Semesters *</label>
                   <input type="number" required min="1" max="10" value={semesters} onChange={(e) => setSemesters(parseInt(e.target.value) || 8)} className="w-full p-2 border rounded-xl" />
-                </div>
-                <div>
-                  <label className="block font-semibold mb-1">Assign Head of Department (HoD)</label>
-                  <select value={hodId} onChange={(e) => setHodId(e.target.value)} className="w-full p-2 border rounded-xl">
-                    <option value="">Select User for HoD...</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>{u.name} ({u.userCode || u.email})</option>
-                    ))}
-                  </select>
                 </div>
                 <div className="flex justify-end space-x-2 pt-3 border-t">
                   <button type="button" onClick={() => setShowDeptModal(false)} className="px-3 py-1.5 rounded-xl text-slate-600">Cancel</button>

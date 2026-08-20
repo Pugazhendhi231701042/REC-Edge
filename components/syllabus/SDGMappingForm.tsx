@@ -14,22 +14,36 @@ export interface SDGMappingItem {
 }
 
 interface SDGMappingFormProps {
-  sdgGoals: SDGGoalItem[];
+  sdgGoals?: SDGGoalItem[];
   units: { unitNumber: number; unitName: string; content: string }[];
   sdgMappings: SDGMappingItem[];
   onChange: (updated: SDGMappingItem[]) => void;
   disabled?: boolean;
 }
 
-/**
- * Parses raw unit content string into discrete selectable topic items by splitting on hyphens (-), en-dashes (–), em-dashes (—), or semicolons (;).
- * Trims unnecessary spaces and trailing punctuation around each topic string.
- * Does NOT alter original syllabus text.
- */
+const default17SDGs: SDGGoalItem[] = [
+  { id: 'sdg-1', sdgNumber: 1, name: 'No Poverty' },
+  { id: 'sdg-2', sdgNumber: 2, name: 'Zero Hunger' },
+  { id: 'sdg-3', sdgNumber: 3, name: 'Good Health and Well-being' },
+  { id: 'sdg-4', sdgNumber: 4, name: 'Quality Education' },
+  { id: 'sdg-5', sdgNumber: 5, name: 'Gender Equality' },
+  { id: 'sdg-6', sdgNumber: 6, name: 'Clean Water and Sanitation' },
+  { id: 'sdg-7', sdgNumber: 7, name: 'Affordable and Clean Energy' },
+  { id: 'sdg-8', sdgNumber: 8, name: 'Decent Work and Economic Growth' },
+  { id: 'sdg-9', sdgNumber: 9, name: 'Industry, Innovation and Infrastructure' },
+  { id: 'sdg-10', sdgNumber: 10, name: 'Reduced Inequality' },
+  { id: 'sdg-11', sdgNumber: 11, name: 'Sustainable Cities and Communities' },
+  { id: 'sdg-12', sdgNumber: 12, name: 'Responsible Consumption and Production' },
+  { id: 'sdg-13', sdgNumber: 13, name: 'Climate Action' },
+  { id: 'sdg-14', sdgNumber: 14, name: 'Life Below Water' },
+  { id: 'sdg-15', sdgNumber: 15, name: 'Life on Land' },
+  { id: 'sdg-16', sdgNumber: 16, name: 'Peace, Justice and Strong Institutions' },
+  { id: 'sdg-17', sdgNumber: 17, name: 'Partnerships for the Goals' },
+];
+
 export function parseUnitTopics(content: string): string[] {
   if (!content || !content.trim()) return [];
 
-  // Regex matches hyphen (-), en-dash (–), em-dash (—), or semicolon (;)
   const parts = content.split(/[-–—;]/g);
 
   return parts
@@ -38,20 +52,19 @@ export function parseUnitTopics(content: string): string[] {
 }
 
 export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
-  sdgGoals,
+  sdgGoals = [],
   units,
   sdgMappings,
   onChange,
   disabled = false,
 }) => {
   const cos = [1, 2, 3, 4, 5];
+  const activeSDGList = (sdgGoals && sdgGoals.length > 0) ? sdgGoals : default17SDGs;
 
-  // Helper to find unit for a CO
   const getUnitForCO = (coNum: number) => {
     return units.find((u) => u.unitNumber === coNum) || { unitNumber: coNum, unitName: `Unit ${coNum}`, content: '' };
   };
 
-  // State for active dropdown additions per CO
   const [selectedSDGForCO, setSelectedSDGForCO] = useState<Record<number, number>>({});
   const [selectedTopicForCO, setSelectedTopicForCO] = useState<Record<number, string>>({});
 
@@ -61,7 +74,6 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
 
     if (!sdgNum || !topicStr) return;
 
-    // Check if mapping already exists
     const exists = sdgMappings.some(
       (m) => m.coNumber === coNum && m.sdgNumber === sdgNum && m.topic === topicStr
     );
@@ -86,7 +98,7 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
         <div className="text-xs text-slate-700 space-y-1">
           <p className="font-bold text-brand-800">UN Sustainable Development Goals (SDGs) Mapping</p>
           <p>
-            Map each Course Outcome (CO) to relevant UN SDGs and specific syllabus topics. Each CO maps <strong>strictly to its corresponding Unit</strong> (CO1 → Unit 1, CO2 → Unit 2, etc.). Topics are automatically parsed from unit content separated by hyphens (<code>-</code>) or en-dashes (<code>–</code>).
+            Map each Course Outcome (CO) to relevant UN SDGs and specific syllabus topics. Each CO maps <strong>strictly to its corresponding Unit</strong> (CO1 → Unit 1, CO2 → Unit 2, etc.). Topics are automatically parsed from unit content.
           </p>
         </div>
       </div>
@@ -97,7 +109,6 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
           const topics = parseUnitTopics(unit.content);
           const coMappings = sdgMappings.filter((m) => m.coNumber === coNum);
 
-          // Group coMappings by SDG Number
           const groupedBySDG = new Map<number, string[]>();
           coMappings.forEach((m) => {
             const existing = groupedBySDG.get(m.sdgNumber) || [];
@@ -132,18 +143,17 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
                 )}
               </div>
 
-              {/* Controls to Add SDG & Topic Mapping */}
               {!disabled && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200">
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">1. Select UN SDG *</label>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">1. Select UN SDG Goal *</label>
                     <select
                       value={selectedSDGForCO[coNum] || ''}
                       onChange={(e) => setSelectedSDGForCO({ ...selectedSDGForCO, [coNum]: parseInt(e.target.value) })}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-brand-500 font-semibold"
                     >
                       <option value="">Select SDG Goal...</option>
-                      {sdgGoals.map((sdg) => (
+                      {activeSDGList.map((sdg) => (
                         <option key={sdg.id} value={sdg.sdgNumber}>
                           SDG {sdg.sdgNumber} — {sdg.name}
                         </option>
@@ -180,7 +190,6 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
                 </div>
               )}
 
-              {/* Mapped Summary View */}
               <div className="space-y-3 pt-2">
                 {groupedBySDG.size === 0 ? (
                   <p className="text-xs text-desc italic p-3 text-center bg-slate-50 rounded-xl border border-dashed">
@@ -188,7 +197,7 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
                   </p>
                 ) : (
                   Array.from(groupedBySDG.entries()).map(([sdgNum, topicList]) => {
-                    const sdgObj = sdgGoals.find((g) => g.sdgNumber === sdgNum);
+                    const sdgObj = activeSDGList.find((g) => g.sdgNumber === sdgNum);
                     return (
                       <div key={sdgNum} className="p-4 rounded-2xl bg-purple-50/40 border border-purple-100 space-y-2">
                         <div className="flex items-center justify-between">
@@ -198,31 +207,26 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
                           </span>
                           <span className="text-[10px] font-bold text-desc uppercase">{topicList.length} Topic(s)</span>
                         </div>
-                        <ul className="space-y-1.5 pl-4 border-l-2 border-purple-300">
-                          {topicList.map((t, tIdx) => {
-                            const isStale = topics.length > 0 && !topics.includes(t);
-                            return (
-                              <li key={tIdx} className="flex items-center justify-between text-xs text-slate-800">
-                                <span className="flex items-center">
-                                  • {t}
-                                  {isStale && (
-                                    <span className="ml-2 px-2 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold flex items-center border border-amber-200">
-                                      <AlertTriangle className="w-3 h-3 mr-1 text-amber-600" /> Topic no longer matches syllabus content - please update
-                                    </span>
-                                  )}
-                                </span>
-                                {!disabled && (
-                                  <button
-                                    onClick={() => handleRemoveMapping(coNum, sdgNum, t)}
-                                    className="p-1 text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-2"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
-                              </li>
-                            );
-                          })}
-                        </ul>
+
+                        <div className="flex flex-wrap gap-2">
+                          {topicList.map((top, tIdx) => (
+                            <span
+                              key={tIdx}
+                              className="inline-flex items-center px-3 py-1 rounded-xl bg-white border border-purple-200 text-xs font-semibold text-slate-800 shadow-xs"
+                            >
+                              <span>{top}</span>
+                              {!disabled && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveMapping(coNum, sdgNum, top)}
+                                  className="ml-2 text-slate-400 hover:text-red-600"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     );
                   })

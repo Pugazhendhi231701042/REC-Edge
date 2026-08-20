@@ -124,7 +124,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
       if (existingSub.textbooks?.length > 0) {
         setTextbooks(existingSub.textbooks.map((tb: any) => ({
           title: tb.title,
-          authors: tb.authors,
+          authors: tb.authors || '',
           edition: tb.edition || '',
           publisher: tb.publisher || '',
           year: tb.year || '',
@@ -176,6 +176,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     ? labContactHours
     : theoryContactHours + labContactHours;
 
+  // UPDATED STEPPER SEQUENCE: SDG Mapping comes after CO/PO Justification (Step 8!)
   const steps = [
     { id: 1, label: 'Objectives', icon: <Target className="w-4 h-4" /> },
     { id: 2, label: 'Syllabus', icon: <BookOpen className="w-4 h-4" /> },
@@ -183,12 +184,13 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     { id: 4, label: 'Textbooks', icon: <FileText className="w-4 h-4" /> },
     { id: 5, label: 'References', icon: <FileText className="w-4 h-4" /> },
     { id: 6, label: 'CO/PO Mapping', icon: <Grid className="w-4 h-4" /> },
-    { id: 7, label: 'SDG Mapping', icon: <Globe className="w-4 h-4" /> },
-    { id: 8, label: 'Justifications', icon: <MessageSquare className="w-4 h-4" /> },
+    { id: 7, label: 'CO/PO Justification', icon: <MessageSquare className="w-4 h-4" /> },
+    { id: 8, label: 'SDG Mapping', icon: <Globe className="w-4 h-4" /> },
     { id: 9, label: 'Review & Submit', icon: <Send className="w-4 h-4" /> },
   ];
 
   const getFormData = () => ({
+    isSubmit: true,
     unitContactHours,
     theoryContactHours,
     labContactHours,
@@ -215,7 +217,9 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     setLoading(true);
     setError('');
     try {
-      await onSaveDraft(getFormData());
+      const draftData = getFormData();
+      draftData.isSubmit = false;
+      await onSaveDraft(draftData);
     } catch (err: any) {
       setError(err.message || 'Failed to save draft.');
     } finally {
@@ -223,7 +227,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     }
   };
 
-  // Auto-Redirect logic on missing validation items
+  // Auto-Redirect logic on missing validation items to exact step
   const determineFirstMissingStep = (missingItems: string[]): number => {
     const text = missingItems.join(' ');
     if (text.includes('Objectives')) return 1;
@@ -232,8 +236,8 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     if (text.includes('Textbook')) return 4;
     if (text.includes('Reference')) return 5;
     if (text.includes('PO/PSO Mapping') || text.includes('Mapping grid')) return 6;
-    if (text.includes('SDG') || text.includes('SDG Mapping') || text.includes('CO1 — Please') || text.includes('CO2 — Please') || text.includes('CO3 — Please') || text.includes('CO4 — Please') || text.includes('CO5 — Please')) return 7;
-    if (text.includes('Justification')) return 8;
+    if (text.includes('Justification')) return 7;
+    if (text.includes('SDG') || text.includes('SDG Mapping') || text.includes('CO1 — Please') || text.includes('CO2 — Please') || text.includes('CO3 — Please') || text.includes('CO4 — Please') || text.includes('CO5 — Please')) return 8;
     return 9;
   };
 
@@ -250,7 +254,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
         setMissingChecklist(err.missing);
         const targetStep = determineFirstMissingStep(err.missing);
         setActiveStep(targetStep);
-        setError(`Please fix missing items on ${steps[targetStep - 1].label}.`);
+        setError(`Please complete required missing items on Step ${targetStep}: ${steps[targetStep - 1].label}.`);
         setShowConfirmModal(false);
       } else {
         setError(err.message || 'Submission failed.');
@@ -285,7 +289,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 select-none">
       {/* Edit Lock Banner if Submitted */}
       {isLocked && (
         <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-between text-xs text-amber-900 shadow-sm">
@@ -298,432 +302,361 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
         </div>
       )}
 
-      {/* Stepper Header Bar */}
-      <div className="bg-white/90 backdrop-blur-md p-4 rounded-2xl border border-purple-100 shadow-sm overflow-x-auto">
-        <div className="flex items-center justify-between min-w-[800px]">
-          {steps.map((s, idx) => (
-            <React.Fragment key={s.id}>
-              <button
-                onClick={() => setActiveStep(s.id)}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-                  activeStep === s.id
-                    ? 'bg-brand-600 text-white shadow-md'
-                    : s.id < activeStep
-                    ? 'bg-purple-50 text-brand-700'
-                    : 'text-slate-500 hover:bg-slate-100'
-                }`}
-              >
-                <span>{s.icon}</span>
-                <span>{s.label}</span>
-              </button>
-              {idx < steps.length - 1 && <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />}
-            </React.Fragment>
-          ))}
+      {/* Header */}
+      <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center space-x-2">
+            <span className="text-[10px] font-bold text-brand-700 uppercase bg-purple-100 px-2.5 py-0.5 rounded border border-purple-200">
+              {subject.subjectCode}
+            </span>
+            <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded">
+              {subject.subjectType?.name} ({templateType})
+            </span>
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 mt-2">{subject.subjectName}</h2>
+          <p className="text-xs text-desc mt-0.5">
+            L-T-P-C: <strong>{subject.lecture}-{subject.tutorial}-{subject.practical}-{subject.credits}</strong> | Semester {subject.semester}
+          </p>
+        </div>
+
+        <div className="flex items-center space-x-3">
+          {!isLocked && (
+            <button
+              onClick={handleSaveDraft}
+              disabled={loading}
+              className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl shadow-xs flex items-center transition-colors"
+            >
+              <Save className="w-4 h-4 mr-1.5" /> Save Draft
+            </button>
+          )}
         </div>
       </div>
 
+      {/* Stepper Navigation Header */}
+      <div className="bg-white p-4 rounded-3xl border border-purple-100 shadow-sm overflow-x-auto">
+        <div className="flex items-center space-x-1 min-w-max">
+          {steps.map((step) => {
+            const isActive = activeStep === step.id;
+            const isDone = activeStep > step.id;
+
+            return (
+              <button
+                key={step.id}
+                onClick={() => setActiveStep(step.id)}
+                className={`flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                  isActive
+                    ? 'bg-brand-600 text-white shadow-sm'
+                    : isDone
+                    ? 'bg-purple-50 text-brand-700 hover:bg-purple-100'
+                    : 'text-slate-500 hover:bg-slate-100'
+                }`}
+              >
+                <span>{step.icon}</span>
+                <span>{step.id}. {step.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Validation Error Banner with Checklist */}
       {error && (
-        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-start">
-          <AlertCircle className="w-5 h-5 mr-2 text-red-500 shrink-0" />
-          <span>{error}</span>
+        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-700 space-y-2">
+          <div className="flex items-center font-bold">
+            <AlertCircle className="w-4 h-4 mr-2 text-red-500 shrink-0" />
+            <span>{error}</span>
+          </div>
+          {missingChecklist.length > 0 && (
+            <ul className="list-disc list-inside space-y-1 text-[11px] pl-6">
+              {missingChecklist.map((item, idx) => (
+                <li key={idx}>{item}</li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
-      {/* Main Step Content Area */}
-      <div className="bg-white/95 backdrop-blur-md p-6 md:p-8 rounded-3xl border border-purple-100 shadow-sm min-h-[450px]">
+      {/* Step Content Panels */}
+      <div className="bg-white p-6 md:p-8 rounded-3xl border border-purple-100 shadow-sm space-y-6">
         {/* STEP 1: OBJECTIVES */}
         {activeStep === 1 && (
           <div className="space-y-4">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Course Objectives</h3>
-              <p className="text-xs text-desc">Define clear, structured course objectives for {subject.subjectCode}.</p>
-            </div>
-
-            <div className="space-y-3">
-              {objectives.map((obj, idx) => (
-                <div key={idx} className="flex items-center space-x-2">
-                  <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-purple-50 text-brand-700 text-xs font-bold shrink-0">
-                    {idx + 1}
-                  </span>
-                  <input
-                    type="text"
-                    disabled={isLocked}
-                    value={obj}
-                    onChange={(e) => {
-                      const updated = [...objectives];
-                      updated[idx] = e.target.value;
-                      setObjectives(updated);
-                    }}
-                    placeholder={`Objective ${idx + 1}...`}
-                    className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 disabled:bg-slate-100"
-                  />
-                  {!isLocked && objectives.length > 1 && (
-                    <button
-                      onClick={() => setObjectives(objectives.filter((_, i) => i !== idx))}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-
+            <h3 className="text-sm font-bold uppercase text-brand-700">Step 1: Course Objectives</h3>
+            <p className="text-xs text-desc">Define the key objectives for this course.</p>
+            {objectives.map((obj, idx) => (
+              <div key={idx} className="flex items-center space-x-2">
+                <span className="text-xs font-bold text-slate-500 w-6">#{idx + 1}</span>
+                <input
+                  type="text"
+                  disabled={isLocked}
+                  value={obj}
+                  onChange={(e) => {
+                    const newArr = [...objectives];
+                    newArr[idx] = e.target.value;
+                    setObjectives(newArr);
+                  }}
+                  placeholder="e.g. To understand basic principles of algorithm analysis..."
+                  className="flex-1 px-3 py-2 text-xs border rounded-xl focus:ring-brand-500"
+                />
+                {!isLocked && objectives.length > 1 && (
+                  <button
+                    onClick={() => setObjectives(objectives.filter((_, i) => i !== idx))}
+                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ))}
             {!isLocked && (
               <button
                 onClick={() => setObjectives([...objectives, ''])}
-                className="inline-flex items-center px-3 py-2 text-xs font-semibold text-brand-700 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors"
+                className="px-3 py-1.5 text-xs font-bold text-brand-700 bg-purple-50 hover:bg-purple-100 rounded-xl flex items-center"
               >
-                <Plus className="w-4 h-4 mr-1" /> Add Objective
+                <Plus className="w-3.5 h-3.5 mr-1" /> Add Objective
               </button>
             )}
           </div>
         )}
 
-        {/* STEP 2: SYLLABUS TEMPLATE */}
+        {/* STEP 2: SYLLABUS UNITS / EXPERIMENTS */}
         {activeStep === 2 && (
-          <div className="space-y-5">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Syllabus Breakdown</h3>
-              <p className="text-xs text-desc">Template: <strong>{templateType}</strong></p>
-            </div>
+          <div className="space-y-6">
+            <h3 className="text-sm font-bold uppercase text-brand-700">Step 2: Course Syllabus Content</h3>
 
             {(templateType === 'THEORY' || templateType === 'LAB_ORIENTED_THEORY') && (
               <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-100 flex items-center justify-between">
-                  <div>
-                    <label className="block text-xs font-bold text-brand-800">Contact Hours for each unit</label>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="number"
-                      min="1"
-                      disabled={isLocked}
-                      value={unitContactHours}
-                      onChange={(e) => setUnitContactHours(parseInt(e.target.value) || 0)}
-                      className="w-20 px-3 py-1.5 text-center text-sm font-bold border border-slate-300 rounded-xl focus:ring-brand-500 disabled:bg-slate-100"
-                    />
-                    <div className="text-xs font-bold text-brand-700 bg-white px-3 py-1.5 rounded-xl border border-purple-200">
-                      Total Theory Hours: {theoryContactHours}
-                    </div>
-                  </div>
+                <div className="p-3 bg-purple-50 rounded-xl text-xs font-semibold text-brand-900">
+                  Unit Contact Hours: <strong className="text-brand-700 font-bold">{unitContactHours} Hours/Unit</strong> (Total 5 Theory Units = {theoryContactHours} Hours)
                 </div>
 
-                <div className="space-y-4">
-                  {units.map((u, idx) => (
-                    <div key={idx} className="p-4 border border-slate-200 rounded-2xl bg-slate-50/50 space-y-2">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-xs font-bold text-brand-700 uppercase">Unit {u.unitNumber}:</span>
-                        <input
-                          type="text"
-                          disabled={isLocked}
-                          value={u.unitName}
-                          onChange={(e) => {
-                            const updated = [...units];
-                            updated[idx].unitName = e.target.value;
-                            setUnits(updated);
-                          }}
-                          placeholder={`Unit ${u.unitNumber} Title...`}
-                          className="flex-1 px-3 py-1.5 text-sm font-semibold border border-slate-300 rounded-xl focus:ring-brand-500 disabled:bg-slate-100"
-                        />
-                      </div>
-                      <textarea
-                        rows={3}
-                        disabled={isLocked}
-                        value={u.content}
-                        onChange={(e) => {
-                          const updated = [...units];
-                          updated[idx].content = e.target.value;
-                          setUnits(updated);
-                        }}
-                        placeholder={`Syllabus topics separated by '-' e.g. Arrays - Linked Lists - Stacks - Queues...`}
-                        className="w-full p-3 text-xs border border-slate-300 rounded-xl focus:ring-brand-500 disabled:bg-slate-100"
-                      />
-                    </div>
-                  ))}
-                </div>
+                {units.map((unit, idx) => (
+                  <div key={idx} className="p-4 border rounded-2xl bg-slate-50/50 space-y-3">
+                    <span className="text-xs font-bold text-brand-700">Unit {unit.unitNumber}</span>
+                    <input
+                      type="text"
+                      disabled={isLocked}
+                      value={unit.unitName}
+                      onChange={(e) => {
+                        const newUnits = [...units];
+                        newUnits[idx].unitName = e.target.value;
+                        setUnits(newUnits);
+                      }}
+                      placeholder={`Unit ${unit.unitNumber} Title...`}
+                      className="w-full px-3 py-2 text-xs border rounded-xl font-bold"
+                    />
+                    <textarea
+                      rows={3}
+                      disabled={isLocked}
+                      value={unit.content}
+                      onChange={(e) => {
+                        const newUnits = [...units];
+                        newUnits[idx].content = e.target.value;
+                        setUnits(newUnits);
+                      }}
+                      placeholder="Enter topics separated by hyphens (e.g. Topic 1 - Topic 2 - Topic 3)..."
+                      className="w-full px-3 py-2 text-xs border rounded-xl"
+                    />
+                  </div>
+                ))}
               </div>
             )}
 
             {(templateType === 'LAB' || templateType === 'LAB_ORIENTED_THEORY') && (
-              <div className="space-y-4 pt-4 border-t border-slate-200">
-                <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between">
-                  <div>
-                    <label className="block text-xs font-bold text-indigo-900">Lab Experiments & Contact Hours</label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs font-semibold text-slate-700">Lab Contact Hours:</span>
+              <div className="space-y-4 pt-4 border-t">
+                <h4 className="text-xs font-bold text-slate-900 uppercase">Laboratory Experiments</h4>
+                {experiments.map((exp, idx) => (
+                  <div key={idx} className="flex items-center space-x-2">
+                    <span className="text-xs font-bold text-slate-500 w-8">Exp #{exp.experimentNumber}</span>
                     <input
-                      type="number"
-                      min="1"
+                      type="text"
                       disabled={isLocked}
-                      value={labContactHours}
-                      onChange={(e) => setLabContactHours(parseInt(e.target.value) || 0)}
-                      className="w-20 px-3 py-1.5 text-center text-sm font-bold border border-slate-300 rounded-xl focus:ring-brand-500 disabled:bg-slate-100"
+                      value={exp.title}
+                      onChange={(e) => {
+                        const newExps = [...experiments];
+                        newExps[idx].title = e.target.value;
+                        setExperiments(newExps);
+                      }}
+                      placeholder="Experiment Title..."
+                      className="flex-1 px-3 py-2 text-xs border rounded-xl"
                     />
                   </div>
-                </div>
-
-                <div className="space-y-2">
-                  {experiments.map((exp, idx) => (
-                    <div key={idx} className="flex items-center space-x-2">
-                      <span className="w-7 h-7 flex items-center justify-center rounded-lg bg-indigo-100 text-indigo-900 text-xs font-bold shrink-0">
-                        {idx + 1}
-                      </span>
-                      <input
-                        type="text"
-                        disabled={isLocked}
-                        value={exp.title}
-                        onChange={(e) => {
-                          const updated = [...experiments];
-                          updated[idx].title = e.target.value;
-                          setExperiments(updated);
-                        }}
-                        placeholder={`Experiment ${idx + 1} Title / Description...`}
-                        className="flex-1 px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-brand-500 disabled:bg-slate-100"
-                      />
-                      {!isLocked && experiments.length > (templateType === 'LAB' ? 10 : 7) && (
-                        <button
-                          onClick={() => setExperiments(experiments.filter((_, i) => i !== idx))}
-                          className="p-2 text-red-500 hover:bg-red-50 rounded-xl"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {!isLocked && (
-                  <button
-                    onClick={() => setExperiments([...experiments, { experimentNumber: experiments.length + 1, title: '' }])}
-                    className="inline-flex items-center px-3 py-2 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl"
-                  >
-                    <Plus className="w-4 h-4 mr-1" /> Add Experiment
-                  </button>
-                )}
+                ))}
               </div>
             )}
-
-            <div className="p-3 bg-slate-900 text-white rounded-2xl flex items-center justify-between text-xs font-bold">
-              <span>Calculated Total Contact Hours:</span>
-              <span className="text-amber-400 text-sm font-mono">{totalContactHours} Hours</span>
-            </div>
           </div>
         )}
 
         {/* STEP 3: COURSE OUTCOMES */}
         {activeStep === 3 && (
           <div className="space-y-4">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Course Outcomes (COs)</h3>
-              <p className="text-xs text-desc">Specify exactly 5 mandatory Course Outcomes (CO1 to CO5).</p>
-            </div>
-
-            <div className="space-y-3">
-              {courseOutcomes.map((coDesc, idx) => (
-                <div key={idx} className="flex items-center space-x-3 p-3 border border-purple-100 rounded-2xl bg-purple-50/30">
-                  <span className="w-10 h-10 flex items-center justify-center rounded-xl bg-brand-600 text-white text-xs font-bold shrink-0">
-                    CO{idx + 1}
-                  </span>
-                  <input
-                    type="text"
-                    required
-                    disabled={isLocked}
-                    value={coDesc}
-                    onChange={(e) => {
-                      const updated = [...courseOutcomes];
-                      updated[idx] = e.target.value;
-                      setCourseOutcomes(updated);
-                    }}
-                    placeholder={`Description for Course Outcome ${idx + 1}...`}
-                    className="flex-1 px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-brand-500 disabled:bg-slate-100"
-                  />
-                </div>
-              ))}
-            </div>
+            <h3 className="text-sm font-bold uppercase text-brand-700">Step 3: Course Outcomes (COs)</h3>
+            <p className="text-xs text-desc">Define exactly 5 mandatory Course Outcomes corresponding to Units 1 to 5.</p>
+            {courseOutcomes.map((co, idx) => (
+              <div key={idx} className="space-y-1">
+                <label className="block text-xs font-bold text-slate-700">CO{idx + 1} (Corresponds to Unit {idx + 1}) *</label>
+                <textarea
+                  rows={2}
+                  disabled={isLocked}
+                  value={co}
+                  onChange={(e) => {
+                    const newCOs = [...courseOutcomes];
+                    newCOs[idx] = e.target.value;
+                    setCourseOutcomes(newCOs);
+                  }}
+                  placeholder={`Upon completion of this unit, students will be able to...`}
+                  className="w-full px-3 py-2 text-xs border rounded-xl focus:ring-brand-500"
+                />
+              </div>
+            ))}
           </div>
         )}
 
         {/* STEP 4: TEXTBOOKS */}
         {activeStep === 4 && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Textbooks</h3>
-                <p className="text-xs text-desc">Add required textbooks for this course.</p>
-              </div>
-              {!isLocked && (
-                <button
-                  onClick={() => setTextbooks([...textbooks, { title: '', authors: '', edition: '', publisher: '', year: '' }])}
-                  className="px-3 py-1.5 text-xs font-semibold text-brand-700 bg-purple-50 hover:bg-purple-100 rounded-xl flex items-center"
-                >
-                  <Plus className="w-4 h-4 mr-1" /> Add Textbook
-                </button>
-              )}
-            </div>
-
-            <div className="space-y-4">
-              {textbooks.map((tb, idx) => (
-                <div key={idx} className="p-4 border border-slate-200 rounded-2xl bg-slate-50 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-700">Textbook #{idx + 1}</span>
-                    {!isLocked && textbooks.length > 1 && (
-                      <button onClick={() => setTextbooks(textbooks.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <input
-                      type="text"
-                      placeholder="Title *"
-                      disabled={isLocked}
-                      value={tb.title}
-                      onChange={(e) => {
-                        const updated = [...textbooks];
-                        updated[idx].title = e.target.value;
-                        setTextbooks(updated);
-                      }}
-                      className="px-3 py-1.5 text-xs border rounded-xl"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Author(s) *"
-                      disabled={isLocked}
-                      value={tb.authors}
-                      onChange={(e) => {
-                        const updated = [...textbooks];
-                        updated[idx].authors = e.target.value;
-                        setTextbooks(updated);
-                      }}
-                      className="px-3 py-1.5 text-xs border rounded-xl"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Edition (e.g. 4th Edition)"
-                      disabled={isLocked}
-                      value={tb.edition}
-                      onChange={(e) => {
-                        const updated = [...textbooks];
-                        updated[idx].edition = e.target.value;
-                        setTextbooks(updated);
-                      }}
-                      className="px-3 py-1.5 text-xs border rounded-xl"
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        placeholder="Publisher"
-                        disabled={isLocked}
-                        value={tb.publisher}
-                        onChange={(e) => {
-                          const updated = [...textbooks];
-                          updated[idx].publisher = e.target.value;
-                          setTextbooks(updated);
-                        }}
-                        className="px-3 py-1.5 text-xs border rounded-xl"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Year"
-                        disabled={isLocked}
-                        value={tb.year}
-                        onChange={(e) => {
-                          const updated = [...textbooks];
-                          updated[idx].year = e.target.value;
-                          setTextbooks(updated);
-                        }}
-                        className="px-3 py-1.5 text-xs border rounded-xl"
-                      />
-                    </div>
-                  </div>
+            <h3 className="text-sm font-bold uppercase text-brand-700">Step 4: Textbooks</h3>
+            {textbooks.map((tb, idx) => (
+              <div key={idx} className="p-4 border rounded-2xl bg-slate-50/50 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    disabled={isLocked}
+                    value={tb.title}
+                    onChange={(e) => {
+                      const newTbs = [...textbooks];
+                      newTbs[idx].title = e.target.value;
+                      setTextbooks(newTbs);
+                    }}
+                    placeholder="Book Title *"
+                    className="px-3 py-2 text-xs border rounded-xl font-bold"
+                  />
+                  <input
+                    type="text"
+                    disabled={isLocked}
+                    value={tb.authors}
+                    onChange={(e) => {
+                      const newTbs = [...textbooks];
+                      newTbs[idx].authors = e.target.value;
+                      setTextbooks(newTbs);
+                    }}
+                    placeholder="Authors *"
+                    className="px-3 py-2 text-xs border rounded-xl"
+                  />
                 </div>
-              ))}
-            </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <input
+                    type="text"
+                    disabled={isLocked}
+                    value={tb.edition}
+                    onChange={(e) => {
+                      const newTbs = [...textbooks];
+                      newTbs[idx].edition = e.target.value;
+                      setTextbooks(newTbs);
+                    }}
+                    placeholder="Edition"
+                    className="px-3 py-2 text-xs border rounded-xl"
+                  />
+                  <input
+                    type="text"
+                    disabled={isLocked}
+                    value={tb.publisher}
+                    onChange={(e) => {
+                      const newTbs = [...textbooks];
+                      newTbs[idx].publisher = e.target.value;
+                      setTextbooks(newTbs);
+                    }}
+                    placeholder="Publisher"
+                    className="px-3 py-2 text-xs border rounded-xl"
+                  />
+                  <input
+                    type="text"
+                    disabled={isLocked}
+                    value={tb.year}
+                    onChange={(e) => {
+                      const newTbs = [...textbooks];
+                      newTbs[idx].year = e.target.value;
+                      setTextbooks(newTbs);
+                    }}
+                    placeholder="Year"
+                    className="px-3 py-2 text-xs border rounded-xl"
+                  />
+                </div>
+              </div>
+            ))}
+            {!isLocked && (
+              <button
+                onClick={() => setTextbooks([...textbooks, { title: '', authors: '', edition: '', publisher: '', year: '' }])}
+                className="px-3 py-1.5 text-xs font-bold text-brand-700 bg-purple-50 hover:bg-purple-100 rounded-xl flex items-center"
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" /> Add Textbook
+              </button>
+            )}
           </div>
         )}
 
         {/* STEP 5: REFERENCES */}
         {activeStep === 5 && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Reference Books & Online Resources</h3>
-                <p className="text-xs text-desc">Add physical reference books or web resources.</p>
-              </div>
-              {!isLocked && (
-                <button
-                  onClick={() => setReferences([...references, { title: '', authors: '', edition: '', publisher: '', year: '', url: '' }])}
-                  className="px-3 py-1.5 text-xs font-semibold text-brand-700 bg-purple-50 hover:bg-purple-100 rounded-xl flex items-center"
-                >
-                  <Plus className="w-4 h-4 mr-1" /> Add Reference
-                </button>
-              )}
-            </div>
-
-            <div className="space-y-4">
-              {references.map((ref, idx) => (
-                <div key={idx} className="p-4 border border-slate-200 rounded-2xl bg-slate-50 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-700">Reference #{idx + 1}</span>
-                    {!isLocked && references.length > 1 && (
-                      <button onClick={() => setReferences(references.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <input
-                      type="text"
-                      placeholder="Title *"
-                      disabled={isLocked}
-                      value={ref.title}
-                      onChange={(e) => {
-                        const updated = [...references];
-                        updated[idx].title = e.target.value;
-                        setReferences(updated);
-                      }}
-                      className="px-3 py-1.5 text-xs border rounded-xl"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Author(s) / Organization"
-                      disabled={isLocked}
-                      value={ref.authors}
-                      onChange={(e) => {
-                        const updated = [...references];
-                        updated[idx].authors = e.target.value;
-                        setReferences(updated);
-                      }}
-                      className="px-3 py-1.5 text-xs border rounded-xl"
-                    />
-                    <input
-                      type="text"
-                      placeholder="URL / Web Link (Optional)"
-                      disabled={isLocked}
-                      value={ref.url}
-                      onChange={(e) => {
-                        const updated = [...references];
-                        updated[idx].url = e.target.value;
-                        setReferences(updated);
-                      }}
-                      className="px-3 py-1.5 text-xs border rounded-xl col-span-2"
-                    />
-                  </div>
+            <h3 className="text-sm font-bold uppercase text-brand-700">Step 5: Reference Books / Links</h3>
+            {references.map((ref, idx) => (
+              <div key={idx} className="p-4 border rounded-2xl bg-slate-50/50 space-y-3">
+                <input
+                  type="text"
+                  disabled={isLocked}
+                  value={ref.title}
+                  onChange={(e) => {
+                    const newRefs = [...references];
+                    newRefs[idx].title = e.target.value;
+                    setReferences(newRefs);
+                  }}
+                  placeholder="Reference Title *"
+                  className="w-full px-3 py-2 text-xs border rounded-xl font-bold"
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    disabled={isLocked}
+                    value={ref.authors}
+                    onChange={(e) => {
+                      const newRefs = [...references];
+                      newRefs[idx].authors = e.target.value;
+                      setReferences(newRefs);
+                    }}
+                    placeholder="Authors"
+                    className="px-3 py-2 text-xs border rounded-xl"
+                  />
+                  <input
+                    type="text"
+                    disabled={isLocked}
+                    value={ref.url}
+                    onChange={(e) => {
+                      const newRefs = [...references];
+                      newRefs[idx].url = e.target.value;
+                      setReferences(newRefs);
+                    }}
+                    placeholder="Web Link URL (Optional)"
+                    className="px-3 py-2 text-xs border rounded-xl"
+                  />
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
+            {!isLocked && (
+              <button
+                onClick={() => setReferences([...references, { title: '', authors: '', edition: '', publisher: '', year: '', url: '' }])}
+                className="px-3 py-1.5 text-xs font-bold text-brand-700 bg-purple-50 hover:bg-purple-100 rounded-xl flex items-center"
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" /> Add Reference
+              </button>
+            )}
           </div>
         )}
 
         {/* STEP 6: CO/PO MAPPING */}
         {activeStep === 6 && (
           <div className="space-y-4">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">CO/PO & PSO Mapping Matrix</h3>
-              <p className="text-xs text-desc">Map the 5 Course Outcomes against the configured {poCount} POs and {psoCount} PSOs.</p>
-            </div>
+            <h3 className="text-sm font-bold uppercase text-brand-700">Step 6: CO / PO & PSO Mapping Matrix</h3>
+            <p className="text-xs text-desc">Map Course Outcomes (CO1-CO5) to Program Outcomes (PO1-PO{poCount}) and PSOs (PSO1-PSO{psoCount}). Correlation: 0 = No correlation ('-'), 1 = Low, 2 = Medium, 3 = High.</p>
             <COPOMappingTable
               poCount={poCount}
               psoCount={psoCount}
@@ -734,216 +667,111 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
           </div>
         )}
 
-        {/* STEP 7: SDG MAPPING (New Step per User Requirement) */}
+        {/* STEP 7: CO/PO JUSTIFICATION */}
         {activeStep === 7 && (
-          <SDGMappingForm
-            sdgGoals={sdgGoals}
-            units={units}
-            sdgMappings={sdgMappings}
-            onChange={(updated) => !isLocked && setSdgMappings(updated)}
-            disabled={isLocked}
-          />
-        )}
-
-        {/* STEP 8: JUSTIFICATIONS */}
-        {activeStep === 8 && (
           <div className="space-y-4">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">CO/PO Mapping Justifications</h3>
-              <p className="text-xs text-desc">
-                Provide detailed justifications for all mapped correlations (1, 2, or 3). Uncorrelated pairs (-) do not require justification.
-              </p>
-            </div>
+            <h3 className="text-sm font-bold uppercase text-brand-700">Step 7: CO / PO Justification</h3>
+            <p className="text-xs text-desc">Provide mandatory justification text for every non-zero correlated CO-PO mapping cell.</p>
 
             {correlatedPairs.length === 0 ? (
-              <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed text-desc text-xs">
-                No active correlations selected in Step 6. Return to Step 6 to set mapping values (1, 2, or 3).
-              </div>
+              <p className="text-xs text-desc py-4 text-center">No non-zero CO-PO correlations mapped in Step 6 yet.</p>
             ) : (
-              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
-                {correlatedPairs.map((pair) => {
-                  const key = `${pair.coNumber}_${pair.poKey}`;
-                  const currentText = coPoJustifications[key] || '';
-                  return (
-                    <div key={key} className="p-4 border border-purple-100 rounded-2xl bg-purple-50/20 space-y-2">
-                      <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-                        <span>
-                          CO{pair.coNumber} → {pair.poKey}
-                        </span>
-                        <span className="px-2.5 py-0.5 rounded-md bg-purple-100 text-brand-800">
-                          Correlation: {pair.correlation}
-                        </span>
-                      </div>
-                      <textarea
-                        rows={2}
-                        required
-                        disabled={isLocked}
-                        value={currentText}
-                        onChange={(e) => handleJustificationChange(pair.coNumber, pair.poKey, e.target.value)}
-                        placeholder={`Provide academic justification for mapping CO${pair.coNumber} to ${pair.poKey}...`}
-                        className="w-full p-2.5 text-xs border border-slate-300 rounded-xl focus:ring-brand-500 disabled:bg-slate-100"
-                      />
-                    </div>
-                  );
-                })}
-              </div>
+              correlatedPairs.map((pair) => {
+                const key = `${pair.coNumber}_${pair.poKey}`;
+                return (
+                  <div key={key} className="p-3 border rounded-xl bg-slate-50 space-y-1">
+                    <label className="block text-xs font-bold text-brand-700">
+                      Justification for CO{pair.coNumber} → {pair.poKey} (Correlation: {pair.correlation}) *
+                    </label>
+                    <textarea
+                      rows={2}
+                      disabled={isLocked}
+                      value={coPoJustifications[key] || ''}
+                      onChange={(e) => handleJustificationChange(pair.coNumber, pair.poKey, e.target.value)}
+                      placeholder="Explain why this CO maps to this PO..."
+                      className="w-full px-3 py-2 text-xs border rounded-xl focus:ring-brand-500"
+                    />
+                  </div>
+                );
+              })
             )}
+          </div>
+        )}
+
+        {/* STEP 8: SDG MAPPING (Moved to Step 8 per user requirement!) */}
+        {activeStep === 8 && (
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold uppercase text-brand-700 flex items-center">
+              <Globe className="w-4 h-4 mr-1.5 text-brand-600" />
+              Step 8: UN Sustainable Development Goals (SDG) Mapping *
+            </h3>
+            <p className="text-xs text-desc">
+              <strong>Compulsory Requirement:</strong> Every Course Outcome (CO1 to CO5) MUST be mapped to at least one Sustainable Development Goal and corresponding unit syllabus topic.
+            </p>
+            <SDGMappingForm
+              units={units}
+              sdgGoals={sdgGoals}
+              sdgMappings={sdgMappings}
+              onChange={setSdgMappings}
+              disabled={isLocked}
+            />
           </div>
         )}
 
         {/* STEP 9: REVIEW & SUBMIT */}
         {activeStep === 9 && (
-          <div className="space-y-5">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Review Syllabus & Submit</h3>
-              <p className="text-xs text-desc">Verify all sections before submitting to the Head of Department.</p>
-            </div>
+          <div className="space-y-6">
+            <h3 className="text-sm font-bold uppercase text-brand-700">Step 9: Final Review & Submission to HoD</h3>
+            <p className="text-xs text-desc">Review your complete syllabus submission below before submitting to the Head of Department.</p>
 
-            {missingChecklist.length > 0 && (
-              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 space-y-2 text-xs text-amber-900">
-                <p className="font-bold flex items-center text-amber-800">
-                  <AlertCircle className="w-4 h-4 mr-1.5 text-amber-600" />
-                  Cannot submit syllabus yet. Please complete missing requirements:
-                </p>
-                <ul className="list-disc list-inside space-y-1 font-medium">
-                  {missingChecklist.map((item, i) => (
-                    <li key={i}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              <div className="p-3 border rounded-2xl bg-slate-50 flex items-center justify-between">
-                <span>Objectives</span>
-                <span className="font-bold text-emerald-600 flex items-center">
-                  <CheckCircle2 className="w-4 h-4 mr-1" /> {objectives.filter((o) => o.trim()).length} Completed
-                </span>
-              </div>
-
-              <div className="p-3 border rounded-2xl bg-slate-50 flex items-center justify-between">
-                <span>Syllabus Breakdown</span>
-                <span className="font-bold text-emerald-600 flex items-center">
-                  <CheckCircle2 className="w-4 h-4 mr-1" /> {totalContactHours} Hours
-                </span>
-              </div>
-
-              <div className="p-3 border rounded-2xl bg-slate-50 flex items-center justify-between">
-                <span>Course Outcomes (CO1..CO5)</span>
-                <span className="font-bold text-emerald-600 flex items-center">
-                  <CheckCircle2 className="w-4 h-4 mr-1" /> {courseOutcomes.filter((c) => c.trim()).length}/5 Filled
-                </span>
-              </div>
-
-              <div className="p-3 border rounded-2xl bg-slate-50 flex items-center justify-between">
-                <span>SDG Mappings</span>
-                <span className="font-bold text-brand-700 flex items-center">
-                  <Globe className="w-4 h-4 mr-1" /> {sdgMappings.length} Mapped
-                </span>
-              </div>
+            <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 text-xs space-y-2">
+              <p className="font-bold text-slate-900">Submission Checklist Summary:</p>
+              <ul className="list-disc list-inside text-slate-700 space-y-1">
+                <li>Objectives: <strong>{objectives.filter((o) => o.trim()).length} Defined</strong></li>
+                <li>Syllabus Units: <strong>{units.filter((u) => u.content.trim()).length} / 5 Completed</strong></li>
+                <li>Course Outcomes: <strong>{courseOutcomes.filter((c) => c.trim()).length} / 5 Completed</strong></li>
+                <li>Textbooks: <strong>{textbooks.filter((t) => t.title.trim()).length} Entry(ies)</strong></li>
+                <li>CO/PO Correlations Mapped: <strong>{correlatedPairs.length} Cells</strong></li>
+                <li>SDG Mappings Configured: <strong>{sdgMappings.length} Mapped Topics</strong></li>
+              </ul>
             </div>
 
             {!isLocked && (
-              <div className="pt-4 border-t flex items-center justify-between">
+              <div className="flex justify-end pt-4 border-t">
                 <button
-                  type="button"
-                  onClick={handleSaveDraft}
+                  onClick={handleFinalSubmit}
                   disabled={loading}
-                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center"
+                  className="px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center space-x-2"
                 >
-                  <Save className="w-4 h-4 mr-1.5" /> Save Draft
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmModal(true)}
-                  disabled={loading}
-                  className="px-6 py-2.5 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md flex items-center"
-                >
-                  <Send className="w-4 h-4 mr-1.5" /> Submit Syllabus to HoD
+                  <Send className="w-4 h-4" />
+                  <span>{loading ? 'Submitting...' : 'Submit Syllabus to HoD'}</span>
                 </button>
               </div>
             )}
           </div>
         )}
-      </div>
 
-      {/* Stepper Navigation Buttons */}
-      <div className="flex items-center justify-between pt-2">
-        <button
-          onClick={() => setActiveStep(Math.max(1, activeStep - 1))}
-          disabled={activeStep === 1}
-          className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-white rounded-xl border border-slate-200 disabled:opacity-40 flex items-center"
-        >
-          <ChevronLeft className="w-4 h-4 mr-1" /> Previous Step
-        </button>
-
-        {!isLocked && (
+        {/* Bottom Stepper Nav Controls */}
+        <div className="flex items-center justify-between pt-6 border-t border-purple-100">
           <button
-            onClick={handleSaveDraft}
-            disabled={loading}
-            className="px-4 py-2 text-xs font-semibold text-brand-700 bg-purple-50 hover:bg-purple-100 rounded-xl flex items-center"
+            onClick={() => setActiveStep((prev) => Math.max(1, prev - 1))}
+            disabled={activeStep === 1}
+            className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl disabled:opacity-50 flex items-center"
           >
-            <Save className="w-4 h-4 mr-1.5" /> Save Progress Draft
+            <ChevronLeft className="w-4 h-4 mr-1" /> Previous Step
           </button>
-        )}
 
-        <button
-          onClick={() => setActiveStep(Math.min(9, activeStep + 1))}
-          disabled={activeStep === 9}
-          className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs disabled:opacity-40 flex items-center"
-        >
-          Next Step <ChevronRight className="w-4 h-4 ml-1" />
-        </button>
-      </div>
-
-      {/* Submit Confirmation Modal */}
-      {showConfirmModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <h3 className="text-lg font-bold text-slate-900">Submit Syllabus to HoD?</h3>
-            <p className="text-xs text-desc">
-              After submission, the syllabus will be sent to the Head of Department for review. You will not be able to make normal edits unless the HoD returns it for correction.
-            </p>
-            <div className="flex items-center justify-end space-x-3 pt-4 border-t">
-              <button
-                onClick={() => setShowConfirmModal(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleFinalSubmit}
-                disabled={loading}
-                className="px-5 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md"
-              >
-                {loading ? 'Submitting...' : 'Confirm Submission'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Submitted Successfully Modal */}
-      {showSuccessModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl text-center space-y-4 animate-in fade-in zoom-in-95">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center">
-              <CheckCircle2 className="w-8 h-8" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900">Submitted Successfully!</h3>
-            <p className="text-xs text-desc">
-              Your syllabus for <strong>{subject.subjectCode} — {subject.subjectName}</strong> has been submitted to the Head of Department for review.
-            </p>
+          {activeStep < 9 && (
             <button
-              onClick={() => setShowSuccessModal(false)}
-              className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md"
+              onClick={() => setActiveStep((prev) => Math.min(9, prev + 1))}
+              className="px-5 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs flex items-center"
             >
-              Continue to Dashboard
+              <span>Next Step</span>
+              <ChevronRight className="w-4 h-4 ml-1" />
             </button>
-          </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };

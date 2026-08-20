@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, BookOpen, Users, CheckCircle2, FileText, Eye, Building2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, Users, CheckCircle2, FileText, Eye, Building2, Filter } from 'lucide-react';
 import { StatusBadge } from '@/components/common/StatusBadge';
 
 interface DepartmentDetailViewProps {
@@ -19,9 +19,11 @@ export const DepartmentDetailView: React.FC<DepartmentDetailViewProps> = ({
 
   const deptSubjects = allSubjects.filter((s) => s.departmentId === departmentSummary.id);
   const semesters = Array.from({ length: departmentSummary.semesters || 8 }, (_, i) => i + 1);
-  const [selectedSem, setSelectedSem] = useState(1);
+  const [selectedSemFilter, setSelectedSemFilter] = useState<string>('ALL');
 
-  const semSubjects = deptSubjects.filter((s) => s.semester === selectedSem);
+  const filteredSubjects = selectedSemFilter === 'ALL'
+    ? deptSubjects
+    : deptSubjects.filter((s) => s.semester === parseInt(selectedSemFilter));
 
   return (
     <div className="space-y-6">
@@ -83,22 +85,29 @@ export const DepartmentDetailView: React.FC<DepartmentDetailViewProps> = ({
         </div>
       </div>
 
-      {/* Semester Breakdown Section */}
+      {/* Complete Subject Directory & Semester Filter */}
       <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
-        <div className="flex items-center space-x-2 border-b pb-3 overflow-x-auto">
-          {semesters.map((sem) => (
-            <button
-              key={sem}
-              onClick={() => setSelectedSem(sem)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                selectedSem === sem
-                  ? 'bg-brand-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:bg-slate-100'
-              }`}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">Complete Department Subject List</h3>
+            <p className="text-xs text-desc">Subject Code, Subject Name, Type, Category, L-T-P-C, Assigned Faculty, Syllabus Status, and Actions.</p>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Filter className="w-4 h-4 text-slate-400" />
+            <select
+              value={selectedSemFilter}
+              onChange={(e) => setSelectedSemFilter(e.target.value)}
+              className="px-3 py-1.5 text-xs font-bold border border-slate-300 rounded-xl focus:ring-brand-500 bg-purple-50 text-brand-900"
             >
-              Semester {sem}
-            </button>
-          ))}
+              <option value="ALL">All Semesters ({deptSubjects.length} Subjects)</option>
+              {semesters.map((sem) => (
+                <option key={sem} value={sem.toString()}>
+                  Semester {sem} ({deptSubjects.filter((s) => s.semester === sem).length} Subjects)
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -116,16 +125,19 @@ export const DepartmentDetailView: React.FC<DepartmentDetailViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {semSubjects.length === 0 ? (
+              {filteredSubjects.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="p-8 text-center text-desc text-xs">
-                    No subjects formed for Semester {selectedSem} in {departmentSummary.shortName}.
+                    No subjects found for the selected semester filter.
                   </td>
                 </tr>
               ) : (
-                semSubjects.map((subj) => (
+                filteredSubjects.map((subj) => (
                   <tr key={subj.id} className="hover:bg-slate-50">
-                    <td className="p-3 font-mono font-bold text-brand-700">{subj.subjectCode}</td>
+                    <td className="p-3 font-mono font-bold text-brand-700">
+                      {subj.subjectCode}
+                      <span className="block text-[10px] text-slate-400 font-normal">Sem {subj.semester}</span>
+                    </td>
                     <td className="p-3 font-bold text-slate-900">{subj.subjectName}</td>
                     <td className="p-3 text-slate-600">{subj.subjectType?.name}</td>
                     <td className="p-3 text-slate-600">{subj.subjectCategory?.code}</td>
@@ -133,7 +145,14 @@ export const DepartmentDetailView: React.FC<DepartmentDetailViewProps> = ({
                       {subj.lecture}-{subj.tutorial}-{subj.practical}-{subj.credits}
                     </td>
                     <td className="p-3 font-semibold text-indigo-900">
-                      {subj.assignedFaculty ? subj.assignedFaculty.name : <span className="text-amber-600 font-normal">Unassigned</span>}
+                      {subj.assignedFaculty ? (
+                        <span>
+                          {subj.assignedFaculty.name}{' '}
+                          <span className="font-mono text-[10px] text-slate-500">({subj.assignedFaculty.userCode})</span>
+                        </span>
+                      ) : (
+                        <span className="text-amber-600 font-normal">Unassigned</span>
+                      )}
                     </td>
                     <td className="p-3">
                       <StatusBadge status={subj.syllabusStatus} />
