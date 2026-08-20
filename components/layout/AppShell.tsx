@@ -173,10 +173,17 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTab, onTabCh
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-bgmain flex items-center justify-center">
-        <div className="flex flex-col items-center space-y-3">
-          <div className="w-10 h-10 border-4 border-brand-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-xs font-semibold text-brand-700">Loading Academic Management System...</p>
+      <div className="min-h-screen bg-white flex items-center justify-center p-4 select-none">
+        <div className="flex flex-col items-center space-y-3 text-center">
+          <img
+            src="/assets/loading.gif"
+            alt="Loading REC Edge..."
+            className="w-20 h-20 object-contain"
+          />
+          <div>
+            <h3 className="text-xs font-bold text-slate-900 tracking-wide">Curriculum & Syllabus Management System</h3>
+            <p className="text-[11px] text-desc font-medium mt-0.5">Loading Regulation 26 Workspace...</p>
+          </div>
         </div>
       </div>
     );
