@@ -36,6 +36,46 @@ export async function POST(req: Request) {
   try {
     const { action, userId, userCode, email, name, role, departmentId, newPassword } = await req.json();
 
+    // RESET_PASSWORD Action
+    if (action === 'RESET_PASSWORD') {
+      if (!userId) {
+        return NextResponse.json({ error: 'User ID is required.' }, { status: 400 });
+      }
+      const resetPass = newPassword && newPassword.trim() ? newPassword.trim() : 'Changeme@123';
+      const hashedPassword = await hashPassword(resetPass);
+      await prisma.user.update({
+        where: { id: userId },
+        data: { password: hashedPassword },
+      });
+      await logAudit({
+        userId: session.userId,
+        userRole: session.role,
+        action: 'RESET_USER_PASSWORD',
+        entity: 'User',
+        entityId: userId,
+      });
+      return NextResponse.json({ success: true, message: `Password reset successfully to '${resetPass}'.` });
+    }
+
+    // DELETE_USER Action
+    if (action === 'DELETE_USER') {
+      if (!userId) {
+        return NextResponse.json({ error: 'User ID is required.' }, { status: 400 });
+      }
+      if (userId === session.userId) {
+        return NextResponse.json({ error: 'Cannot delete your own active MasterAdmin account.' }, { status: 400 });
+      }
+      await prisma.user.delete({ where: { id: userId } });
+      await logAudit({
+        userId: session.userId,
+        userRole: session.role,
+        action: 'DELETE_USER',
+        entity: 'User',
+        entityId: userId,
+      });
+      return NextResponse.json({ success: true });
+    }
+
     // EDIT_USER Action: MasterAdmin can edit all attributes of a user
     if (action === 'EDIT_USER') {
       if (!userId || !email || !name || !role) {

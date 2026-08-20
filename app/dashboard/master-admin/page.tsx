@@ -234,6 +234,39 @@ export default function MasterAdminDashboard() {
     }
   };
 
+  const handleResetUserPassword = async (u: any) => {
+    if (!confirm(`Reset password for ${u.name} (${u.email}) to 'Changeme@123'?`)) return;
+    try {
+      const res = await fetch('/api/master-admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'RESET_PASSWORD', userId: u.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to reset password.');
+      alert(data.message || 'Password reset to Changeme@123');
+      fetchData();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteUser = async (u: any) => {
+    if (!confirm(`Are you sure you want to delete user '${u.name}' (${u.userCode || u.email})? This action cannot be undone.`)) return;
+    try {
+      const res = await fetch('/api/master-admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'DELETE_USER', userId: u.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete user.');
+      fetchData();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
   const handleSaveSubjectTypeCode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSubjectType) return;
@@ -856,9 +889,15 @@ export default function MasterAdminDashboard() {
                       <td className="p-3 text-slate-700">{u.email}</td>
                       <td className="p-3"><span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100">{u.role}</span></td>
                       <td className="p-3 text-slate-600">{u.department ? u.department.shortName : (u.role === 'MASTERADMIN' || u.role === 'SUPERADMIN' ? 'Institutional Global' : 'N/A')}</td>
-                      <td className="p-3 text-right">
-                        <button onClick={() => openEditUser(u)} className="px-3 py-1 bg-brand-50 text-brand-800 font-bold rounded-lg border border-purple-200 text-xs inline-flex items-center">
-                          <Edit className="w-3.5 h-3.5 mr-1" /> Edit User
+                      <td className="p-3 text-right space-x-1">
+                        <button onClick={() => openEditUser(u)} className="px-2.5 py-1 bg-brand-50 text-brand-800 font-bold rounded-lg border border-purple-200 text-xs inline-flex items-center">
+                          <Edit className="w-3.5 h-3.5 mr-1" /> Edit
+                        </button>
+                        <button onClick={() => handleResetUserPassword(u)} title="Reset Password to Changeme@123" className="px-2.5 py-1 bg-amber-50 text-amber-800 font-bold rounded-lg border border-amber-200 text-xs inline-flex items-center">
+                          <KeyRound className="w-3.5 h-3.5 mr-1" /> Reset Pass
+                        </button>
+                        <button onClick={() => handleDeleteUser(u)} title="Delete User Account" className="px-2.5 py-1 bg-red-50 text-red-700 font-bold rounded-lg border border-red-200 text-xs inline-flex items-center">
+                          <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
                         </button>
                       </td>
                     </tr>
