@@ -92,7 +92,7 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    /*<div className="space-y-6">
       <div className="bg-purple-50/70 p-4 rounded-2xl border border-purple-100/80 flex items-start space-x-3">
         <Globe className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
         <div className="text-xs text-slate-700 space-y-1">
@@ -101,141 +101,141 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
             Map each Course Outcome (CO) to relevant UN SDGs and specific syllabus topics. Each CO maps <strong>strictly to its corresponding Unit</strong> (CO1 → Unit 1, CO2 → Unit 2, etc.). Topics are automatically parsed from unit content.
           </p>
         </div>
-      </div>
+      </div>*/
 
-      <div className="space-y-6">
-        {cos.map((coNum) => {
-          const unit = getUnitForCO(coNum);
-          const topics = parseUnitTopics(unit.content);
-          const coMappings = sdgMappings.filter((m) => m.coNumber === coNum);
+    <div className="space-y-6">
+      {cos.map((coNum) => {
+        const unit = getUnitForCO(coNum);
+        const topics = parseUnitTopics(unit.content);
+        const coMappings = sdgMappings.filter((m) => m.coNumber === coNum);
 
-          const groupedBySDG = new Map<number, string[]>();
-          coMappings.forEach((m) => {
-            const existing = groupedBySDG.get(m.sdgNumber) || [];
-            if (!existing.includes(m.topic)) existing.push(m.topic);
-            groupedBySDG.set(m.sdgNumber, existing);
-          });
+        const groupedBySDG = new Map<number, string[]>();
+        coMappings.forEach((m) => {
+          const existing = groupedBySDG.get(m.sdgNumber) || [];
+          if (!existing.includes(m.topic)) existing.push(m.topic);
+          groupedBySDG.set(m.sdgNumber, existing);
+        });
 
-          return (
-            <div key={coNum} className="p-6 bg-white rounded-3xl border border-purple-100 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b pb-3">
-                <div className="flex items-center space-x-3">
-                  <span className="w-9 h-9 rounded-xl bg-brand-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
-                    CO{coNum}
-                  </span>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900">
-                      CO{coNum} — Unit {unit.unitNumber}: {unit.unitName || `Unit ${unit.unitNumber}`}
-                    </h4>
-                    <p className="text-xs text-desc">
-                      Available Unit Topics ({topics.length}): {topics.length > 0 ? topics.join(' • ') : 'No topics parsed. Separate topics in Unit content with - or –'}
-                    </p>
-                  </div>
-                </div>
-                {groupedBySDG.size > 0 ? (
-                  <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center">
-                    <Check className="w-3.5 h-3.5 mr-1" /> {groupedBySDG.size} SDG(s) Mapped
-                  </span>
-                ) : (
-                  <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold flex items-center">
-                    <AlertTriangle className="w-3.5 h-3.5 mr-1" /> Missing SDG Mapping
-                  </span>
-                )}
-              </div>
-
-              {!disabled && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">1. Select UN SDG Goal *</label>
-                    <select
-                      value={selectedSDGForCO[coNum] || ''}
-                      onChange={(e) => setSelectedSDGForCO({ ...selectedSDGForCO, [coNum]: parseInt(e.target.value) })}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-brand-500 font-semibold"
-                    >
-                      <option value="">Select SDG Goal...</option>
-                      {activeSDGList.map((sdg) => (
-                        <option key={sdg.id} value={sdg.sdgNumber}>
-                          SDG {sdg.sdgNumber} — {sdg.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">2. Select Unit {unit.unitNumber} Topic *</label>
-                    <select
-                      value={selectedTopicForCO[coNum] || ''}
-                      onChange={(e) => setSelectedTopicForCO({ ...selectedTopicForCO, [coNum]: e.target.value })}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-brand-500 font-semibold"
-                    >
-                      <option value="">Select Unit Topic...</option>
-                      {topics.map((t, idx) => (
-                        <option key={idx} value={t}>
-                          • {t}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex items-end">
-                    <button
-                      type="button"
-                      onClick={() => handleAddMapping(coNum)}
-                      disabled={!selectedSDGForCO[coNum] || !selectedTopicForCO[coNum]}
-                      className="w-full py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center"
-                    >
-                      <Plus className="w-4 h-4 mr-1" /> Add SDG Mapping
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-3 pt-2">
-                {groupedBySDG.size === 0 ? (
-                  <p className="text-xs text-desc italic p-3 text-center bg-slate-50 rounded-xl border border-dashed">
-                    No SDGs or topics mapped for CO{coNum} yet.
+        return (
+          <div key={coNum} className="p-6 bg-white rounded-3xl border border-purple-100 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center space-x-3">
+                <span className="w-9 h-9 rounded-xl bg-brand-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                  CO{coNum}
+                </span>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    CO{coNum} — Unit {unit.unitNumber}: {unit.unitName || `Unit ${unit.unitNumber}`}
+                  </h4>
+                  <p className="text-xs text-desc">
+                    Available Unit Topics ({topics.length}): {topics.length > 0 ? topics.join(' • ') : 'No topics parsed. Separate topics in Unit content with - or –'}
                   </p>
-                ) : (
-                  Array.from(groupedBySDG.entries()).map(([sdgNum, topicList]) => {
-                    const sdgObj = activeSDGList.find((g) => g.sdgNumber === sdgNum);
-                    return (
-                      <div key={sdgNum} className="p-4 rounded-2xl bg-purple-50/40 border border-purple-100 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-brand-800 flex items-center">
-                            <Sparkles className="w-3.5 h-3.5 mr-1.5 text-amber-500" />
-                            SDG {sdgNum} — {sdgObj?.name || 'SDG Goal'}
-                          </span>
-                          <span className="text-[10px] font-bold text-desc uppercase">{topicList.length} Topic(s)</span>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                          {topicList.map((top, tIdx) => (
-                            <span
-                              key={tIdx}
-                              className="inline-flex items-center px-3 py-1 rounded-xl bg-white border border-purple-200 text-xs font-semibold text-slate-800 shadow-xs"
-                            >
-                              <span>{top}</span>
-                              {!disabled && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveMapping(coNum, sdgNum, top)}
-                                  className="ml-2 text-slate-400 hover:text-red-600"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
+                </div>
               </div>
+              {groupedBySDG.size > 0 ? (
+                <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center">
+                  <Check className="w-3.5 h-3.5 mr-1" /> {groupedBySDG.size} SDG(s) Mapped
+                </span>
+              ) : (
+                <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-bold flex items-center">
+                  <AlertTriangle className="w-3.5 h-3.5 mr-1" /> Missing SDG Mapping
+                </span>
+              )}
             </div>
-          );
-        })}
-      </div>
+
+            {!disabled && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">1. Select UN SDG Goal *</label>
+                  <select
+                    value={selectedSDGForCO[coNum] || ''}
+                    onChange={(e) => setSelectedSDGForCO({ ...selectedSDGForCO, [coNum]: parseInt(e.target.value) })}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-brand-500 font-semibold"
+                  >
+                    <option value="">Select SDG Goal...</option>
+                    {activeSDGList.map((sdg) => (
+                      <option key={sdg.id} value={sdg.sdgNumber}>
+                        SDG {sdg.sdgNumber} — {sdg.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">2. Select Unit {unit.unitNumber} Topic *</label>
+                  <select
+                    value={selectedTopicForCO[coNum] || ''}
+                    onChange={(e) => setSelectedTopicForCO({ ...selectedTopicForCO, [coNum]: e.target.value })}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:ring-brand-500 font-semibold"
+                  >
+                    <option value="">Select Unit Topic...</option>
+                    {topics.map((t, idx) => (
+                      <option key={idx} value={t}>
+                        • {t}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={() => handleAddMapping(coNum)}
+                    disabled={!selectedSDGForCO[coNum] || !selectedTopicForCO[coNum]}
+                    className="w-full py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center"
+                  >
+                    <Plus className="w-4 h-4 mr-1" /> Add SDG Mapping
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-3 pt-2">
+              {groupedBySDG.size === 0 ? (
+                <p className="text-xs text-desc italic p-3 text-center bg-slate-50 rounded-xl border border-dashed">
+                  No SDGs or topics mapped for CO{coNum} yet.
+                </p>
+              ) : (
+                Array.from(groupedBySDG.entries()).map(([sdgNum, topicList]) => {
+                  const sdgObj = activeSDGList.find((g) => g.sdgNumber === sdgNum);
+                  return (
+                    <div key={sdgNum} className="p-4 rounded-2xl bg-purple-50/40 border border-purple-100 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-brand-800 flex items-center">
+                          <Sparkles className="w-3.5 h-3.5 mr-1.5 text-amber-500" />
+                          SDG {sdgNum} — {sdgObj?.name || 'SDG Goal'}
+                        </span>
+                        <span className="text-[10px] font-bold text-desc uppercase">{topicList.length} Topic(s)</span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {topicList.map((top, tIdx) => (
+                          <span
+                            key={tIdx}
+                            className="inline-flex items-center px-3 py-1 rounded-xl bg-white border border-purple-200 text-xs font-semibold text-slate-800 shadow-xs"
+                          >
+                            <span>{top}</span>
+                            {!disabled && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveMapping(coNum, sdgNum, top)}
+                                className="ml-2 text-slate-400 hover:text-red-600"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        );
+      })}
     </div>
+    </div >
   );
 };

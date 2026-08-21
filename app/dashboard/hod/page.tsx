@@ -25,6 +25,7 @@ import {
   Filter,
   Clock,
   AlertCircle,
+  Save,
 } from 'lucide-react';
 
 export default function HoDDashboard() {
@@ -53,7 +54,10 @@ export default function HoDDashboard() {
 
   const [poStatements, setPoStatements] = useState<Record<string, string>>({});
   const [psoStatements, setPsoStatements] = useState<Record<string, string>>({});
-  const [poMsg, setPoMsg] = useState('');
+  const [poCount, setPoCount] = useState<number>(12);
+  const [psoCount, setPsoCount] = useState<number>(3);
+  const [isStructureConfirmed, setIsStructureConfirmed] = useState<boolean>(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string>('');
 
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewSubject, setReviewSubject] = useState<any>(null);
@@ -112,24 +116,53 @@ export default function HoDDashboard() {
         (data.psoStatements || []).forEach((s: any) => { psoMap[s.psoKey] = s.statement; });
         setPoStatements(poMap);
         setPsoStatements(psoMap);
+        if (data.poCount) setPoCount(data.poCount);
+        if (data.psoCount) setPsoCount(data.psoCount);
+        if (data.isConfirmed) setIsStructureConfirmed(true);
       }
     } catch (err) {}
   };
 
-  const handleSavePOPSOStatement = async (type: 'PO' | 'PSO', key: string, statement: string) => {
-    setPoMsg('');
+  const handleConfirmStructure = async () => {
+    if (poCount < 1 || psoCount < 1) {
+      alert('Number of POs and PSOs must be at least 1.');
+      return;
+    }
     try {
       const res = await fetch('/api/hod/po-pso', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, key, statement }),
+        body: JSON.stringify({ action: 'CONFIRM_STRUCTURE', poCount, psoCount }),
       });
       if (res.ok) {
-        setPoMsg(`${key} statement saved successfully.`);
-        fetchPOPSOStatements();
+        setIsStructureConfirmed(true);
+        setSaveSuccessMsg('PO & PSO structure confirmed. You can now enter the statements.');
       }
     } catch (err) {
-      console.error('Failed to save statement');
+      console.error('Failed to confirm structure');
+    }
+  };
+
+  const handleSaveAllPOPSO = async () => {
+    setSaveSuccessMsg('');
+    try {
+      const res = await fetch('/api/hod/po-pso', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          batchSave: true,
+          poStatements,
+          psoStatements,
+          poCount,
+          psoCount,
+        }),
+      });
+      if (res.ok) {
+        setSaveSuccessMsg('All PO & PSO statements saved successfully!');
+        setTimeout(() => setSaveSuccessMsg(''), 6000);
+      }
+    } catch (err) {
+      console.error('Failed to save all statements');
     }
   };
 
@@ -764,70 +797,168 @@ export default function HoDDashboard() {
 
         {/* TAB 8: PO & PSO STATEMENTS MANAGEMENT */}
         {activeTab === 'po_pso' && (
-          <div className="bg-white rounded-3xl border border-purple-100 p-6 md:p-8 shadow-sm space-y-6 max-w-4xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-bold text-slate-900">Program Outcomes (POs) & Program Specific Outcomes (PSOs)</h3>
-                <p className="text-xs text-desc">Define statement text for PO1..PO12 and PSO1..PSO3. Faculty will see these statements while mapping Course Outcomes (COs).</p>
+          <div className="space-y-6 max-w-5xl mx-auto">
+            {/* Page Header */}
+            <div className="bg-white rounded-3xl border border-purple-100 p-6 md:p-8 shadow-sm space-y-4">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+                <div>
+                  <h3 className="text-xl font-black text-slate-900 tracking-tight flex items-center">
+                    <Sparkles className="w-5 h-5 text-brand-600 mr-2" />
+                    Program Outcomes (POs) & Program Specific Outcomes (PSOs)
+                  </h3>
+                  <p className="text-xs text-desc mt-1">
+                    Define exact statement text for POs and PSOs under Regulation 26. Faculty members will map these outcomes during syllabus formation.
+                  </p>
+                </div>
+                {isStructureConfirmed && (
+                  <span className="inline-flex items-center text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 shadow-2xs">
+                    <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-600" /> Structure Confirmed & Locked
+                  </span>
+                )}
               </div>
-              {poMsg && (
-                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200">
-                  {poMsg}
-                </span>
+
+              {/* Notification / Success Banners */}
+              {saveSuccessMsg && (
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-xs font-bold text-emerald-900 flex items-center justify-between shadow-xs animate-fadeIn">
+                  <span className="flex items-center">
+                    <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-600" />
+                    {saveSuccessMsg}
+                  </span>
+                  <button onClick={() => setSaveSuccessMsg('')} className="text-emerald-700 hover:text-emerald-900">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               )}
+
+              {/* Step 1: Count Configuration */}
+              <div className="p-5 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-extrabold text-brand-900 uppercase tracking-wider">
+                    Step 1: Set Number of POs & PSOs
+                  </h4>
+                  {isStructureConfirmed && (
+                    <span className="text-[11px] font-semibold text-slate-500 italic">
+                      Contact MasterAdmin to edit counts after confirmation.
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end text-xs">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Number of POs (Program Outcomes)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="20"
+                      disabled={isStructureConfirmed}
+                      value={poCount}
+                      onChange={(e) => setPoCount(parseInt(e.target.value) || 12)}
+                      className="w-full p-2.5 border rounded-xl font-bold text-slate-900 bg-white disabled:bg-slate-100 disabled:text-slate-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Number of PSOs (Program Specific Outcomes)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      disabled={isStructureConfirmed}
+                      value={psoCount}
+                      onChange={(e) => setPsoCount(parseInt(e.target.value) || 3)}
+                      className="w-full p-2.5 border rounded-xl font-bold text-slate-900 bg-white disabled:bg-slate-100 disabled:text-slate-500"
+                    />
+                  </div>
+
+                  <div>
+                    {!isStructureConfirmed ? (
+                      <button
+                        type="button"
+                        onClick={handleConfirmStructure}
+                        className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center space-x-1.5"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Confirm Structure</span>
+                      </button>
+                    ) : (
+                      <div className="p-2.5 rounded-xl bg-slate-200/80 text-slate-700 font-bold text-center border border-slate-300">
+                        🔒 Counts Confirmed
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* PO1 to PO12 */}
-            <div className="space-y-4 pt-2">
-              <h4 className="text-xs font-bold text-brand-700 uppercase tracking-wider">Program Outcomes (PO1 to PO12)</h4>
-              {Array.from({ length: 12 }, (_, i) => `PO${i + 1}`).map((poKey) => (
-                <div key={poKey} className="p-4 border rounded-2xl bg-slate-50/60 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-extrabold text-brand-700">{poKey} Statement</span>
-                    <button
-                      type="button"
-                      onClick={() => handleSavePOPSOStatement('PO', poKey, poStatements[poKey] || '')}
-                      className="px-3 py-1 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs"
-                    >
-                      Save {poKey}
-                    </button>
+            {/* Step 2: Dynamic PO & PSO Statement Textareas */}
+            {isStructureConfirmed && (
+              <div className="bg-white rounded-3xl border border-purple-100 p-6 md:p-8 shadow-sm space-y-8">
+                {/* PO Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <h4 className="text-sm font-black text-brand-800 uppercase tracking-wider">
+                      Program Outcomes Statements (PO1 to PO{poCount})
+                    </h4>
+                    <span className="text-xs font-bold text-slate-500">{poCount} Outcomes</span>
                   </div>
-                  <textarea
-                    rows={2}
-                    value={poStatements[poKey] || ''}
-                    onChange={(e) => setPoStatements({ ...poStatements, [poKey]: e.target.value })}
-                    placeholder={`Enter ${poKey} statement text (e.g. Engineering knowledge: Apply the knowledge of mathematics, science...)`}
-                    className="w-full p-2.5 text-xs border rounded-xl font-medium focus:ring-brand-500 bg-white"
-                  />
-                </div>
-              ))}
-            </div>
 
-            {/* PSO1 to PSO3 */}
-            <div className="space-y-4 pt-4 border-t">
-              <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wider">Program Specific Outcomes (PSO1 to PSO3)</h4>
-              {Array.from({ length: 3 }, (_, i) => `PSO${i + 1}`).map((psoKey) => (
-                <div key={psoKey} className="p-4 border border-amber-200 rounded-2xl bg-amber-50/40 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-extrabold text-amber-900">{psoKey} Statement</span>
-                    <button
-                      type="button"
-                      onClick={() => handleSavePOPSOStatement('PSO', psoKey, psoStatements[psoKey] || '')}
-                      className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs"
-                    >
-                      Save {psoKey}
-                    </button>
+                  <div className="grid grid-cols-1 gap-4">
+                    {Array.from({ length: poCount }, (_, i) => `PO${i + 1}`).map((poKey) => (
+                      <div key={poKey} className="p-4 border rounded-2xl bg-slate-50/70 hover:bg-white hover:border-purple-200 transition-all space-y-2">
+                        <label className="block text-xs font-extrabold text-brand-700">{poKey} Statement</label>
+                        <textarea
+                          rows={2}
+                          value={poStatements[poKey] || ''}
+                          onChange={(e) => setPoStatements({ ...poStatements, [poKey]: e.target.value })}
+                          placeholder={`Enter ${poKey} statement text (e.g. Engineering knowledge: Apply knowledge of mathematics...)`}
+                          className="w-full p-3 text-xs border rounded-xl font-medium focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 bg-white"
+                        />
+                      </div>
+                    ))}
                   </div>
-                  <textarea
-                    rows={2}
-                    value={psoStatements[psoKey] || ''}
-                    onChange={(e) => setPsoStatements({ ...psoStatements, [psoKey]: e.target.value })}
-                    placeholder={`Enter ${psoKey} statement text (e.g. Professional Skills: Ability to design and develop software solutions...)`}
-                    className="w-full p-2.5 text-xs border rounded-xl font-medium focus:ring-amber-500 bg-white"
-                  />
                 </div>
-              ))}
-            </div>
+
+                {/* PSO Section */}
+                <div className="space-y-4 pt-4 border-t border-slate-200">
+                  <div className="flex items-center justify-between border-b pb-2">
+                    <h4 className="text-sm font-black text-amber-900 uppercase tracking-wider">
+                      Program Specific Outcomes Statements (PSO1 to PSO{psoCount})
+                    </h4>
+                    <span className="text-xs font-bold text-slate-500">{psoCount} Outcomes</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    {Array.from({ length: psoCount }, (_, i) => `PSO${i + 1}`).map((psoKey) => (
+                      <div key={psoKey} className="p-4 border border-amber-200/80 rounded-2xl bg-amber-50/30 hover:bg-white hover:border-amber-300 transition-all space-y-2">
+                        <label className="block text-xs font-extrabold text-amber-900">{psoKey} Statement</label>
+                        <textarea
+                          rows={2}
+                          value={psoStatements[psoKey] || ''}
+                          onChange={(e) => setPsoStatements({ ...psoStatements, [psoKey]: e.target.value })}
+                          placeholder={`Enter ${psoKey} statement text (e.g. Professional Skills: Ability to design and develop software solutions...)`}
+                          className="w-full p-3 text-xs border border-amber-200 rounded-xl font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Single Page Save All Button */}
+                <div className="pt-6 border-t border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <p className="text-xs text-desc">
+                    Click <strong>Save All Statements</strong> below to apply changes across all PO and PSO statements simultaneously.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleSaveAllPOPSO}
+                    className="px-8 py-3 bg-brand-600 hover:bg-brand-700 text-white font-extrabold text-xs rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center space-x-2 shrink-0"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Save All Statements</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

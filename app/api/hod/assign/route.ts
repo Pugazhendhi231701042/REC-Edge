@@ -47,14 +47,16 @@ export async function POST(req: Request) {
   });
 
   const activeStage = await prisma.academicStage.findFirst({ where: { status: 'ACTIVE' } });
-  const deadlineStr = activeStage?.deadline ? new Date(activeStage.deadline).toLocaleDateString() : 'As specified';
+  const specificDeadlineStr = deadlineDate ? deadlineDate.toLocaleDateString() : null;
+  const stageDeadlineStr = activeStage?.deadline ? new Date(activeStage.deadline).toLocaleDateString() : 'As specified';
+  const displayDeadline = specificDeadlineStr ? `${specificDeadlineStr} (Faculty Specific)` : stageDeadlineStr;
 
   // In-app Notification
   await prisma.notification.create({
     data: {
       recipientId: facultyId,
       title: `Syllabus Task Assigned: ${subject.subjectCode}`,
-      message: `You have been assigned syllabus preparation for ${subject.subjectCode} - ${subject.subjectName}. Deadline: ${deadlineStr}.`,
+      message: `You have been assigned syllabus preparation for ${subject.subjectCode} - ${subject.subjectName}.${specificDeadlineStr ? ` Submission Deadline: ${specificDeadlineStr}.` : ` Stage Deadline: ${stageDeadlineStr}.`}`,
       type: 'SUBJECT_ASSIGNED',
       relatedEntity: subject.id,
     },
@@ -67,7 +69,7 @@ export async function POST(req: Request) {
     subject.subjectCode,
     subject.subjectCategory.code,
     ltpcStr,
-    deadlineStr
+    displayDeadline
   );
 
   await sendEmail({

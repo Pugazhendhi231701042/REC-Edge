@@ -430,11 +430,8 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold uppercase text-brand-700">Step 1: Course Objectives</h3>
-                <p className="text-xs text-desc">Define between 3 (minimum) and 5 (maximum) key objectives for this course.</p>
+                <p className="text-xs text-desc">Define course objectives for this subject.</p>
               </div>
-              <span className="text-xs font-extrabold text-brand-700 bg-purple-100 px-3 py-1 rounded-full border border-purple-200">
-                {objectives.length} / 5 Objectives
-              </span>
             </div>
 
             {objectives.map((obj, idx) => (
@@ -468,7 +465,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                 onClick={() => setObjectives([...objectives, ''])}
                 className="px-3 py-1.5 text-xs font-bold text-brand-700 bg-purple-50 hover:bg-purple-100 rounded-xl flex items-center shadow-xs"
               >
-                <Plus className="w-3.5 h-3.5 mr-1" /> Add Objective ({objectives.length}/5)
+                <Plus className="w-3.5 h-3.5 mr-1" /> Add Objective
               </button>
             )}
           </div>

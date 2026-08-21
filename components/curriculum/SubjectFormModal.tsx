@@ -107,11 +107,6 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (isInvalidNonTheoryPractical) {
-      setError('Practical hours (P) must be at least 1 for non-Theory courses.');
-      return;
-    }
-
     if (!creditResult.valid) {
       setError(creditResult.warning || 'Invalid credit combination.');
       return;
@@ -224,11 +219,6 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
           <div className="bg-purple-50/70 p-4 rounded-2xl border border-purple-100/80">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-bold text-brand-700 uppercase tracking-wider">L-T-P-C Credit Calculation</span>
-              {isNonTheory && (
-                <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded border border-amber-200">
-                  Non-Theory: P ≥ 1 required
-                </span>
-              )}
             </div>
 
             <div className="grid grid-cols-4 gap-3 text-center">
