@@ -359,6 +359,25 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
         </div>
       </div>
 
+      {/* Visual Progress Bar */}
+      <div className="bg-white p-4 rounded-3xl border border-purple-100 shadow-sm space-y-2">
+        <div className="flex justify-between items-center text-xs font-extrabold text-slate-800">
+          <span className="flex items-center text-brand-700">
+            <Sparkles className="w-4 h-4 mr-1.5 text-brand-600" />
+            Syllabus Formation Progress: Step {activeStep} of {steps.length} — {steps[activeStep - 1].label}
+          </span>
+          <span className="text-brand-700 bg-purple-100 px-2.5 py-0.5 rounded-full border border-purple-200">
+            {Math.round((activeStep / steps.length) * 100)}% Completed
+          </span>
+        </div>
+        <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+          <div
+            className="bg-brand-600 h-2.5 rounded-full transition-all duration-300 shadow-xs"
+            style={{ width: `${Math.round((activeStep / steps.length) * 100)}%` }}
+          ></div>
+        </div>
+      </div>
+
       {/* Stepper Navigation Header */}
       <div className="bg-white p-4 rounded-3xl border border-purple-100 shadow-sm overflow-x-auto">
         <div className="flex items-center space-x-1 min-w-max">
@@ -866,7 +885,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
               <ul className="list-disc list-inside text-slate-700 space-y-1">
                 <li>Objectives: <strong>{objectives.filter((o) => o.trim()).length} Defined</strong></li>
                 <li>Syllabus Units: <strong>{units.filter((u) => u.content.trim()).length} / 5 Completed</strong></li>
-                <li>Course Outcomes: <strong>{courseOutcomes.filter((c) => c.trim()).length} / 5 Completed</strong></li>
+                <li>Course Outcomes: <strong>{courseOutcomes.filter((c) => (typeof c === 'string' ? c.trim() : c?.description?.trim())).length} / 5 Completed</strong></li>
                 <li>Textbooks: <strong>{textbooks.filter((t) => t.title.trim()).length} Entry(ies)</strong></li>
                 <li>CO/PO Correlations Mapped: <strong>{correlatedPairs.length} Cells</strong></li>
                 <li>SDG Mappings Configured: <strong>{sdgMappings.length} Mapped Topics</strong></li>

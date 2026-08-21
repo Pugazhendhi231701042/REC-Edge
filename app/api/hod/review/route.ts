@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized. HoD role required.' }, { status: 403 });
   }
 
-  const { subjectId, action, reason } = await req.json();
+  const { subjectId, action, reason, returnDeadline } = await req.json();
 
   if (!subjectId || !action) {
     return NextResponse.json({ error: 'Subject ID and action (APPROVE/RETURN) are required.' }, { status: 400 });
@@ -33,9 +33,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'A correction reason is mandatory when returning a syllabus.' }, { status: 400 });
     }
 
+    const deadlineDate = returnDeadline ? new Date(returnDeadline) : null;
+
     await prisma.subject.update({
       where: { id: subjectId },
-      data: { syllabusStatus: 'RETURNED_FOR_CORRECTION' },
+      data: {
+        syllabusStatus: 'RETURNED_FOR_CORRECTION',
+        ...(deadlineDate ? { facultyDeadline: deadlineDate } : {}),
+      },
     });
 
     if (subject.submission) {

@@ -233,13 +233,12 @@ export default function DeanDashboard() {
             <div key={stg.id} className="relative flex items-start space-x-4">
               {/* Dot / Circle Indicator */}
               <div
-                className={`absolute -left-6 top-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all z-10 ${
-                  isCompleted
-                    ? 'bg-emerald-600 text-white ring-4 ring-emerald-100 shadow-sm'
-                    : isActive
+                className={`absolute -left-6 top-1 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all z-10 ${isCompleted
+                  ? 'bg-emerald-600 text-white ring-4 ring-emerald-100 shadow-sm'
+                  : isActive
                     ? 'bg-brand-600 text-white ring-4 ring-purple-200 shadow-md animate-pulse'
                     : 'bg-white border-2 border-slate-300 text-slate-400'
-                }`}
+                  }`}
               >
                 {isCompleted ? (
                   <Check className="w-3.5 h-3.5 stroke-[3]" />
@@ -251,13 +250,12 @@ export default function DeanDashboard() {
               </div>
 
               {/* Stage Card Content */}
-              <div className={`flex-1 p-4 rounded-2xl border transition-all ${
-                isActive
-                  ? 'bg-purple-50/80 border-purple-300 shadow-sm ring-1 ring-purple-200'
-                  : isCompleted
+              <div className={`flex-1 p-4 rounded-2xl border transition-all ${isActive
+                ? 'bg-purple-50/80 border-purple-300 shadow-sm ring-1 ring-purple-200'
+                : isCompleted
                   ? 'bg-emerald-50/40 border-emerald-200'
                   : 'bg-slate-50/50 border-slate-200 opacity-80'
-              }`}>
+                }`}>
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                   <div>
                     <div className="flex items-center space-x-2">
@@ -609,21 +607,19 @@ export default function DeanDashboard() {
                   <div className="flex items-center bg-purple-50 p-1 rounded-2xl border border-purple-100">
                     <button
                       onClick={() => setApprovedViewMode('BY_SEM')}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                        approvedViewMode === 'BY_SEM'
-                          ? 'bg-brand-600 text-white shadow-xs'
-                          : 'text-slate-600 hover:text-brand-700'
-                      }`}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${approvedViewMode === 'BY_SEM'
+                        ? 'bg-brand-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-brand-700'
+                        }`}
                     >
                       <Calendar className="w-3.5 h-3.5 inline mr-1" /> By Semester
                     </button>
                     <button
                       onClick={() => setApprovedViewMode('BY_DEPT')}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                        approvedViewMode === 'BY_DEPT'
-                          ? 'bg-brand-600 text-white shadow-xs'
-                          : 'text-slate-600 hover:text-brand-700'
-                      }`}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${approvedViewMode === 'BY_DEPT'
+                        ? 'bg-brand-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-brand-700'
+                        }`}
                     >
                       <Building2 className="w-3.5 h-3.5 inline mr-1" /> By Department
                     </button>

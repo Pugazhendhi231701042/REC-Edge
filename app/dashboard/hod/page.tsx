@@ -24,6 +24,7 @@ import {
   Search,
   Filter,
   Clock,
+  AlertCircle,
 } from 'lucide-react';
 
 export default function HoDDashboard() {
@@ -57,6 +58,7 @@ export default function HoDDashboard() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewSubject, setReviewSubject] = useState<any>(null);
   const [correctionReason, setCorrectionReason] = useState('');
+  const [returnDeadline, setReturnDeadline] = useState('');
 
   const [showExtensionModal, setShowExtensionModal] = useState(false);
   const [extDeadline, setExtDeadline] = useState('');
@@ -190,6 +192,19 @@ export default function HoDDashboard() {
     }
   };
 
+  // Requirement: Check if PO/PSO statements are configured
+  const hasConfiguredPOPSO = Object.keys(poStatements).length > 0;
+
+  const handleOpenAddSubject = () => {
+    if (!hasConfiguredPOPSO) {
+      alert('Action Required: Please configure Department PO & PSO Statements first before creating subjects.');
+      setActiveTab('po_pso');
+      return;
+    }
+    setEditingSubject(null);
+    setShowSubjectModal(true);
+  };
+
   const handleReviewAction = async (action: 'APPROVE' | 'RETURN') => {
     if (!reviewSubject) return;
     if (action === 'RETURN' && !correctionReason.trim()) {
@@ -205,12 +220,14 @@ export default function HoDDashboard() {
           subjectId: reviewSubject.id,
           action,
           reason: correctionReason,
+          returnDeadline: returnDeadline || null,
         }),
       });
 
       if (res.ok) {
         setShowReviewModal(false);
         setCorrectionReason('');
+        setReturnDeadline('');
         fetchData();
       }
     } catch (err) {
@@ -437,15 +454,29 @@ export default function HoDDashboard() {
                 <p className="text-xs text-desc">Form subjects, assign faculty members, and manage LTPC credits.</p>
               </div>
               <button
-                onClick={() => {
-                  setEditingSubject(null);
-                  setShowSubjectModal(true);
-                }}
+                onClick={handleOpenAddSubject}
                 className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
               >
                 <Plus className="w-4 h-4 mr-1.5" /> Add Subject to Sem {activeSemester}
               </button>
             </div>
+
+            {!hasConfiguredPOPSO && (
+              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-xs text-amber-900 flex items-center justify-between shadow-xs">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                  <span>
+                    <strong>Action Required:</strong> Department PO & PSO statements have not been configured yet. HoD must setup PO/PSO statements before creating subjects.
+                  </span>
+                </div>
+                <button
+                  onClick={() => setActiveTab('po_pso')}
+                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shrink-0"
+                >
+                  Setup PO & PSO Statements →
+                </button>
+              </div>
+            )}
 
             {/* Semester Tabs */}
             <div className="flex items-center space-x-2 border-b pb-3 overflow-x-auto">
@@ -896,15 +927,26 @@ export default function HoDDashboard() {
 
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
                 <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">HoD Review Decision</h4>
-                <div className="space-y-2">
-                  <label className="block text-xs font-semibold text-slate-700">Correction Reason (Mandatory if Returning)</label>
-                  <textarea
-                    rows={2}
-                    value={correctionReason}
-                    onChange={(e) => setCorrectionReason(e.target.value)}
-                    placeholder="e.g. Please revise justification for CO3 -> PO4..."
-                    className="w-full p-2.5 text-xs border rounded-xl"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-slate-700">Correction Reason (Mandatory if Returning)</label>
+                    <textarea
+                      rows={2}
+                      value={correctionReason}
+                      onChange={(e) => setCorrectionReason(e.target.value)}
+                      placeholder="e.g. Please revise justification for CO3 -> PO4..."
+                      className="w-full p-2.5 text-xs border rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-slate-700">Correction Return Deadline (Optional)</label>
+                    <input
+                      type="date"
+                      value={returnDeadline}
+                      onChange={(e) => setReturnDeadline(e.target.value)}
+                      className="w-full p-2.5 text-xs border rounded-xl font-bold text-slate-800"
+                    />
+                  </div>
                 </div>
                 <div className="flex items-center justify-end space-x-3">
                   <button
