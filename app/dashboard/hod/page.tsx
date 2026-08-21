@@ -48,6 +48,11 @@ export default function HoDDashboard() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [targetSubjectForAssign, setTargetSubjectForAssign] = useState<any>(null);
   const [selectedFacultyId, setSelectedFacultyId] = useState('');
+  const [assignDeadline, setAssignDeadline] = useState('');
+
+  const [poStatements, setPoStatements] = useState<Record<string, string>>({});
+  const [psoStatements, setPsoStatements] = useState<Record<string, string>>({});
+  const [poMsg, setPoMsg] = useState('');
 
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewSubject, setReviewSubject] = useState<any>(null);
@@ -85,10 +90,44 @@ export default function HoDDashboard() {
         setSubjectTypes(data.subjectTypes || []);
         setSubjectCategories(data.subjectCategories || []);
       }
+
+      fetchPOPSOStatements();
     } catch (err) {
       setError('Failed to load department curriculum data.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPOPSOStatements = async () => {
+    try {
+      const res = await fetch('/api/hod/po-pso');
+      if (res.ok) {
+        const data = await res.json();
+        const poMap: Record<string, string> = {};
+        const psoMap: Record<string, string> = {};
+        (data.poStatements || []).forEach((s: any) => { poMap[s.poKey] = s.statement; });
+        (data.psoStatements || []).forEach((s: any) => { psoMap[s.psoKey] = s.statement; });
+        setPoStatements(poMap);
+        setPsoStatements(psoMap);
+      }
+    } catch (err) {}
+  };
+
+  const handleSavePOPSOStatement = async (type: 'PO' | 'PSO', key: string, statement: string) => {
+    setPoMsg('');
+    try {
+      const res = await fetch('/api/hod/po-pso', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, key, statement }),
+      });
+      if (res.ok) {
+        setPoMsg(`${key} statement saved successfully.`);
+        fetchPOPSOStatements();
+      }
+    } catch (err) {
+      console.error('Failed to save statement');
     }
   };
 
@@ -113,11 +152,13 @@ export default function HoDDashboard() {
         body: JSON.stringify({
           subjectId: targetSubjectForAssign.id,
           facultyId: selectedFacultyId,
+          deadline: assignDeadline || null,
         }),
       });
 
       if (res.ok) {
         setShowAssignModal(false);
+        setAssignDeadline('');
         fetchData();
       }
     } catch (err) {
@@ -269,6 +310,12 @@ export default function HoDDashboard() {
                     <Lock className="w-4 h-4 mr-1.5" /> Finalize Curriculum
                   </button>
                 )}
+                <button
+                  onClick={() => setActiveTab('po_pso')}
+                  className="px-4 py-2 bg-purple-100 hover:bg-purple-200 text-brand-900 font-bold text-xs rounded-xl border border-purple-300 flex items-center shadow-xs"
+                >
+                  <Sparkles className="w-4 h-4 mr-1.5 text-brand-700" /> PO & PSO Statements
+                </button>
                 <button
                   onClick={() => setActiveTab('extension')}
                   className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-brand-700 font-bold text-xs rounded-xl border border-purple-200 flex items-center"
@@ -681,6 +728,75 @@ export default function HoDDashboard() {
                 Submit Request to Dean
               </button>
             </form>
+          </div>
+        )}
+
+        {/* TAB 8: PO & PSO STATEMENTS MANAGEMENT */}
+        {activeTab === 'po_pso' && (
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 md:p-8 shadow-sm space-y-6 max-w-4xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Program Outcomes (POs) & Program Specific Outcomes (PSOs)</h3>
+                <p className="text-xs text-desc">Define statement text for PO1..PO12 and PSO1..PSO3. Faculty will see these statements while mapping Course Outcomes (COs).</p>
+              </div>
+              {poMsg && (
+                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200">
+                  {poMsg}
+                </span>
+              )}
+            </div>
+
+            {/* PO1 to PO12 */}
+            <div className="space-y-4 pt-2">
+              <h4 className="text-xs font-bold text-brand-700 uppercase tracking-wider">Program Outcomes (PO1 to PO12)</h4>
+              {Array.from({ length: 12 }, (_, i) => `PO${i + 1}`).map((poKey) => (
+                <div key={poKey} className="p-4 border rounded-2xl bg-slate-50/60 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-brand-700">{poKey} Statement</span>
+                    <button
+                      type="button"
+                      onClick={() => handleSavePOPSOStatement('PO', poKey, poStatements[poKey] || '')}
+                      className="px-3 py-1 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs"
+                    >
+                      Save {poKey}
+                    </button>
+                  </div>
+                  <textarea
+                    rows={2}
+                    value={poStatements[poKey] || ''}
+                    onChange={(e) => setPoStatements({ ...poStatements, [poKey]: e.target.value })}
+                    placeholder={`Enter ${poKey} statement text (e.g. Engineering knowledge: Apply the knowledge of mathematics, science...)`}
+                    className="w-full p-2.5 text-xs border rounded-xl font-medium focus:ring-brand-500 bg-white"
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* PSO1 to PSO3 */}
+            <div className="space-y-4 pt-4 border-t">
+              <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wider">Program Specific Outcomes (PSO1 to PSO3)</h4>
+              {Array.from({ length: 3 }, (_, i) => `PSO${i + 1}`).map((psoKey) => (
+                <div key={psoKey} className="p-4 border border-amber-200 rounded-2xl bg-amber-50/40 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-amber-900">{psoKey} Statement</span>
+                    <button
+                      type="button"
+                      onClick={() => handleSavePOPSOStatement('PSO', psoKey, psoStatements[psoKey] || '')}
+                      className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs"
+                    >
+                      Save {psoKey}
+                    </button>
+                  </div>
+                  <textarea
+                    rows={2}
+                    value={psoStatements[psoKey] || ''}
+                    onChange={(e) => setPsoStatements({ ...psoStatements, [psoKey]: e.target.value })}
+                    placeholder={`Enter ${psoKey} statement text (e.g. Professional Skills: Ability to design and develop software solutions...)`}
+                    className="w-full p-2.5 text-xs border rounded-xl font-medium focus:ring-amber-500 bg-white"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

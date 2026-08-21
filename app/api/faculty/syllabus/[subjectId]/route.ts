@@ -120,9 +120,10 @@ export async function POST(
   if (isSubmit) {
     const missing: string[] = [];
 
-    // Objectives check
-    if (!objectives || objectives.length === 0 || objectives.some((o: string) => !o.trim())) {
-      missing.push('⚠ Objectives are incomplete or missing.');
+    // Objectives check (Requirement 09: Min 3, Max 5)
+    const validObjs = objectives ? objectives.filter((o: string) => o && o.trim()) : [];
+    if (validObjs.length < 3 || validObjs.length > 5) {
+      missing.push('⚠ Minimum 3 and maximum 5 Course Objectives are required.');
     }
 
     // Template specific checks
@@ -279,6 +280,7 @@ export async function POST(
         data: courseOutcomes.map((co: any, idx: number) => ({
           syllabusId: sub.id,
           coNumber: idx + 1,
+          cognitiveLevel: co.cognitiveLevel || 'K3',
           description: co.description || '',
         })),
       });

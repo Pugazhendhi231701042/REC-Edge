@@ -221,6 +221,13 @@ export default function FacultyDashboard() {
                               {subj.subjectType?.name} • {subj.subjectCategory?.code} • {subj.lecture}-{subj.tutorial}-{subj.practical}-{subj.credits} LTPC
                             </p>
 
+                            {subj.facultyDeadline && (
+                              <div className="mt-2.5 inline-flex items-center text-[11px] font-bold text-brand-800 bg-purple-100/80 px-2.5 py-1 rounded-xl border border-purple-200">
+                                <Clock className="w-3.5 h-3.5 mr-1 text-brand-600" />
+                                Assigned Deadline: {new Date(subj.facultyDeadline).toLocaleDateString()}
+                              </div>
+                            )}
+
                             {isReturned && subj.submission?.correctionReason && (
                               <div className="mt-3 p-3 rounded-2xl bg-amber-100/90 border border-amber-300 text-xs text-amber-900 space-y-1">
                                 <p className="font-bold flex items-center">

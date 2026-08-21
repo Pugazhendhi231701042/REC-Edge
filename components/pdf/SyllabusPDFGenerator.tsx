@@ -159,7 +159,9 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
             <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-2">3. Course Outcomes (COs)</h3>
             <div className="space-y-1 text-xs">
               {submission.courseOutcomes.map((co: any, idx: number) => (
-                <p key={idx}><strong>CO{co.coNumber}:</strong> {co.description}</p>
+                <p key={idx}>
+                  <strong>CO{co.coNumber}{co.cognitiveLevel ? ` (${co.cognitiveLevel})` : ''}:</strong> {co.description}
+                </p>
               ))}
             </div>
           </div>
@@ -169,10 +171,10 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
         {submission.textbooks && submission.textbooks.length > 0 && (
           <div className="mb-6">
             <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-2">4. Textbooks</h3>
-            <ol className="list-decimal list-inside text-xs space-y-1 text-slate-800">
+            <ol className="list-decimal list-inside text-xs space-y-1 text-slate-800 font-medium">
               {submission.textbooks.map((tb: any, idx: number) => (
                 <li key={idx}>
-                  {tb.authors}, <em>"{tb.title}"</em>, {tb.edition}, {tb.publisher}, {tb.year}.
+                  [{idx + 1}] "{tb.title}"{tb.authors ? `, ${tb.authors}` : ''}{tb.edition ? `, ${tb.edition}` : ''}{tb.publisher ? `, ${tb.publisher}` : ''}{tb.year ? `, ${tb.year}` : ''}.
                 </li>
               ))}
             </ol>
@@ -183,10 +185,10 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
         {submission.references && submission.references.length > 0 && (
           <div className="mb-6">
             <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-2">5. Reference Books / Links</h3>
-            <ol className="list-decimal list-inside text-xs space-y-1 text-slate-800">
+            <ol className="list-decimal list-inside text-xs space-y-1 text-slate-800 font-medium">
               {submission.references.map((ref: any, idx: number) => (
                 <li key={idx}>
-                  {ref.authors ? `${ref.authors}, ` : ''}<em>"{ref.title}"</em>{ref.publisher ? `, ${ref.publisher}` : ''}{ref.year ? `, ${ref.year}` : ''}. {ref.url ? `Link: ${ref.url}` : ''}
+                  [{idx + 1}] "{ref.title}"{ref.authors ? `, ${ref.authors}` : ''}{ref.edition ? `, ${ref.edition}` : ''}{ref.publisher ? `, ${ref.publisher}` : ''}{ref.year ? `, ${ref.year}` : ''}. {ref.url ? `Link: ${ref.url}` : ''}
                 </li>
               ))}
             </ol>
@@ -220,6 +222,28 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr className="bg-purple-100 font-extrabold text-slate-900 border-t-2 border-slate-300">
+                <td className="border border-slate-300 p-1 font-black text-brand-900">Average</td>
+                {poKeys.map((k) => {
+                  let total = 0;
+                  let count = 0;
+                  [1, 2, 3, 4, 5].forEach((coNum) => {
+                    const val = mappingsMap[`${coNum}_${k}`] ?? 0;
+                    if (val > 0) {
+                      total += val;
+                      count++;
+                    }
+                  });
+                  const avg = count > 0 ? (total / count).toFixed(2) : '-';
+                  return (
+                    <td key={k} className="border border-slate-300 p-1 font-black text-slate-900">
+                      {avg}
+                    </td>
+                  );
+                })}
+              </tr>
+            </tfoot>
           </table>
         </div>
 

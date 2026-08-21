@@ -52,7 +52,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   // Form State
-  const [objectives, setObjectives] = useState<string[]>(['']);
+  const [objectives, setObjectives] = useState<string[]>(['', '', '']);
   const [unitContactHours, setUnitContactHours] = useState<number>(9);
   const [labContactHours, setLabContactHours] = useState<number>(30);
   const [units, setUnits] = useState<any[]>([
@@ -74,18 +74,32 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     { experimentNumber: 9, title: '' },
     { experimentNumber: 10, title: '' },
   ]);
-  const [courseOutcomes, setCourseOutcomes] = useState<string[]>([
-    '', '', '', '', ''
+  const [courseOutcomes, setCourseOutcomes] = useState<any[]>([
+    { description: '', cognitiveLevel: 'K3' },
+    { description: '', cognitiveLevel: 'K3' },
+    { description: '', cognitiveLevel: 'K3' },
+    { description: '', cognitiveLevel: 'K3' },
+    { description: '', cognitiveLevel: 'K3' },
   ]);
-  const [textbooks, setTextbooks] = useState<any[]>([
-    { title: '', authors: '', edition: '', publisher: '', year: '' },
-  ]);
-  const [references, setReferences] = useState<any[]>([
-    { title: '', authors: '', edition: '', publisher: '', year: '', url: '' },
-  ]);
+  const [textbooks, setTextbooks] = useState<any[]>([]);
+  const [references, setReferences] = useState<any[]>([]);
   const [coPoMappings, setCoPoMappings] = useState<Record<string, number>>({});
   const [coPoJustifications, setCoPoJustifications] = useState<Record<string, string>>({});
   const [sdgMappings, setSdgMappings] = useState<SDGMappingItem[]>([]);
+  const [poStatements, setPoStatements] = useState<any[]>([]);
+  const [psoStatements, setPsoStatements] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (subject?.departmentId) {
+      fetch(`/api/hod/po-pso?departmentId=${subject.departmentId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.poStatements) setPoStatements(data.poStatements);
+          if (data.psoStatements) setPsoStatements(data.psoStatements);
+        })
+        .catch(() => {});
+    }
+  }, [subject?.departmentId]);
 
   useEffect(() => {
     if (existingSub) {
@@ -112,13 +126,22 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
       }
 
       if (existingSub.courseOutcomes?.length > 0) {
-        const coDescs = ['', '', '', '', ''];
+        const coList = [
+          { description: '', cognitiveLevel: 'K3' },
+          { description: '', cognitiveLevel: 'K3' },
+          { description: '', cognitiveLevel: 'K3' },
+          { description: '', cognitiveLevel: 'K3' },
+          { description: '', cognitiveLevel: 'K3' },
+        ];
         existingSub.courseOutcomes.forEach((co: any) => {
           if (co.coNumber >= 1 && co.coNumber <= 5) {
-            coDescs[co.coNumber - 1] = co.description;
+            coList[co.coNumber - 1] = {
+              description: co.description || '',
+              cognitiveLevel: co.cognitiveLevel || 'K3',
+            };
           }
         });
-        setCourseOutcomes(coDescs);
+        setCourseOutcomes(coList);
       }
 
       if (existingSub.textbooks?.length > 0) {
@@ -198,7 +221,11 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     objectives: objectives.filter((o) => o.trim()),
     units,
     experiments: experiments.filter((e) => e.title.trim()),
-    courseOutcomes: courseOutcomes.map((desc, idx) => ({ coNumber: idx + 1, description: desc })),
+    courseOutcomes: courseOutcomes.map((co, idx) => ({
+      coNumber: idx + 1,
+      cognitiveLevel: co.cognitiveLevel || 'K3',
+      description: typeof co === 'string' ? co : (co.description || ''),
+    })),
     textbooks: textbooks.filter((t) => t.title.trim()),
     references: references.filter((r) => r.title.trim()),
     coPoMappings: Object.entries(coPoMappings).map(([key, val]) => {
@@ -381,8 +408,16 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
         {/* STEP 1: OBJECTIVES */}
         {activeStep === 1 && (
           <div className="space-y-4">
-            <h3 className="text-sm font-bold uppercase text-brand-700">Step 1: Course Objectives</h3>
-            <p className="text-xs text-desc">Define the key objectives for this course.</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold uppercase text-brand-700">Step 1: Course Objectives</h3>
+                <p className="text-xs text-desc">Define between 3 (minimum) and 5 (maximum) key objectives for this course.</p>
+              </div>
+              <span className="text-xs font-extrabold text-brand-700 bg-purple-100 px-3 py-1 rounded-full border border-purple-200">
+                {objectives.length} / 5 Objectives
+              </span>
+            </div>
+
             {objectives.map((obj, idx) => (
               <div key={idx} className="flex items-center space-x-2">
                 <span className="text-xs font-bold text-slate-500 w-6">#{idx + 1}</span>
@@ -396,24 +431,25 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                     setObjectives(newArr);
                   }}
                   placeholder="e.g. To understand basic principles of algorithm analysis..."
-                  className="flex-1 px-3 py-2 text-xs border rounded-xl focus:ring-brand-500"
+                  className="flex-1 px-3 py-2 text-xs border rounded-xl focus:ring-brand-500 font-medium"
                 />
-                {!isLocked && objectives.length > 1 && (
+                {!isLocked && objectives.length > 3 && (
                   <button
                     onClick={() => setObjectives(objectives.filter((_, i) => i !== idx))}
                     className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                    title="Remove Objective"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 )}
               </div>
             ))}
-            {!isLocked && (
+            {!isLocked && objectives.length < 5 && (
               <button
                 onClick={() => setObjectives([...objectives, ''])}
-                className="px-3 py-1.5 text-xs font-bold text-brand-700 bg-purple-50 hover:bg-purple-100 rounded-xl flex items-center"
+                className="px-3 py-1.5 text-xs font-bold text-brand-700 bg-purple-50 hover:bg-purple-100 rounded-xl flex items-center shadow-xs"
               >
-                <Plus className="w-3.5 h-3.5 mr-1" /> Add Objective
+                <Plus className="w-3.5 h-3.5 mr-1" /> Add Objective ({objectives.length}/5)
               </button>
             )}
           </div>
@@ -432,7 +468,28 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
 
                 {units.map((unit, idx) => (
                   <div key={idx} className="p-4 border rounded-2xl bg-slate-50/50 space-y-3">
-                    <span className="text-xs font-bold text-brand-700">Unit {unit.unitNumber}</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-brand-700">Unit {unit.unitNumber}</span>
+                      {!isLocked && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const formatted = unit.content
+                              .split('\n')
+                              .map((line: string) => line.trim().replace(/^[-•*]\s*/, ''))
+                              .filter(Boolean)
+                              .join(' - ');
+                            const newUnits = [...units];
+                            newUnits[idx].content = formatted;
+                            setUnits(newUnits);
+                          }}
+                          className="text-[11px] font-bold text-brand-600 hover:underline bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-100"
+                        >
+                          ⚡ Auto-format newlines to hyphens (" - ")
+                        </button>
+                      )}
+                    </div>
+
                     <input
                       type="text"
                       disabled={isLocked}
@@ -454,7 +511,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                         newUnits[idx].content = e.target.value;
                         setUnits(newUnits);
                       }}
-                      placeholder="Enter topics separated by hyphens (e.g. Topic 1 - Topic 2 - Topic 3)..."
+                      placeholder="Enter topics separated by hyphens (or paste line-by-line and click Auto-format)..."
                       className="w-full px-3 py-2 text-xs border rounded-xl"
                     />
                   </div>
@@ -487,21 +544,45 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
           </div>
         )}
 
-        {/* STEP 3: COURSE OUTCOMES */}
+        {/* STEP 3: COURSE OUTCOMES WITH COGNITIVE LEVEL */}
         {activeStep === 3 && (
           <div className="space-y-4">
-            <h3 className="text-sm font-bold uppercase text-brand-700">Step 3: Course Outcomes (COs)</h3>
-            <p className="text-xs text-desc">Define exactly 5 mandatory Course Outcomes corresponding to Units 1 to 5.</p>
+            <h3 className="text-sm font-bold uppercase text-brand-700">Step 3: Course Outcomes (COs) & Cognitive Levels</h3>
+            <p className="text-xs text-desc">Define exactly 5 mandatory Course Outcomes corresponding to Units 1 to 5 and select Cognitive Level (Bloom's Taxonomy).</p>
             {courseOutcomes.map((co, idx) => (
-              <div key={idx} className="space-y-1">
-                <label className="block text-xs font-bold text-slate-700">CO{idx + 1} (Corresponds to Unit {idx + 1}) *</label>
+              <div key={idx} className="p-4 border rounded-2xl bg-slate-50/50 space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <label className="text-xs font-bold text-slate-700">
+                    CO{idx + 1} (Corresponds to Unit {idx + 1}) *
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[11px] font-semibold text-slate-600">Cognitive Level:</span>
+                    <select
+                      disabled={isLocked}
+                      value={co.cognitiveLevel || 'K3'}
+                      onChange={(e) => {
+                        const newCOs = [...courseOutcomes];
+                        newCOs[idx].cognitiveLevel = e.target.value;
+                        setCourseOutcomes(newCOs);
+                      }}
+                      className="text-xs font-bold text-brand-800 bg-purple-100 border border-purple-300 rounded-xl px-2.5 py-1 focus:ring-brand-500"
+                    >
+                      <option value="K1">K1 - Remember</option>
+                      <option value="K2">K2 - Understand</option>
+                      <option value="K3">K3 - Apply</option>
+                      <option value="K4">K4 - Analyze</option>
+                      <option value="K5">K5 - Evaluate / Create</option>
+                      <option value="K6">K6 - Create</option>
+                    </select>
+                  </div>
+                </div>
                 <textarea
                   rows={2}
                   disabled={isLocked}
-                  value={co}
+                  value={co.description || ''}
                   onChange={(e) => {
                     const newCOs = [...courseOutcomes];
-                    newCOs[idx] = e.target.value;
+                    newCOs[idx].description = e.target.value;
                     setCourseOutcomes(newCOs);
                   }}
                   placeholder={`Upon completion of this unit, students will be able to...`}
@@ -512,13 +593,31 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
           </div>
         )}
 
-        {/* STEP 4: TEXTBOOKS */}
+        {/* STEP 4: TEXTBOOKS (STRUCTURED INPUT & STANDARD FORMATTING) */}
         {activeStep === 4 && (
           <div className="space-y-4">
-            <h3 className="text-sm font-bold uppercase text-brand-700">Step 4: Textbooks</h3>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold uppercase text-brand-700">Step 4: Textbooks</h3>
+                <p className="text-xs text-desc">Enter textbook details below. Formatted as: <code>[1] "Title", Authors, Edition, Publisher, Year.</code></p>
+              </div>
+            </div>
+
             {textbooks.map((tb, idx) => (
               <div key={idx} className="p-4 border rounded-2xl bg-slate-50/50 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-brand-700">Book [{idx + 1}]</span>
+                  {!isLocked && (
+                    <button
+                      onClick={() => setTextbooks(textbooks.filter((_, i) => i !== idx))}
+                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg text-xs flex items-center"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <input
                     type="text"
                     disabled={isLocked}
@@ -528,7 +627,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                       newTbs[idx].title = e.target.value;
                       setTextbooks(newTbs);
                     }}
-                    placeholder="Book Title *"
+                    placeholder='Book Title (e.g. Data Structures and Algorithm Analysis in C++) *'
                     className="px-3 py-2 text-xs border rounded-xl font-bold"
                   />
                   <input
@@ -540,10 +639,11 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                       newTbs[idx].authors = e.target.value;
                       setTextbooks(newTbs);
                     }}
-                    placeholder="Authors *"
+                    placeholder='Authors (e.g. Mark Allen Weiss) *'
                     className="px-3 py-2 text-xs border rounded-xl"
                   />
                 </div>
+
                 <div className="grid grid-cols-3 gap-3">
                   <input
                     type="text"
@@ -554,7 +654,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                       newTbs[idx].edition = e.target.value;
                       setTextbooks(newTbs);
                     }}
-                    placeholder="Edition"
+                    placeholder="Edition (e.g. 4th Edition)"
                     className="px-3 py-2 text-xs border rounded-xl"
                   />
                   <input
@@ -566,7 +666,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                       newTbs[idx].publisher = e.target.value;
                       setTextbooks(newTbs);
                     }}
-                    placeholder="Publisher"
+                    placeholder="Publisher (e.g. Pearson)"
                     className="px-3 py-2 text-xs border rounded-xl"
                   />
                   <input
@@ -578,18 +678,27 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                       newTbs[idx].year = e.target.value;
                       setTextbooks(newTbs);
                     }}
-                    placeholder="Year"
+                    placeholder="Year (e.g. 2014)"
                     className="px-3 py-2 text-xs border rounded-xl"
                   />
                 </div>
+
+                {tb.title && (
+                  <div className="p-2.5 bg-purple-50/60 rounded-xl border border-purple-100 text-xs font-mono text-slate-800">
+                    <span className="font-bold text-brand-700">Preview: </span>
+                    [{idx + 1}] "{tb.title}"{tb.authors ? `, ${tb.authors}` : ''}{tb.edition ? `, ${tb.edition}` : ''}{tb.publisher ? `, ${tb.publisher}` : ''}{tb.year ? `, ${tb.year}` : ''}.
+                  </div>
+                )}
               </div>
             ))}
+
             {!isLocked && (
               <button
                 onClick={() => setTextbooks([...textbooks, { title: '', authors: '', edition: '', publisher: '', year: '' }])}
-                className="px-3 py-1.5 text-xs font-bold text-brand-700 bg-purple-50 hover:bg-purple-100 rounded-xl flex items-center"
+                className="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs flex items-center space-x-1.5"
               >
-                <Plus className="w-3.5 h-3.5 mr-1" /> Add Textbook
+                <Plus className="w-4 h-4" />
+                <span>+ Add Book</span>
               </button>
             )}
           </div>
@@ -601,6 +710,17 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
             <h3 className="text-sm font-bold uppercase text-brand-700">Step 5: Reference Books / Links</h3>
             {references.map((ref, idx) => (
               <div key={idx} className="p-4 border rounded-2xl bg-slate-50/50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-brand-700">Reference [{idx + 1}]</span>
+                  {!isLocked && (
+                    <button
+                      onClick={() => setReferences(references.filter((_, i) => i !== idx))}
+                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg text-xs flex items-center"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
+                    </button>
+                  )}
+                </div>
                 <input
                   type="text"
                   disabled={isLocked}
@@ -656,10 +776,12 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
         {activeStep === 6 && (
           <div className="space-y-4">
             <h3 className="text-sm font-bold uppercase text-brand-700">Step 6: CO / PO & PSO Mapping Matrix</h3>
-            <p className="text-xs text-desc">Map Course Outcomes (CO1-CO5) to Program Outcomes (PO1-PO{poCount}) and PSOs (PSO1-PSO{psoCount}). Correlation: 0 = No correlation ('-'), 1 = Low, 2 = Medium, 3 = High.</p>
+            <p className="text-xs text-desc">Map Course Outcomes (CO1-CO5) to Program Outcomes (PO1-PO{poCount}) and PSOs (PSO1-PSO{psoCount}). Hover headers to view HoD-defined statements.</p>
             <COPOMappingTable
               poCount={poCount}
               psoCount={psoCount}
+              poStatements={poStatements}
+              psoStatements={psoStatements}
               mappings={coPoMappings}
               onChange={handleMappingChange}
               disabled={isLocked}
@@ -667,29 +789,44 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
           </div>
         )}
 
-        {/* STEP 7: CO/PO JUSTIFICATION */}
+        {/* STEP 7: CO/PO JUSTIFICATION WITH STATEMENT DISPLAY */}
         {activeStep === 7 && (
           <div className="space-y-4">
             <h3 className="text-sm font-bold uppercase text-brand-700">Step 7: CO / PO Justification</h3>
-            <p className="text-xs text-desc">Provide mandatory justification text for every non-zero correlated CO-PO mapping cell.</p>
+            <p className="text-xs text-desc">Provide mandatory justification text for every non-zero correlated CO-PO mapping cell based on actual PO/PSO statements.</p>
 
             {correlatedPairs.length === 0 ? (
               <p className="text-xs text-desc py-4 text-center">No non-zero CO-PO correlations mapped in Step 6 yet.</p>
             ) : (
               correlatedPairs.map((pair) => {
                 const key = `${pair.coNumber}_${pair.poKey}`;
+                const stmtObj = pair.poKey.startsWith('PSO')
+                  ? psoStatements.find((s) => s.psoKey === pair.poKey)
+                  : poStatements.find((s) => s.poKey === pair.poKey);
+                const stmtText = stmtObj?.statement;
+
                 return (
-                  <div key={key} className="p-3 border rounded-xl bg-slate-50 space-y-1">
-                    <label className="block text-xs font-bold text-brand-700">
-                      Justification for CO{pair.coNumber} → {pair.poKey} (Correlation: {pair.correlation}) *
-                    </label>
+                  <div key={key} className="p-4 border rounded-2xl bg-slate-50/70 space-y-2">
+                    <div className="flex justify-between items-start">
+                      <label className="block text-xs font-bold text-brand-700">
+                        Justification for CO{pair.coNumber} → {pair.poKey} (Correlation: {pair.correlation}) *
+                      </label>
+                    </div>
+
+                    {stmtText && (
+                      <div className="p-2.5 bg-amber-50/60 rounded-xl border border-amber-200/60 text-xs text-amber-900">
+                        <strong className="font-bold text-amber-950">{pair.poKey} Statement: </strong>
+                        {stmtText}
+                      </div>
+                    )}
+
                     <textarea
                       rows={2}
                       disabled={isLocked}
                       value={coPoJustifications[key] || ''}
                       onChange={(e) => handleJustificationChange(pair.coNumber, pair.poKey, e.target.value)}
-                      placeholder="Explain why this CO maps to this PO..."
-                      className="w-full px-3 py-2 text-xs border rounded-xl focus:ring-brand-500"
+                      placeholder={`Explain how CO${pair.coNumber} addresses ${pair.poKey}...`}
+                      className="w-full px-3 py-2 text-xs border rounded-xl focus:ring-brand-500 bg-white"
                     />
                   </div>
                 );

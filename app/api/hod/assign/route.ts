@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized. HoD role required.' }, { status: 403 });
   }
 
-  const { subjectId, facultyId } = await req.json();
+  const { subjectId, facultyId, deadline } = await req.json();
 
   if (!subjectId || !facultyId) {
     return NextResponse.json({ error: 'Subject ID and Faculty ID are required.' }, { status: 400 });
@@ -33,12 +33,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Faculty member must belong to your department.' }, { status: 400 });
   }
 
+  const deadlineDate = deadline ? new Date(deadline) : null;
+
   const updated = await prisma.subject.update({
     where: { id: subjectId },
     data: {
       assignedFacultyId: facultyId,
+      facultyDeadline: deadlineDate,
       status: 'ASSIGNED',
-      syllabusStatus: 'IN_PROGRESS',
+      syllabusStatus: subject.syllabusStatus === 'NOT_STARTED' ? 'IN_PROGRESS' : subject.syllabusStatus,
       assignedAt: new Date(),
     },
   });

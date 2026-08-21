@@ -52,6 +52,8 @@ model Department {
   poConfigurations  POConfiguration[]
   psoConfigurations PSOConfiguration[]
   extensionRequests ExtensionRequest[]
+  programOutcomeStatements ProgramOutcomeStatement[]
+  programSpecificOutcomeStatements ProgramSpecificOutcomeStatement[]
 }
 
 model Regulation {
@@ -66,6 +68,8 @@ model Regulation {
   subjects          Subject[]
   poConfigurations  POConfiguration[]
   psoConfigurations PSOConfiguration[]
+  programOutcomeStatements ProgramOutcomeStatement[]
+  programSpecificOutcomeStatements ProgramSpecificOutcomeStatement[]
 }
 
 model AcademicYear {
@@ -136,11 +140,12 @@ model SubjectCategory {
 }
 
 model CreditConfig {
-  id        String   @id @default("default-credit-config")
-  lWeight   Float    @default(1.0)
-  tWeight   Float    @default(1.0)
-  pWeight   Float    @default(0.5)
-  updatedAt DateTime @updatedAt
+  id                String   @id @default("default-credit-config")
+  calculationMethod String   @default("SUM") // SUM (C = L+T+P) or WEIGHTED (C = L*wL + T*wT + P*wP)
+  lWeight           Float    @default(1.0)
+  tWeight           Float    @default(1.0)
+  pWeight           Float    @default(0.5)
+  updatedAt         DateTime @updatedAt
 }
 
 model SDGGoal {
@@ -191,6 +196,7 @@ model Subject {
   credits           Float // C (calculated)
   status            String    @default("DRAFT") // DRAFT, FINALIZED, ASSIGNED
   assignedFacultyId String?
+  facultyDeadline   DateTime?
   syllabusStatus    String    @default("NOT_STARTED") // NOT_STARTED, IN_PROGRESS, SUBMITTED, RETURNED_FOR_CORRECTION, RESUBMITTED, APPROVED
   finalizedAt       DateTime?
   assignedAt        DateTime?
@@ -269,12 +275,43 @@ model Experiment {
 }
 
 model CourseOutcome {
-  id          String @id @default(uuid())
-  syllabusId  String
-  coNumber    Int // 1 to 5 mandatory
-  description String
+  id             String  @id @default(uuid())
+  syllabusId     String
+  coNumber       Int     // 1 to 5 mandatory
+  cognitiveLevel String? // e.g. "K1", "K2", "K3", "K4", "K5", "K6"
+  description    String
 
   syllabus SyllabusSubmission @relation(fields: [syllabusId], references: [id], onDelete: Cascade)
+}
+
+model ProgramOutcomeStatement {
+  id           String   @id @default(uuid())
+  departmentId String
+  regulationId String
+  poKey        String   // PO1 to PO12
+  statement    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department Department @relation(fields: [departmentId], references: [id])
+  regulation Regulation @relation(fields: [regulationId], references: [id])
+
+  @@unique([departmentId, regulationId, poKey])
+}
+
+model ProgramSpecificOutcomeStatement {
+  id           String   @id @default(uuid())
+  departmentId String
+  regulationId String
+  psoKey       String   // PSO1 to PSO3
+  statement    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department Department @relation(fields: [departmentId], references: [id])
+  regulation Regulation @relation(fields: [regulationId], references: [id])
+
+  @@unique([departmentId, regulationId, psoKey])
 }
 
 model Textbook {
