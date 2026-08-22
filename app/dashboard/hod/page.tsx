@@ -51,6 +51,7 @@ export default function HoDDashboard() {
   const [targetSubjectForAssign, setTargetSubjectForAssign] = useState<any>(null);
   const [selectedFacultyId, setSelectedFacultyId] = useState('');
   const [assignDeadline, setAssignDeadline] = useState('');
+  const [selectedFacultyForModal, setSelectedFacultyForModal] = useState<any | null>(null);
 
   const [poStatements, setPoStatements] = useState<Record<string, string>>({});
   const [psoStatements, setPsoStatements] = useState<Record<string, string>>({});
@@ -256,9 +257,15 @@ export default function HoDDashboard() {
 
   const handleReviewAction = async (action: 'APPROVE' | 'RETURN') => {
     if (!reviewSubject) return;
-    if (action === 'RETURN' && !correctionReason.trim()) {
-      alert('A correction reason is required when returning a syllabus.');
-      return;
+    if (action === 'RETURN') {
+      if (!correctionReason.trim()) {
+        alert('A correction reason is mandatory when returning a syllabus.');
+        return;
+      }
+      if (!returnDeadline || !returnDeadline.trim()) {
+        alert('Correction Return Deadline is mandatory when returning a syllabus for correction.');
+        return;
+      }
     }
 
     const confirmMsg = action === 'APPROVE'
@@ -336,6 +343,7 @@ export default function HoDDashboard() {
   const totalDepartmentSubjects = subjects.length;
   const assignedCount = subjects.filter((s) => s.status === 'ASSIGNED').length;
   const submittedCount = subjects.filter((s) => s.syllabusStatus === 'SUBMITTED' || s.syllabusStatus === 'RESUBMITTED').length;
+  const awaitingDeanCount = subjects.filter((s) => s.syllabusStatus === 'HOD_APPROVED').length;
   const approvedCount = subjects.filter((s) => s.syllabusStatus === 'APPROVED').length;
   const completionPercentage = totalDepartmentSubjects > 0 ? Math.round((approvedCount / totalDepartmentSubjects) * 100) : 0;
 
@@ -402,7 +410,7 @@ export default function HoDDashboard() {
             </div>
 
             {/* Consolidated KPI Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
                 <p className="text-xs font-bold text-slate-500">Total Subjects</p>
                 <p className="text-2xl font-black text-slate-900">{totalDepartmentSubjects}</p>
@@ -428,7 +436,15 @@ export default function HoDDashboard() {
               </div>
 
               <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
-                <p className="text-xs font-bold text-slate-500">HoD Approved</p>
+                <p className="text-xs font-bold text-slate-500">Awaiting Dean Approval</p>
+                <p className="text-2xl font-black text-amber-600">{awaitingDeanCount}</p>
+                <span className="text-[11px] font-bold text-desc flex items-center mt-1">
+                  Forwarded to Dean
+                </span>
+              </div>
+
+              <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
+                <p className="text-xs font-bold text-slate-500">Dean Approved</p>
                 <p className="text-2xl font-black text-emerald-600">{approvedCount}</p>
                 <button onClick={() => setActiveTab('approved')} className="text-[11px] font-bold text-brand-600 hover:underline flex items-center mt-1">
                   View Approved <ArrowRight className="w-3.5 h-3.5 ml-1" />
@@ -1108,7 +1124,7 @@ export default function HoDDashboard() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-slate-700">Correction Return Deadline (Optional)</label>
+                    <label className="block text-xs font-semibold text-slate-700">Correction Return Deadline (Mandatory if Returning) *</label>
                     <input
                       type="date"
                       min={new Date().toISOString().split('T')[0]}
@@ -1132,6 +1148,62 @@ export default function HoDDashboard() {
                     <CheckCircle2 className="w-4 h-4 mr-1.5" /> Approve Syllabus
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Faculty Assigned Subjects List */}
+        {selectedFacultyForModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[85vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b pb-3">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Assigned Subjects — {selectedFacultyForModal.faculty?.name}
+                  </h3>
+                  <p className="text-xs text-desc">
+                    {selectedFacultyForModal.faculty?.email} | Total Assigned: <strong>{selectedFacultyForModal.totalAssigned} Subjects</strong>
+                  </p>
+                </div>
+                <button onClick={() => setSelectedFacultyForModal(null)} className="text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {selectedFacultyForModal.subjects?.length === 0 ? (
+                  <p className="text-xs text-desc italic p-4 text-center border border-dashed rounded-2xl">
+                    No subjects currently assigned to this faculty member.
+                  </p>
+                ) : (
+                  selectedFacultyForModal.subjects.map((subj: any) => (
+                    <div key={subj.id} className="p-4 border rounded-2xl bg-slate-50 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-brand-800 bg-purple-100 px-2 py-0.5 rounded">
+                          Sem {subj.semester} | {subj.subjectCode}
+                        </span>
+                        <h4 className="text-xs font-bold text-slate-900 mt-1">{subj.subjectName}</h4>
+                        <p className="text-[11px] text-desc mt-0.5">
+                          L-T-P-C: {subj.lecture}-{subj.tutorial}-{subj.practical}-{subj.credits} | Deadline: {subj.facultyDeadline ? new Date(subj.facultyDeadline).toLocaleDateString() : 'No Deadline'}
+                        </p>
+                      </div>
+                      <span className={`text-[10px] font-bold px-2.5 py-1 rounded-xl border ${
+                        subj.syllabusStatus === 'APPROVED'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : subj.syllabusStatus === 'HOD_APPROVED'
+                          ? 'bg-amber-50 text-amber-800 border-amber-200'
+                          : subj.syllabusStatus === 'SUBMITTED' || subj.syllabusStatus === 'RESUBMITTED'
+                          ? 'bg-blue-50 text-blue-700 border-blue-200'
+                          : subj.syllabusStatus === 'RETURNED_FOR_CORRECTION'
+                          ? 'bg-red-50 text-red-700 border-red-200'
+                          : 'bg-slate-200 text-slate-700 border-slate-300'
+                      }`}>
+                        {subj.syllabusStatus}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>

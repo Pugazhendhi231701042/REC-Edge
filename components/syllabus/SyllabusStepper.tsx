@@ -16,9 +16,12 @@ import {
   Sparkles,
   Lock,
   Globe,
+  Eye,
 } from 'lucide-react';
 import { COPOMappingTable } from './COPOMappingTable';
 import { SDGMappingForm, SDGGoalItem, SDGMappingItem } from './SDGMappingForm';
+import { TopicBuilder, TopicItem, parseTopicsFromContentString, formatTopicsToContentString } from './TopicBuilder';
+import { SyllabusPDFGenerator } from '../pdf/SyllabusPDFGenerator';
 
 interface SyllabusStepperProps {
   subject: any;
@@ -50,6 +53,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
   const [missingChecklist, setMissingChecklist] = useState<string[]>([]);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showPdfModal, setShowPdfModal] = useState(false);
 
   // Form State
   const [objectives, setObjectives] = useState<string[]>(['', '', '']);
@@ -62,6 +66,9 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     { unitNumber: 4, unitName: '', content: '' },
     { unitNumber: 5, unitName: '', content: '' },
   ]);
+  const [unitTopics, setUnitTopics] = useState<Record<number, TopicItem[]>>({
+    1: [], 2: [], 3: [], 4: [], 5: [],
+  });
   const [experiments, setExperiments] = useState<any[]>([
     { experimentNumber: 1, title: '' },
     { experimentNumber: 2, title: '' },
@@ -275,10 +282,10 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
         if (firstMissingStep > 2) firstMissingStep = 2;
       }
     }
-    if (templateType === 'LAB' || templateType === 'THEORY_LAB') {
+    if (templateType === 'LAB' || templateType === 'THEORY_LAB' || templateType === 'LAB_ORIENTED_THEORY') {
       const validExps = experiments.filter((e) => e.title.trim());
-      if (validExps.length === 0) {
-        missing.push('⚠ At least 1 Laboratory Experiment title is required for practical courses.');
+      if (validExps.length < 7) {
+        missing.push('⚠ Minimum 7 Laboratory Experiments are required for Lab-Oriented courses.');
         if (firstMissingStep > 2) firstMissingStep = 2;
       }
     }
@@ -562,52 +569,38 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
 
                 {units.map((unit, idx) => (
                   <div key={idx} className="p-4 border rounded-2xl bg-slate-50/50 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-brand-700">Unit {unit.unitNumber}</span>
-                      {!isLocked && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const formatted = unit.content
-                              .split('\n')
-                              .map((line: string) => line.trim().replace(/^[-•*]\s*/, ''))
-                              .filter(Boolean)
-                              .join(' - ');
-                            const newUnits = [...units];
-                            newUnits[idx].content = formatted;
-                            setUnits(newUnits);
-                          }}
-                          className="text-[11px] font-bold text-brand-600 hover:underline bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-100"
-                        >
-                          ⚡ Auto-format newlines to hyphens (" - ")
-                        </button>
-                      )}
-                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-brand-700">Unit {unit.unitNumber}</span>
+                      </div>
 
-                    <input
-                      type="text"
-                      disabled={isLocked}
-                      value={unit.unitName}
-                      onChange={(e) => {
-                        const newUnits = [...units];
-                        newUnits[idx].unitName = e.target.value;
-                        setUnits(newUnits);
-                      }}
-                      placeholder={`Unit ${unit.unitNumber} Title...`}
-                      className="w-full px-3 py-2 text-xs border rounded-xl font-bold"
-                    />
-                    <textarea
-                      rows={3}
-                      disabled={isLocked}
-                      value={unit.content}
-                      onChange={(e) => {
-                        const newUnits = [...units];
-                        newUnits[idx].content = e.target.value;
-                        setUnits(newUnits);
-                      }}
-                      placeholder="Enter topics separated by hyphens (or paste line-by-line and click Auto-format)..."
-                      className="w-full px-3 py-2 text-xs border rounded-xl"
-                    />
+                      <input
+                        type="text"
+                        disabled={isLocked}
+                        value={unit.unitName}
+                        onChange={(e) => {
+                          const newUnits = [...units];
+                          newUnits[idx].unitName = e.target.value;
+                          setUnits(newUnits);
+                        }}
+                        placeholder={`Unit ${unit.unitNumber} Title (e.g. Differential Calculus)...`}
+                        className="w-full px-3 py-2 text-xs border rounded-xl font-bold bg-white"
+                      />
+
+                      <TopicBuilder
+                        unitNumber={unit.unitNumber}
+                        topics={unitTopics[unit.unitNumber] || []}
+                        onChange={(newTopics) => {
+                          const newMap = { ...unitTopics, [unit.unitNumber]: newTopics };
+                          setUnitTopics(newMap);
+                          const formattedStr = formatTopicsToContentString(newTopics);
+                          const newUnits = [...units];
+                          newUnits[unit.unitNumber - 1].content = formattedStr;
+                          setUnits(newUnits);
+                        }}
+                        disabled={isLocked}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>

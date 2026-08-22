@@ -56,11 +56,7 @@ export default function DeanDashboard() {
   const [deanReturnReason, setDeanReturnReason] = useState('');
   const [showReturnModal, setShowReturnModal] = useState(false);
 
-  // Approved Syllabi Dual Mode Interactive State (Initially BY_SEM, Every Accordion Collapsed = false)
-  const [approvedViewMode, setApprovedViewMode] = useState<'BY_DEPT' | 'BY_SEM'>('BY_SEM');
-  const [selectedDeptIdForApproved, setSelectedDeptIdForApproved] = useState('ALL');
-  const [selectedSemForApproved, setSelectedSemForApproved] = useState('ALL');
-  const [expandedAccordions, setExpandedAccordions] = useState<Record<string, boolean>>({});
+  const [activeDeanSemester, setActiveDeanSemester] = useState<number>(1);
 
   // Hover state for Overall Completion Status Split-up
   const [showCompletionHover, setShowCompletionHover] = useState(false);
@@ -201,9 +197,7 @@ export default function DeanDashboard() {
     }
   };
 
-  const toggleAccordion = (key: string) => {
-    setExpandedAccordions((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
+
 
   const activeStage = overview?.activeStage || stages.find((s) => s.status === 'ACTIVE') || stages[0];
   const pendingDeanReviewsList = overview?.pendingDeanReviews || [];
@@ -594,212 +588,89 @@ export default function DeanDashboard() {
               </div>
             )}
 
-            {/* TAB 6: APPROVED SYLLABI DIRECTORY (EVERY ACCORDION INITIALLY COLLAPSED) */}
+            {/* TAB 6: APPROVED SYLLABI DIRECTORY (SEMESTER 1 TO 8 TABS) */}
             {activeTab === 'approved' && (
               <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900">Approved Syllabi Directory (Dean Access)</h3>
-                    <p className="text-xs text-desc">Dual interactive filtering by Department and Semester.</p>
-                  </div>
-
-                  {/* Mode Selector Toggle */}
-                  <div className="flex items-center bg-purple-50 p-1 rounded-2xl border border-purple-100">
-                    <button
-                      onClick={() => setApprovedViewMode('BY_SEM')}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${approvedViewMode === 'BY_SEM'
-                        ? 'bg-brand-600 text-white shadow-xs'
-                        : 'text-slate-600 hover:text-brand-700'
-                        }`}
-                    >
-                      <Calendar className="w-3.5 h-3.5 inline mr-1" /> By Semester
-                    </button>
-                    <button
-                      onClick={() => setApprovedViewMode('BY_DEPT')}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${approvedViewMode === 'BY_DEPT'
-                        ? 'bg-brand-600 text-white shadow-xs'
-                        : 'text-slate-600 hover:text-brand-700'
-                        }`}
-                    >
-                      <Building2 className="w-3.5 h-3.5 inline mr-1" /> By Department
-                    </button>
-                  </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Approved Syllabi Directory</h3>
+                  <p className="text-xs text-desc">Official institutionally approved syllabi organized by Academic Semesters (1 to 8).</p>
                 </div>
 
-                {/* MODE 1: BY DEPARTMENT */}
-                {approvedViewMode === 'BY_DEPT' && (
-                  <div className="space-y-5">
-                    <div className="max-w-md">
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Select Department</label>
-                      <select
-                        value={selectedDeptIdForApproved}
-                        onChange={(e) => setSelectedDeptIdForApproved(e.target.value)}
-                        className="w-full px-3 py-2 text-xs border border-purple-200 rounded-xl font-bold bg-purple-50/50 text-brand-900"
-                      >
-                        <option value="ALL">All Departments ({overview?.deptSummaries?.length || 0})</option>
-                        {overview?.deptSummaries?.map((d: any) => (
-                          <option key={d.id} value={d.id}>{d.shortName} — {d.programmeName}</option>
-                        ))}
-                      </select>
-                    </div>
+                {/* Semester 1 to 8 Tabs */}
+                <div className="flex items-center space-x-2 border-b pb-3 overflow-x-auto">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
+                    <button
+                      key={sem}
+                      onClick={() => setActiveDeanSemester(sem)}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                        activeDeanSemester === sem
+                          ? 'bg-brand-600 text-white shadow-sm'
+                          : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      Semester {sem}
+                    </button>
+                  ))}
+                </div>
 
-                    {/* 8 Semester Dropdown Accordions (Initially Collapsed) */}
-                    <div className="space-y-3">
-                      {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => {
-                        const subjectsInSem = approvedSyllabiList
-                          .filter((s: any) => {
-                            const matchesDept = selectedDeptIdForApproved === 'ALL' || s.departmentId === selectedDeptIdForApproved;
-                            return matchesDept && s.semester === sem;
-                          })
-                          .sort((a: any, b: any) => a.subjectCode.localeCompare(b.subjectCode));
+                {/* Approved Subjects for Selected Semester */}
+                {(() => {
+                  const semSubjects = approvedSyllabiList
+                    .filter((s: any) => s.semester === activeDeanSemester)
+                    .sort((a: any, b: any) => a.subjectCode.localeCompare(b.subjectCode));
 
-                        const key = `sem-${sem}`;
-                        const isExpanded = expandedAccordions[key] ?? false;
+                  if (semSubjects.length === 0) {
+                    return (
+                      <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed text-desc text-xs">
+                        No approved syllabi found in Semester {activeDeanSemester}.
+                      </div>
+                    );
+                  }
 
-                        return (
-                          <div key={sem} className="border border-purple-100 rounded-2xl overflow-hidden bg-purple-50/20">
-                            <button
-                              onClick={() => toggleAccordion(key)}
-                              className="w-full p-4 flex items-center justify-between bg-purple-50/60 hover:bg-purple-100/50 transition-colors"
-                            >
-                              <div className="flex items-center space-x-2">
-                                <span className="font-mono font-black text-brand-700 text-xs bg-purple-200/80 px-2 py-0.5 rounded">
-                                  SEM {sem}
+                  return (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-left">
+                        <thead className="bg-purple-50 text-slate-700 font-semibold">
+                          <tr>
+                            <th className="p-3">Subject Code</th>
+                            <th className="p-3">Subject Name</th>
+                            <th className="p-3">Department</th>
+                            <th className="p-3 text-center">L-T-P-C</th>
+                            <th className="p-3">Faculty</th>
+                            <th className="p-3">Status</th>
+                            <th className="p-3 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {semSubjects.map((subj: any) => (
+                            <tr key={subj.id} className="hover:bg-slate-50">
+                              <td className="p-3 font-mono font-bold text-brand-700">{subj.subjectCode}</td>
+                              <td className="p-3 font-bold text-slate-900">{subj.subjectName}</td>
+                              <td className="p-3 font-semibold text-slate-700">{subj.department?.shortName || subj.department?.name}</td>
+                              <td className="p-3 text-center font-semibold text-slate-700">
+                                {subj.lecture}-{subj.tutorial}-{subj.practical}-{subj.credits}
+                              </td>
+                              <td className="p-3 text-slate-700">{subj.assignedFaculty?.name || 'N/A'}</td>
+                              <td className="p-3">
+                                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-xl border border-emerald-300">
+                                  Approved
                                 </span>
-                                <h4 className="font-bold text-slate-900 text-xs">Semester {sem} Syllabi</h4>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                  {subjectsInSem.length} Approved Subject(s)
-                                </span>
-                                {isExpanded ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
-                              </div>
-                            </button>
-
-                            {isExpanded && (
-                              <div className="p-4 border-t border-purple-100">
-                                {subjectsInSem.length === 0 ? (
-                                  <p className="text-xs text-slate-400 italic">No approved subjects in Semester {sem} for the selected filter.</p>
-                                ) : (
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {subjectsInSem.map((s: any) => (
-                                      <div key={s.id} className="p-4 bg-white rounded-xl border border-purple-100 flex items-center justify-between">
-                                        <div>
-                                          <div className="flex items-center space-x-2">
-                                            <span className="font-mono text-xs font-bold text-brand-700">{s.subjectCode}</span>
-                                            <span className="text-[10px] text-desc">({s.department?.shortName})</span>
-                                          </div>
-                                          <h5 className="text-xs font-bold text-slate-900 mt-0.5">{s.subjectName}</h5>
-                                          <p className="text-[10px] text-desc">Faculty: {s.assignedFaculty?.name}</p>
-                                        </div>
-                                        <button
-                                          onClick={() => setSelectedSyllabus(s)}
-                                          className="px-3 py-1.5 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
-                                        >
-                                          <Eye className="w-3.5 h-3.5 mr-1" /> View
-                                        </button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                              </td>
+                              <td className="p-3 text-right">
+                                <button
+                                  onClick={() => setSelectedSyllabus(subj)}
+                                  className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center inline-flex"
+                                >
+                                  <Eye className="w-3.5 h-3.5 mr-1" /> View & Print PDF
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                  </div>
-                )}
-
-                {/* MODE 2: BY SEMESTER (EVERY ACCORDION INITIALLY COLLAPSED, SORTED SEMESTER-WISE) */}
-                {approvedViewMode === 'BY_SEM' && (
-                  <div className="space-y-5">
-                    <div className="max-w-md">
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Select Semester Filter</label>
-                      <select
-                        value={selectedSemForApproved}
-                        onChange={(e) => setSelectedSemForApproved(e.target.value)}
-                        className="w-full px-3 py-2 text-xs border border-purple-200 rounded-xl font-bold bg-purple-50/50 text-brand-900"
-                      >
-                        <option value="ALL">All Semesters (Semesters 1 to 8)</option>
-                        {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
-                          <option key={s} value={s}>Semester {s}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Department Dropdown Accordions (Initially Collapsed) */}
-                    <div className="space-y-3">
-                      {overview?.deptSummaries?.map((dept: any) => {
-                        const subjectsInDept = approvedSyllabiList
-                          .filter((s: any) => {
-                            const matchesSem = selectedSemForApproved === 'ALL' || s.semester === parseInt(selectedSemForApproved);
-                            return matchesSem && s.departmentId === dept.id;
-                          })
-                          .sort((a: any, b: any) => {
-                            if (a.semester !== b.semester) return a.semester - b.semester;
-                            return a.subjectCode.localeCompare(b.subjectCode);
-                          });
-
-                        const key = `dept-${dept.id}`;
-                        const isExpanded = expandedAccordions[key] ?? false;
-
-                        return (
-                          <div key={dept.id} className="border border-purple-100 rounded-2xl overflow-hidden bg-purple-50/20">
-                            <button
-                              onClick={() => toggleAccordion(key)}
-                              className="w-full p-4 flex items-center justify-between bg-purple-50/60 hover:bg-purple-100/50 transition-colors"
-                            >
-                              <div className="flex items-center space-x-2">
-                                <span className="font-mono font-black text-brand-700 text-xs bg-purple-200/80 px-2 py-0.5 rounded">
-                                  {dept.departmentCode}
-                                </span>
-                                <h4 className="font-bold text-slate-900 text-xs">{dept.programmeName} ({dept.shortName})</h4>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                  {subjectsInDept.length} Approved Subject(s)
-                                </span>
-                                {isExpanded ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
-                              </div>
-                            </button>
-
-                            {isExpanded && (
-                              <div className="p-4 border-t border-purple-100">
-                                {subjectsInDept.length === 0 ? (
-                                  <p className="text-xs text-slate-400 italic">No approved subjects in {dept.shortName} for the selected semester filter.</p>
-                                ) : (
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                    {subjectsInDept.map((s: any) => (
-                                      <div key={s.id} className="p-4 bg-white rounded-xl border border-purple-100 flex items-center justify-between">
-                                        <div>
-                                          <div className="flex items-center space-x-2">
-                                            <span className="font-mono text-xs font-bold text-brand-700">{s.subjectCode}</span>
-                                            <span className="text-[10px] text-purple-800 font-bold bg-purple-100 px-2 py-0.5 rounded border border-purple-200">
-                                              Sem {s.semester}
-                                            </span>
-                                          </div>
-                                          <h5 className="text-xs font-bold text-slate-900 mt-1">{s.subjectName}</h5>
-                                          <p className="text-[10px] text-desc">Faculty: {s.assignedFaculty?.name}</p>
-                                        </div>
-                                        <button
-                                          onClick={() => setSelectedSyllabus(s)}
-                                          className="px-3 py-1.5 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
-                                        >
-                                          <Eye className="w-3.5 h-3.5 mr-1" /> View
-                                        </button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             )}
 

@@ -32,10 +32,13 @@ export async function POST(req: Request) {
     if (!reason || !reason.trim()) {
       return NextResponse.json({ error: 'A correction reason is mandatory when returning a syllabus.' }, { status: 400 });
     }
+    if (!returnDeadline || !returnDeadline.trim()) {
+      return NextResponse.json({ error: 'Correction Return Deadline is mandatory when returning a syllabus for correction.' }, { status: 400 });
+    }
 
-    const deadlineDate = returnDeadline ? new Date(returnDeadline) : null;
-    if (deadlineDate && deadlineDate.getTime() <= Date.now()) {
-      return NextResponse.json({ error: 'Return correction deadline must be in the future.' }, { status: 400 });
+    const deadlineDate = new Date(returnDeadline);
+    if (isNaN(deadlineDate.getTime()) || deadlineDate.getTime() <= Date.now()) {
+      return NextResponse.json({ error: 'Return correction deadline date must be in the future.' }, { status: 400 });
     }
 
     await prisma.subject.update({

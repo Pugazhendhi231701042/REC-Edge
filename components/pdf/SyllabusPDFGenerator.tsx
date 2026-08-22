@@ -71,6 +71,11 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
     return a.sdgNumber - b.sdgNumber;
   });
 
+  const isApproved = subject.syllabusStatus === 'APPROVED';
+  const watermarkText = isApproved
+    ? (subject.department?.programmeName || subject.department?.name || 'RA JALAKSHMI ENGINEERING COLLEGE').toUpperCase()
+    : 'DRAFT';
+
   return (
     <div className="space-y-4">
       {/* Print / Download Action Bar */}
@@ -88,112 +93,120 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
       </div>
 
       {/* Dedicated Printable Institutional PDF Layout */}
-      <div id="printable-syllabus" className="bg-white p-8 md:p-12 rounded-3xl border border-slate-200 shadow-lg text-slate-900 print:shadow-none print:border-none print:p-0">
-        {/* Header */}
-        <div className="text-center border-b-2 border-brand-600 pb-6 mb-6">
-          <h1 className="text-2xl font-bold uppercase text-brand-700 tracking-wide">Rajalakshmi Engineering College</h1>
-          <p className="text-xs font-semibold text-desc uppercase tracking-widest mt-1">An Autonomous Institution | Affiliated to Anna University</p>
-          <h2 className="text-base font-bold text-slate-800 mt-3">{subject.department?.programmeName}</h2>
-          <div className="inline-block mt-3 px-4 py-1 rounded-full bg-purple-50 text-brand-800 border border-purple-200 text-xs font-bold uppercase tracking-wider">
-            Syllabus Submission Acknowledgement — {subject.regulation?.displayName || 'Regulation 26'}
-          </div>
+      <div id="printable-syllabus" className="relative bg-white p-8 md:p-12 rounded-3xl border border-slate-200 shadow-lg text-slate-900 print:shadow-none print:border-none print:p-0 overflow-hidden">
+        {/* Diagonal Watermark Overlay */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.07] select-none">
+          <span className="text-5xl md:text-7xl font-black uppercase text-slate-900 tracking-widest -rotate-45 text-center leading-relaxed">
+            {watermarkText}
+          </span>
         </div>
 
-        {/* 1. Subject Details */}
-        <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200 mb-6">
-          <div>
-            <p><strong>Subject Name:</strong> {subject.subjectName}</p>
-            <p className="mt-1"><strong>Subject Code:</strong> {subject.subjectCode}</p>
-            <p className="mt-1"><strong>Category:</strong> {subject.subjectCategory?.code} ({subject.subjectCategory?.name})</p>
-            <p className="mt-1"><strong>Subject Type:</strong> {subject.subjectType?.name}</p>
-          </div>
-          <div>
-            <p><strong>L - T - P - C:</strong> {subject.lecture} - {subject.tutorial} - {subject.practical} - {subject.credits}</p>
-            <p className="mt-1"><strong>Semester:</strong> Semester {subject.semester}</p>
-            <p className="mt-1"><strong>Total Contact Hours:</strong> {submission.totalContactHours || 45} Hours</p>
-            <p className="mt-1"><strong>Academic Year:</strong> {subject.academicYear?.year || '2026–2027'}</p>
-          </div>
-        </div>
-
-        {/* 2. Objectives */}
-        {submission.objectives && submission.objectives.length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-2">1. Objectives</h3>
-            <ul className="list-disc list-inside text-xs space-y-1 text-slate-800">
-              {submission.objectives.map((o: any, idx: number) => (
-                <li key={idx}>{o.description}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* 3. Syllabus Units / Experiments */}
-        {submission.syllabusUnits && submission.syllabusUnits.length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-3">2. Course Syllabus</h3>
-            <div className="space-y-3">
-              {submission.syllabusUnits.map((u: any, idx: number) => (
-                <div key={idx} className="text-xs">
-                  <p className="font-bold text-slate-900">Unit {u.unitNumber}: {u.unitName}</p>
-                  <p className="text-slate-700 mt-1 leading-relaxed">{u.content}</p>
-                </div>
-              ))}
+        <div className="relative z-10">
+          {/* Header */}
+          <div className="text-center border-b-2 border-brand-600 pb-6 mb-6">
+            <h1 className="text-2xl font-bold uppercase text-brand-700 tracking-wide">Rajalakshmi Engineering College</h1>
+            <p className="text-xs font-semibold text-desc uppercase tracking-widest mt-1">An Autonomous Institution | Affiliated to Anna University</p>
+            <h2 className="text-base font-bold text-slate-800 mt-3">{subject.department?.programmeName}</h2>
+            <div className="inline-block mt-3 px-4 py-1 rounded-full bg-purple-50 text-brand-800 border border-purple-200 text-xs font-bold uppercase tracking-wider">
+              Syllabus Submission Acknowledgement — {subject.regulation?.displayName || 'Regulation 26'}
             </div>
           </div>
-        )}
 
-        {submission.experiments && submission.experiments.length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-3">Laboratory Experiments</h3>
-            <ol className="list-decimal list-inside text-xs space-y-1 text-slate-800">
-              {submission.experiments.map((exp: any, idx: number) => (
-                <li key={idx}>{exp.title}</li>
-              ))}
-            </ol>
-          </div>
-        )}
-
-        {/* 4. Course Outcomes */}
-        {submission.courseOutcomes && submission.courseOutcomes.length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-2">3. Course Outcomes (COs)</h3>
-            <div className="space-y-1 text-xs">
-              {submission.courseOutcomes.map((co: any, idx: number) => (
-                <p key={idx}>
-                  <strong>CO{co.coNumber}{co.cognitiveLevel ? ` (${co.cognitiveLevel})` : ''}:</strong> {co.description}
-                </p>
-              ))}
+          {/* 1. Subject Details */}
+          <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200 mb-6">
+            <div>
+              <p><strong>Subject Name:</strong> {subject.subjectName}</p>
+              <p className="mt-1"><strong>Subject Code:</strong> {subject.subjectCode}</p>
+              <p className="mt-1"><strong>Category:</strong> {subject.subjectCategory?.code} ({subject.subjectCategory?.name})</p>
+              <p className="mt-1"><strong>Subject Type:</strong> {subject.subjectType?.name}</p>
+            </div>
+            <div>
+              <p><strong>L - T - P - C:</strong> {subject.lecture} - {subject.tutorial} - {subject.practical} - {subject.credits}</p>
+              <p className="mt-1"><strong>Semester:</strong> Semester {subject.semester}</p>
+              <p className="mt-1"><strong>Total Contact Hours:</strong> {submission.totalContactHours || 45} Hours</p>
+              <p className="mt-1"><strong>Academic Year:</strong> {subject.academicYear?.year || '2026–2027'}</p>
             </div>
           </div>
-        )}
 
-        {/* 5. Textbooks */}
-        {submission.textbooks && submission.textbooks.length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-2">4. Textbooks</h3>
-            <ol className="list-decimal list-inside text-xs space-y-1 text-slate-800 font-medium">
-              {submission.textbooks.map((tb: any, idx: number) => (
-                <li key={idx}>
-                  [{idx + 1}] "{tb.title}"{tb.authors ? `, ${tb.authors}` : ''}{tb.edition ? `, ${tb.edition}` : ''}{tb.publisher ? `, ${tb.publisher}` : ''}{tb.year ? `, ${tb.year}` : ''}.
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
+          {/* 2. Objectives */}
+          {submission.objectives && submission.objectives.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-2">1. Objectives</h3>
+              <ul className="list-disc list-inside text-xs space-y-1 text-slate-800">
+                {submission.objectives.map((o: any, idx: number) => (
+                  <li key={idx}>{o.description}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
-        {/* 6. References */}
-        {submission.references && submission.references.length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-2">5. Reference Books / Links</h3>
-            <ol className="list-decimal list-inside text-xs space-y-1 text-slate-800 font-medium">
-              {submission.references.map((ref: any, idx: number) => (
-                <li key={idx}>
-                  [{idx + 1}] "{ref.title}"{ref.authors ? `, ${ref.authors}` : ''}{ref.edition ? `, ${ref.edition}` : ''}{ref.publisher ? `, ${ref.publisher}` : ''}{ref.year ? `, ${ref.year}` : ''}. {ref.url ? `Link: ${ref.url}` : ''}
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
+          {/* 3. Syllabus Units / Experiments */}
+          {submission.syllabusUnits && submission.syllabusUnits.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-3">2. Course Syllabus</h3>
+              <div className="space-y-3">
+                {submission.syllabusUnits.map((u: any, idx: number) => (
+                  <div key={idx} className="text-xs">
+                    <p className="font-bold text-slate-900">Unit {u.unitNumber}: {u.unitName}</p>
+                    <p className="text-slate-700 mt-1 leading-relaxed">{u.content}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {submission.experiments && submission.experiments.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-3">Laboratory Experiments</h3>
+              <ol className="list-decimal list-inside text-xs space-y-1 text-slate-800">
+                {submission.experiments.map((exp: any, idx: number) => (
+                  <li key={idx}>{exp.title}</li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {/* 4. Course Outcomes */}
+          {submission.courseOutcomes && submission.courseOutcomes.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-2">3. Course Outcomes (COs)</h3>
+              <div className="space-y-1 text-xs">
+                {submission.courseOutcomes.map((co: any, idx: number) => (
+                  <p key={idx}>
+                    <strong>CO{co.coNumber}{co.cognitiveLevel ? ` (${co.cognitiveLevel})` : ''}:</strong> {co.description}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 5. Textbooks */}
+          {submission.textbooks && submission.textbooks.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-2">4. Textbooks</h3>
+              <ul className="space-y-1 text-xs text-slate-800 font-medium">
+                {submission.textbooks.map((tb: any, idx: number) => (
+                  <li key={idx}>
+                    [{idx + 1}] "{tb.title}"{tb.authors ? `, ${tb.authors}` : ''}{tb.edition ? `, ${tb.edition}` : ''}{tb.publisher ? `, ${tb.publisher}` : ''}{tb.year ? `, ${tb.year}` : ''}.
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* 6. References */}
+          {submission.references && submission.references.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-sm font-bold uppercase text-brand-700 border-b pb-1 mb-2">5. Reference Books / Links</h3>
+              <ul className="space-y-1 text-xs text-slate-800 font-medium">
+                {submission.references.map((ref: any, idx: number) => (
+                  <li key={idx}>
+                    [{idx + 1}] "{ref.title}"{ref.authors ? `, ${ref.authors}` : ''}{ref.edition ? `, ${ref.edition}` : ''}{ref.publisher ? `, ${ref.publisher}` : ''}{ref.year ? `, ${ref.year}` : ''}. {ref.url ? `Link: ${ref.url}` : ''}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
         {/* 7. CO/PO Mapping Table */}
         <div className="mb-6 page-break-inside-avoid">
@@ -316,5 +329,6 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };
