@@ -42,8 +42,8 @@ export async function POST(req: Request) {
   let deadlineDate: Date | null = null;
   if (deadline) {
     deadlineDate = new Date(deadline);
-    if (isNaN(deadlineDate.getTime())) {
-      return NextResponse.json({ error: 'Invalid deadline date format.' }, { status: 400 });
+    if (isNaN(deadlineDate.getTime()) || deadlineDate.getTime() <= Date.now()) {
+      return NextResponse.json({ error: 'Deadline date must be in the future.' }, { status: 400 });
     }
   }
 

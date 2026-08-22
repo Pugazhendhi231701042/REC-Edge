@@ -34,6 +34,9 @@ export async function POST(req: Request) {
   }
 
   const deadlineDate = deadline ? new Date(deadline) : null;
+  if (deadlineDate && deadlineDate.getTime() <= Date.now()) {
+    return NextResponse.json({ error: 'Faculty assignment deadline date must be in the future.' }, { status: 400 });
+  }
 
   const updated = await prisma.subject.update({
     where: { id: subjectId },

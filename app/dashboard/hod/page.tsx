@@ -128,6 +128,9 @@ export default function HoDDashboard() {
       alert('Number of POs and PSOs must be at least 1.');
       return;
     }
+    if (!confirm('Are you sure you want to confirm the PO & PSO structure? Once confirmed, counts will be locked.')) {
+      return;
+    }
     try {
       const res = await fetch('/api/hod/po-pso', {
         method: 'POST',
@@ -144,6 +147,9 @@ export default function HoDDashboard() {
   };
 
   const handleSaveAllPOPSO = async () => {
+    if (!confirm('Are you sure you want to save all PO & PSO statements?')) {
+      return;
+    }
     setSaveSuccessMsg('');
     try {
       const res = await fetch('/api/hod/po-pso', {
@@ -167,7 +173,7 @@ export default function HoDDashboard() {
   };
 
   const handleFinalizeCurriculum = async () => {
-    if (!confirm('Finalize Department Curriculum? This will lock subject LTPC definitions and unlock faculty assignment.')) return;
+    if (!confirm('Are you sure you want to finalize the Department Curriculum? This will lock subject LTPC definitions.')) return;
     try {
       const res = await fetch('/api/hod/curriculum/finalize', { method: 'POST' });
       if (res.ok) fetchData();
@@ -180,6 +186,10 @@ export default function HoDDashboard() {
     e.preventDefault();
     if (!targetSubjectForAssign || !selectedFacultyId) return;
 
+    if (!confirm('Are you sure you want to assign this faculty member to the subject?')) {
+      return;
+    }
+
     try {
       const res = await fetch('/api/hod/assign', {
         method: 'POST',
@@ -191,11 +201,15 @@ export default function HoDDashboard() {
         }),
       });
 
-      if (res.ok) {
-        setShowAssignModal(false);
-        setAssignDeadline('');
-        fetchData();
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to assign faculty.');
+        return;
       }
+
+      setShowAssignModal(false);
+      setAssignDeadline('');
+      fetchData();
     } catch (err) {
       console.error('Failed to assign faculty');
     }
@@ -203,6 +217,8 @@ export default function HoDDashboard() {
 
   const handleConfirmDeleteUnassigned = async () => {
     if (!subjectToDelete) return;
+    if (!confirm(`Are you sure you want to delete subject ${subjectToDelete.subjectCode}?`)) return;
+
     setDeleting(true);
 
     try {
@@ -245,6 +261,12 @@ export default function HoDDashboard() {
       return;
     }
 
+    const confirmMsg = action === 'APPROVE'
+      ? 'Are you sure you want to approve this syllabus and forward it to the Academic Dean for final review?'
+      : 'Are you sure you want to return this syllabus to the faculty member for correction?';
+
+    if (!confirm(confirmMsg)) return;
+
     try {
       const res = await fetch('/api/hod/review', {
         method: 'POST',
@@ -257,12 +279,16 @@ export default function HoDDashboard() {
         }),
       });
 
-      if (res.ok) {
-        setShowReviewModal(false);
-        setCorrectionReason('');
-        setReturnDeadline('');
-        fetchData();
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to complete review action.');
+        return;
       }
+
+      setShowReviewModal(false);
+      setCorrectionReason('');
+      setReturnDeadline('');
+      fetchData();
     } catch (err) {
       console.error('Failed to submit review');
     }
@@ -772,6 +798,7 @@ export default function HoDDashboard() {
                 <input
                   type="datetime-local"
                   required
+                  min={new Date().toISOString().slice(0, 16)}
                   value={extDeadline}
                   onChange={(e) => setExtDeadline(e.target.value)}
                   className="w-full p-2.5 border rounded-xl font-medium"
@@ -1019,6 +1046,17 @@ export default function HoDDashboard() {
                     ))}
                   </select>
                 </div>
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700">Faculty Submission Deadline (Optional)</label>
+                  <input
+                    type="date"
+                    min={new Date().toISOString().split('T')[0]}
+                    value={assignDeadline}
+                    onChange={(e) => setAssignDeadline(e.target.value)}
+                    className="w-full p-2.5 border rounded-xl font-semibold text-slate-800"
+                  />
+                  <p className="text-[10px] text-desc mt-1">Specify a future deadline date for faculty syllabus completion.</p>
+                </div>
                 <div className="flex justify-end space-x-3 pt-3 border-t">
                   <button type="button" onClick={() => setShowAssignModal(false)} className="px-4 py-2 rounded-xl text-slate-600 font-semibold">
                     Cancel
@@ -1073,6 +1111,7 @@ export default function HoDDashboard() {
                     <label className="block text-xs font-semibold text-slate-700">Correction Return Deadline (Optional)</label>
                     <input
                       type="date"
+                      min={new Date().toISOString().split('T')[0]}
                       value={returnDeadline}
                       onChange={(e) => setReturnDeadline(e.target.value)}
                       className="w-full p-2.5 text-xs border rounded-xl font-bold text-slate-800"

@@ -21,8 +21,8 @@ export async function POST(req: Request) {
   }
 
   const newDeadlineDate = new Date(requestedDeadline);
-  if (isNaN(newDeadlineDate.getTime())) {
-    return NextResponse.json({ error: 'Invalid requested deadline date.' }, { status: 400 });
+  if (isNaN(newDeadlineDate.getTime()) || newDeadlineDate.getTime() <= Date.now()) {
+    return NextResponse.json({ error: 'Requested deadline date must be in the future.' }, { status: 400 });
   }
 
   const deptId = session.departmentId;

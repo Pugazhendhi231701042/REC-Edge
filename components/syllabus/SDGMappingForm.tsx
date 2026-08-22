@@ -92,16 +92,6 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
   };
 
   return (
-    /*<div className="space-y-6">
-      <div className="bg-purple-50/70 p-4 rounded-2xl border border-purple-100/80 flex items-start space-x-3">
-        <Globe className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
-        <div className="text-xs text-slate-700 space-y-1">
-          <p className="font-bold text-brand-800">UN Sustainable Development Goals (SDGs) Mapping</p>
-          <p>
-            Map each Course Outcome (CO) to relevant UN SDGs and specific syllabus topics. Each CO maps <strong>strictly to its corresponding Unit</strong> (CO1 → Unit 1, CO2 → Unit 2, etc.). Topics are automatically parsed from unit content.
-          </p>
-        </div>
-      </div>*/
 
     <div className="space-y-6">
       {cos.map((coNum) => {
@@ -236,6 +226,5 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
         );
       })}
     </div>
-    </div >
   );
 };

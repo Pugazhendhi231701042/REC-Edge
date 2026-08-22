@@ -15,11 +15,16 @@ export async function GET() {
       subjectType: true,
       subjectCategory: true,
       submission: {
-        select: {
-          id: true,
-          updatedAt: true,
-          approvedAt: true,
-          correctionReason: true,
+        include: {
+          objectives: { orderBy: { id: 'asc' } },
+          syllabusUnits: { orderBy: { unitNumber: 'asc' } },
+          experiments: { orderBy: { experimentNumber: 'asc' } },
+          courseOutcomes: { orderBy: { coNumber: 'asc' } },
+          textbooks: { orderBy: { id: 'asc' } },
+          references: { orderBy: { id: 'asc' } },
+          coPoMappings: true,
+          coPoJustifications: true,
+          sdgMappings: true,
         },
       },
     },

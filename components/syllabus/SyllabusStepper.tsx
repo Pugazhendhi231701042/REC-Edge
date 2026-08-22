@@ -241,6 +241,8 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
 
   const handleSaveDraft = async () => {
     if (isLocked) return;
+    if (!confirm('Are you sure you want to save draft?')) return;
+
     setLoading(true);
     setError('');
     try {
@@ -252,6 +254,69 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const validateFormBeforeSubmit = (): { valid: boolean; missing: string[]; firstMissingStep: number } => {
+    const missing: string[] = [];
+    let firstMissingStep = 9;
+
+    // Step 1: Objectives (3 - 5)
+    const validObjectives = objectives.filter((o) => o.trim());
+    if (validObjectives.length < 3 || validObjectives.length > 5) {
+      missing.push('⚠ Course Objectives must have between 3 and 5 non-empty entries.');
+      if (firstMissingStep > 1) firstMissingStep = 1;
+    }
+
+    // Step 2: Units / Experiments
+    if (templateType === 'THEORY' || templateType === 'THEORY_LAB') {
+      const incompleteUnits = units.filter((u) => !u.unitName.trim() || !u.content.trim());
+      if (incompleteUnits.length > 0) {
+        missing.push('⚠ All 5 Syllabus Units must have non-empty titles and topic descriptions.');
+        if (firstMissingStep > 2) firstMissingStep = 2;
+      }
+    }
+    if (templateType === 'LAB' || templateType === 'THEORY_LAB') {
+      const validExps = experiments.filter((e) => e.title.trim());
+      if (validExps.length === 0) {
+        missing.push('⚠ At least 1 Laboratory Experiment title is required for practical courses.');
+        if (firstMissingStep > 2) firstMissingStep = 2;
+      }
+    }
+
+    // Step 3: Course Outcomes (5 mandatory COs)
+    const validCOs = courseOutcomes.filter((co) =>
+      typeof co === 'string' ? co.trim() : co?.description?.trim()
+    );
+    if (validCOs.length < 5) {
+      missing.push('⚠ Exactly 5 Course Outcomes (CO1..CO5) are mandatory with descriptions.');
+      if (firstMissingStep > 3) firstMissingStep = 3;
+    }
+
+    // Step 4: Textbooks
+    const validTextbooks = textbooks.filter((t) => t.title.trim());
+    if (validTextbooks.length === 0) {
+      missing.push('⚠ At least 1 Textbook entry (Title & Authors) is mandatory.');
+      if (firstMissingStep > 4) firstMissingStep = 4;
+    }
+
+    // Step 6: CO/PO Mapping
+    const mappedCount = Object.values(coPoMappings).filter((v) => v > 0).length;
+    if (mappedCount === 0) {
+      missing.push('⚠ At least one non-zero correlation must be mapped in the CO/PO Mapping Table.');
+      if (firstMissingStep > 6) firstMissingStep = 6;
+    }
+
+    // Step 8: SDG Mapping
+    if (sdgMappings.length === 0) {
+      missing.push('⚠ At least 1 SDG Goal topic mapping is required.');
+      if (firstMissingStep > 8) firstMissingStep = 8;
+    }
+
+    return {
+      valid: missing.length === 0,
+      missing,
+      firstMissingStep,
+    };
   };
 
   // Auto-Redirect logic on missing validation items to exact step
@@ -270,6 +335,19 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
 
   const handleFinalSubmit = async () => {
     if (isLocked) return;
+
+    if (!confirm('Are you sure you want to submit this syllabus to the Head of Department (HoD) for review?')) {
+      return;
+    }
+
+    const validation = validateFormBeforeSubmit();
+    if (!validation.valid) {
+      setMissingChecklist(validation.missing);
+      setActiveStep(validation.firstMissingStep);
+      setError(`Validation Error: Please complete missing required fields on Step ${validation.firstMissingStep}: ${steps[validation.firstMissingStep - 1].label}.`);
+      return;
+    }
+
     setLoading(true);
     setError('');
     try {

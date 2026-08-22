@@ -34,6 +34,9 @@ export async function POST(req: Request) {
     }
 
     const deadlineDate = returnDeadline ? new Date(returnDeadline) : null;
+    if (deadlineDate && deadlineDate.getTime() <= Date.now()) {
+      return NextResponse.json({ error: 'Return correction deadline must be in the future.' }, { status: 400 });
+    }
 
     await prisma.subject.update({
       where: { id: subjectId },
