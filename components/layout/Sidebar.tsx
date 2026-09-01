@@ -14,6 +14,7 @@ import {
   History,
   Layers,
   HelpCircle,
+  Clock,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -150,6 +151,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: 'SYLLABUS',
       items: [
         { id: 'subjects', label: 'My Subjects', icon: <BookOpen className="w-4 h-4" /> },
+        { id: 'in_progress', label: 'In Progress Subjects', icon: <Clock className="w-4 h-4" /> },
         { id: 'review', label: 'Submitted / Review', icon: <FileCheck className="w-4 h-4" /> },
         { id: 'approved', label: 'Approved Syllabi', icon: <CheckCircle2 className="w-4 h-4" /> },
       ],

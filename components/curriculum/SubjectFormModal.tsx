@@ -34,6 +34,7 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
   const [lWeight, setLWeight] = useState(1.0);
   const [tWeight, setTWeight] = useState(1.0);
   const [pWeight, setPWeight] = useState(0.5);
+  const [calculationMethod, setCalculationMethod] = useState('WEIGHTED');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -62,6 +63,7 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
           setLWeight(data.config.lWeight ?? 1.0);
           setTWeight(data.config.tWeight ?? 1.0);
           setPWeight(data.config.pWeight ?? 0.5);
+          setCalculationMethod(data.config.calculationMethod || 'WEIGHTED');
         }
       }
     } catch (err) {
@@ -90,7 +92,7 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
 
   if (!isOpen) return null;
 
-  const creditResult = calculateCredits(lecture, tutorial, practical, lWeight, tWeight, pWeight);
+  const creditResult = calculateCredits(lecture, tutorial, practical, lWeight, tWeight, pWeight, calculationMethod);
 
   const selectedType = subjectTypes.find((t) => t.id === subjectTypeId);
   const typeCode = selectedType ? selectedType.code : 1;

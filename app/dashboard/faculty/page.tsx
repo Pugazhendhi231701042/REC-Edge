@@ -150,7 +150,7 @@ export default function FacultyDashboard() {
                   <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
                     <p className="text-xs font-bold text-slate-500">In Progress</p>
                     <p className="text-2xl font-black text-amber-600">{inProgressCount}</p>
-                    <button onClick={() => setActiveTab('subjects')} className="text-[11px] font-bold text-brand-600 hover:underline flex items-center mt-1">
+                    <button onClick={() => setActiveTab('in_progress')} className="text-[11px] font-bold text-brand-600 hover:underline flex items-center mt-1">
                       Continue <ArrowRight className="w-3.5 h-3.5 ml-1" />
                     </button>
                   </div>
@@ -329,6 +329,49 @@ export default function FacultyDashboard() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* TAB: IN PROGRESS SUBJECTS DEDICATED PAGE */}
+            {activeTab === 'in_progress' && (
+              <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-6">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">In Progress Subjects</h3>
+                  <p className="text-xs text-desc">Subjects currently undergoing syllabus drafting or returned for correction.</p>
+                </div>
+
+                {subjects.filter((s) => s.syllabusStatus === 'IN_PROGRESS' || s.syllabusStatus === 'NOT_STARTED' || s.syllabusStatus === 'RETURNED_FOR_CORRECTION').length === 0 ? (
+                  <div className="p-8 text-center bg-purple-50/20 rounded-2xl text-xs text-desc">
+                    No subjects currently in progress.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {subjects
+                      .filter((s) => s.syllabusStatus === 'IN_PROGRESS' || s.syllabusStatus === 'NOT_STARTED' || s.syllabusStatus === 'RETURNED_FOR_CORRECTION')
+                      .map((subj) => (
+                        <div key={subj.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-[10px] font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
+                              {subj.subjectCode} | Sem {subj.semester}
+                            </span>
+                            <StatusBadge status={subj.syllabusStatus} />
+                          </div>
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-900">{subj.subjectName}</h4>
+                            <p className="text-[11px] text-desc">{subj.subjectType?.name} • {subj.credits} Credits</p>
+                          </div>
+                          <div className="pt-2 border-t border-purple-100 flex justify-end">
+                            <button
+                              onClick={() => setActiveSubject(subj)}
+                              className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
+                            >
+                              <Sparkles className="w-3.5 h-3.5 mr-1" /> Continue Syllabus →
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
             )}
 

@@ -683,40 +683,46 @@ export default function DeanDashboard() {
                 </div>
 
                 <div className="space-y-4">
-                  {extensionRequests.map((req) => (
-                    <div key={req.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="font-bold text-slate-900 text-xs">{req.department?.programmeName} ({req.department?.shortName})</span>
-                          <span className="ml-2 text-xs text-desc font-semibold">Stage: {req.stage?.name}</span>
-                        </div>
-                        <StatusBadge status={req.status} />
-                      </div>
-
-                      <div className="p-3 bg-white rounded-xl border border-purple-100 text-xs text-slate-700 space-y-1">
-                        <p><strong>Current Deadline:</strong> {formatIST(req.currentDeadline)}</p>
-                        <p><strong>Requested Deadline:</strong> <span className="text-brand-700 font-bold">{formatIST(req.requestedDeadline)}</span></p>
-                        <p><strong>Reason:</strong> "{req.reason}"</p>
-                      </div>
-
-                      {req.status === 'PENDING' && (
-                        <div className="flex justify-end space-x-2 pt-2">
-                          <button
-                            onClick={() => handleDecisionExtension(req.id, 'REJECT')}
-                            className="px-4 py-1.5 bg-red-50 text-red-700 font-bold rounded-xl text-xs border border-red-200"
-                          >
-                            Reject Request
-                          </button>
-                          <button
-                            onClick={() => handleDecisionExtension(req.id, 'APPROVE')}
-                            className="px-4 py-1.5 bg-emerald-600 text-white font-bold rounded-xl text-xs shadow-xs"
-                          >
-                            Approve Extension
-                          </button>
-                        </div>
-                      )}
+                  {extensionRequests.length === 0 ? (
+                    <div className="p-8 text-center bg-purple-50/30 rounded-2xl border border-purple-100 text-xs font-bold text-slate-600">
+                      No Extension requests
                     </div>
-                  ))}
+                  ) : (
+                    extensionRequests.map((req) => (
+                      <div key={req.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-bold text-slate-900 text-xs">{req.department?.programmeName} ({req.department?.shortName})</span>
+                            <span className="ml-2 text-xs text-desc font-semibold">Stage: {req.stage?.name}</span>
+                          </div>
+                          <StatusBadge status={req.status} />
+                        </div>
+
+                        <div className="p-3 bg-white rounded-xl border border-purple-100 text-xs text-slate-700 space-y-1">
+                          <p><strong>Current Deadline:</strong> {formatIST(req.currentDeadline)}</p>
+                          <p><strong>Requested Deadline:</strong> <span className="text-brand-700 font-bold">{formatIST(req.requestedDeadline)}</span></p>
+                          <p><strong>Reason:</strong> "{req.reason}"</p>
+                        </div>
+
+                        {req.status === 'PENDING' && (
+                          <div className="flex justify-end space-x-2 pt-2">
+                            <button
+                              onClick={() => handleDecisionExtension(req.id, 'REJECT')}
+                              className="px-4 py-1.5 bg-red-50 text-red-700 font-bold rounded-xl text-xs border border-red-200"
+                            >
+                              Reject Request
+                            </button>
+                            <button
+                              onClick={() => handleDecisionExtension(req.id, 'APPROVE')}
+                              className="px-4 py-1.5 bg-emerald-600 text-white font-bold rounded-xl text-xs shadow-xs"
+                            >
+                              Approve Extension
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}
