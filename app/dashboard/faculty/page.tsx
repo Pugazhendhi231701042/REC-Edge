@@ -172,14 +172,34 @@ export default function FacultyDashboard() {
                   </div>
                 </div>
 
-                {/* Completion Progress Visualizer Bar */}
-                <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-3">
-                  <div className="flex justify-between items-center text-xs font-bold">
-                    <span className="text-slate-900">Overall Syllabus Completion Progress</span>
-                    <span className="text-brand-700">{overallCompletionPct}%</span>
+                {/* Completion Progress Visualizer Donut */}
+                <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-bold text-slate-900">Overall Syllabus Completion Progress</h3>
+                    <p className="text-xs text-desc">
+                      {approvedCount} of {assignedCount} assigned subject syllabi fully approved by Academic Dean.
+                    </p>
                   </div>
-                  <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                    <div className="bg-brand-600 h-3 rounded-full transition-all" style={{ width: `${overallCompletionPct}%` }}></div>
+                  <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                      <path
+                        className="text-purple-100"
+                        strokeWidth="3.5"
+                        stroke="currentColor"
+                        fill="none"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                      <path
+                        className="text-brand-600 transition-all duration-500 ease-out"
+                        strokeDasharray={`${overallCompletionPct}, 100`}
+                        strokeWidth="3.5"
+                        strokeLinecap="round"
+                        stroke="currentColor"
+                        fill="none"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                    </svg>
+                    <span className="absolute text-xs font-black text-slate-900">{overallCompletionPct}%</span>
                   </div>
                 </div>
 

@@ -89,7 +89,9 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     { description: '', cognitiveLevel: 'K3' },
   ]);
   const [textbooks, setTextbooks] = useState<any[]>([]);
+  const [newTb, setNewTb] = useState({ title: '', authors: '', edition: '', publisher: '', year: '' });
   const [references, setReferences] = useState<any[]>([]);
+  const [newRef, setNewRef] = useState({ title: '', authors: '', edition: '', publisher: '', year: '', url: '' });
   const [coPoMappings, setCoPoMappings] = useState<Record<string, number>>({});
   const [coPoJustifications, setCoPoJustifications] = useState<Record<string, string>>({});
   const [sdgMappings, setSdgMappings] = useState<SDGMappingItem[]>([]);
@@ -680,182 +682,223 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
           </div>
         )}
 
-        {/* STEP 4: TEXTBOOKS (STRUCTURED INPUT & STANDARD FORMATTING) */}
+        {/* STEP 4: TEXTBOOKS */}
         {activeStep === 4 && (
-          <div className="space-y-4">
+          <div className="space-y-6 text-xs">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold uppercase text-brand-700">Step 4: Textbooks</h3>
-                <p className="text-xs text-desc">Enter textbook details below. Formatted as: <code>[1] "Title", Authors, Edition, Publisher, Year.</code></p>
+                <p className="text-xs text-desc">Enter book details and click "+ Add Textbook" to add to syllabus.</p>
               </div>
             </div>
 
-            {textbooks.map((tb, idx) => (
-              <div key={idx} className="p-4 border rounded-2xl bg-slate-50/50 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-brand-700">Book [{idx + 1}]</span>
-                  {!isLocked && (
-                    <button
-                      onClick={() => setTextbooks(textbooks.filter((_, i) => i !== idx))}
-                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg text-xs flex items-center"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
-                    </button>
-                  )}
-                </div>
-
+            {/* Input Form Panel */}
+            {!isLocked && (
+              <div className="p-5 border rounded-2xl bg-slate-50 space-y-4 shadow-2xs">
+                <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider">Add New Textbook</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <input
                     type="text"
-                    disabled={isLocked}
-                    value={tb.title}
-                    onChange={(e) => {
-                      const newTbs = [...textbooks];
-                      newTbs[idx].title = e.target.value;
-                      setTextbooks(newTbs);
-                    }}
+                    value={newTb.title}
+                    onChange={(e) => setNewTb({ ...newTb, title: e.target.value })}
                     placeholder='Book Title (e.g. Data Structures and Algorithm Analysis in C++) *'
-                    className="px-3 py-2 text-xs border rounded-xl font-bold"
+                    className="px-3 py-2 text-xs border rounded-xl font-bold bg-white focus:ring-brand-500"
                   />
                   <input
                     type="text"
-                    disabled={isLocked}
-                    value={tb.authors}
-                    onChange={(e) => {
-                      const newTbs = [...textbooks];
-                      newTbs[idx].authors = e.target.value;
-                      setTextbooks(newTbs);
-                    }}
+                    value={newTb.authors}
+                    onChange={(e) => setNewTb({ ...newTb, authors: e.target.value })}
                     placeholder='Authors (e.g. Mark Allen Weiss) *'
-                    className="px-3 py-2 text-xs border rounded-xl"
+                    className="px-3 py-2 text-xs border rounded-xl bg-white focus:ring-brand-500"
                   />
                 </div>
-
                 <div className="grid grid-cols-3 gap-3">
                   <input
                     type="text"
-                    disabled={isLocked}
-                    value={tb.edition}
-                    onChange={(e) => {
-                      const newTbs = [...textbooks];
-                      newTbs[idx].edition = e.target.value;
-                      setTextbooks(newTbs);
-                    }}
+                    value={newTb.edition}
+                    onChange={(e) => setNewTb({ ...newTb, edition: e.target.value })}
                     placeholder="Edition (e.g. 4th Edition)"
-                    className="px-3 py-2 text-xs border rounded-xl"
+                    className="px-3 py-2 text-xs border rounded-xl bg-white focus:ring-brand-500"
                   />
                   <input
                     type="text"
-                    disabled={isLocked}
-                    value={tb.publisher}
-                    onChange={(e) => {
-                      const newTbs = [...textbooks];
-                      newTbs[idx].publisher = e.target.value;
-                      setTextbooks(newTbs);
-                    }}
+                    value={newTb.publisher}
+                    onChange={(e) => setNewTb({ ...newTb, publisher: e.target.value })}
                     placeholder="Publisher (e.g. Pearson)"
-                    className="px-3 py-2 text-xs border rounded-xl"
+                    className="px-3 py-2 text-xs border rounded-xl bg-white focus:ring-brand-500"
                   />
                   <input
                     type="text"
-                    disabled={isLocked}
-                    value={tb.year}
-                    onChange={(e) => {
-                      const newTbs = [...textbooks];
-                      newTbs[idx].year = e.target.value;
-                      setTextbooks(newTbs);
-                    }}
+                    value={newTb.year}
+                    onChange={(e) => setNewTb({ ...newTb, year: e.target.value })}
                     placeholder="Year (e.g. 2014)"
-                    className="px-3 py-2 text-xs border rounded-xl"
+                    className="px-3 py-2 text-xs border rounded-xl bg-white focus:ring-brand-500"
                   />
                 </div>
-
-                {tb.title && (
-                  <div className="p-2.5 bg-purple-50/60 rounded-xl border border-purple-100 text-xs font-mono text-slate-800">
-                    <span className="font-bold text-brand-700">Preview: </span>
-                    [{idx + 1}] "{tb.title}"{tb.authors ? `, ${tb.authors}` : ''}{tb.edition ? `, ${tb.edition}` : ''}{tb.publisher ? `, ${tb.publisher}` : ''}{tb.year ? `, ${tb.year}` : ''}.
-                  </div>
-                )}
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    disabled={!newTb.title.trim()}
+                    onClick={() => {
+                      if (!newTb.title.trim()) return;
+                      setTextbooks([...textbooks, { ...newTb }]);
+                      setNewTb({ title: '', authors: '', edition: '', publisher: '', year: '' });
+                    }}
+                    className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold rounded-xl shadow-xs flex items-center space-x-1.5"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Textbook</span>
+                  </button>
+                </div>
               </div>
-            ))}
-
-            {!isLocked && (
-              <button
-                onClick={() => setTextbooks([...textbooks, { title: '', authors: '', edition: '', publisher: '', year: '' }])}
-                className="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs flex items-center space-x-1.5"
-              >
-                <Plus className="w-4 h-4" />
-                <span>+ Add Book</span>
-              </button>
             )}
+
+            {/* Added Textbooks List */}
+            <div className="space-y-3">
+              <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider">
+                Added Textbooks ({textbooks.length})
+              </h4>
+              {textbooks.length === 0 ? (
+                <div className="p-6 border border-dashed rounded-2xl text-center text-desc text-xs bg-slate-50/50">
+                  No textbooks added yet. Fill the details above and click "+ Add Textbook".
+                </div>
+              ) : (
+                textbooks.map((tb, idx) => (
+                  <div key={idx} className="p-4 border rounded-2xl bg-white space-y-2 flex items-center justify-between hover:border-purple-200 transition-all shadow-2xs">
+                    <div className="space-y-1">
+                      <span className="font-mono text-[10px] font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
+                        [{idx + 1}]
+                      </span>
+                      <p className="text-xs font-bold text-slate-900">"{tb.title}"</p>
+                      <p className="text-[11px] text-desc">
+                        {tb.authors ? `Authors: ${tb.authors}` : ''} {tb.edition ? `| ${tb.edition}` : ''} {tb.publisher ? `| ${tb.publisher}` : ''} {tb.year ? `(${tb.year})` : ''}
+                      </p>
+                    </div>
+
+                    {!isLocked && (
+                      <button
+                        type="button"
+                        onClick={() => setTextbooks(textbooks.filter((_, i) => i !== idx))}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-xl"
+                        title="Remove Textbook"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
 
         {/* STEP 5: REFERENCES */}
         {activeStep === 5 && (
-          <div className="space-y-4">
-            <h3 className="text-sm font-bold uppercase text-brand-700">Step 5: Reference Books / Links</h3>
-            {references.map((ref, idx) => (
-              <div key={idx} className="p-4 border rounded-2xl bg-slate-50/50 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-brand-700">Reference [{idx + 1}]</span>
-                  {!isLocked && (
-                    <button
-                      onClick={() => setReferences(references.filter((_, i) => i !== idx))}
-                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg text-xs flex items-center"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 mr-1" /> Remove
-                    </button>
-                  )}
+          <div className="space-y-6 text-xs">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold uppercase text-brand-700">Step 5: Reference Books / Links</h3>
+                <p className="text-xs text-desc">Enter reference book or web link details and click "+ Add Reference".</p>
+              </div>
+            </div>
+
+            {/* Input Form Panel */}
+            {!isLocked && (
+              <div className="p-5 border rounded-2xl bg-slate-50 space-y-4 shadow-2xs">
+                <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider">Add New Reference</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    value={newRef.title}
+                    onChange={(e) => setNewRef({ ...newRef, title: e.target.value })}
+                    placeholder='Reference Title (e.g. Advanced Data Structures) *'
+                    className="px-3 py-2 text-xs border rounded-xl font-bold bg-white focus:ring-brand-500"
+                  />
+                  <input
+                    type="text"
+                    value={newRef.authors}
+                    onChange={(e) => setNewRef({ ...newRef, authors: e.target.value })}
+                    placeholder='Authors (e.g. Peter Brass)'
+                    className="px-3 py-2 text-xs border rounded-xl bg-white focus:ring-brand-500"
+                  />
                 </div>
-                <input
-                  type="text"
-                  disabled={isLocked}
-                  value={ref.title}
-                  onChange={(e) => {
-                    const newRefs = [...references];
-                    newRefs[idx].title = e.target.value;
-                    setReferences(newRefs);
-                  }}
-                  placeholder="Reference Title *"
-                  className="w-full px-3 py-2 text-xs border rounded-xl font-bold"
-                />
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <input
                     type="text"
-                    disabled={isLocked}
-                    value={ref.authors}
-                    onChange={(e) => {
-                      const newRefs = [...references];
-                      newRefs[idx].authors = e.target.value;
-                      setReferences(newRefs);
-                    }}
-                    placeholder="Authors"
-                    className="px-3 py-2 text-xs border rounded-xl"
+                    value={newRef.edition}
+                    onChange={(e) => setNewRef({ ...newRef, edition: e.target.value })}
+                    placeholder="Edition (e.g. 1st Edition)"
+                    className="px-3 py-2 text-xs border rounded-xl bg-white focus:ring-brand-500"
                   />
                   <input
                     type="text"
-                    disabled={isLocked}
-                    value={ref.url}
-                    onChange={(e) => {
-                      const newRefs = [...references];
-                      newRefs[idx].url = e.target.value;
-                      setReferences(newRefs);
-                    }}
+                    value={newRef.publisher}
+                    onChange={(e) => setNewRef({ ...newRef, publisher: e.target.value })}
+                    placeholder="Publisher (e.g. Cambridge University Press)"
+                    className="px-3 py-2 text-xs border rounded-xl bg-white focus:ring-brand-500"
+                  />
+                  <input
+                    type="text"
+                    value={newRef.url}
+                    onChange={(e) => setNewRef({ ...newRef, url: e.target.value })}
                     placeholder="Web Link URL (Optional)"
-                    className="px-3 py-2 text-xs border rounded-xl"
+                    className="px-3 py-2 text-xs border rounded-xl bg-white focus:ring-brand-500"
                   />
+                </div>
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    disabled={!newRef.title.trim()}
+                    onClick={() => {
+                      if (!newRef.title.trim()) return;
+                      setReferences([...references, { ...newRef }]);
+                      setNewRef({ title: '', authors: '', edition: '', publisher: '', year: '', url: '' });
+                    }}
+                    className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold rounded-xl shadow-xs flex items-center space-x-1.5"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add Reference</span>
+                  </button>
                 </div>
               </div>
-            ))}
-            {!isLocked && (
-              <button
-                onClick={() => setReferences([...references, { title: '', authors: '', edition: '', publisher: '', year: '', url: '' }])}
-                className="px-3 py-1.5 text-xs font-bold text-brand-700 bg-purple-50 hover:bg-purple-100 rounded-xl flex items-center"
-              >
-                <Plus className="w-3.5 h-3.5 mr-1" /> Add Reference
-              </button>
             )}
+
+            {/* Added References List */}
+            <div className="space-y-3">
+              <h4 className="font-bold text-slate-900 uppercase text-[11px] tracking-wider">
+                Added References ({references.length})
+              </h4>
+              {references.length === 0 ? (
+                <div className="p-6 border border-dashed rounded-2xl text-center text-desc text-xs bg-slate-50/50">
+                  No reference books or links added yet. Fill the details above and click "+ Add Reference".
+                </div>
+              ) : (
+                references.map((ref, idx) => (
+                  <div key={idx} className="p-4 border rounded-2xl bg-white space-y-2 flex items-center justify-between hover:border-purple-200 transition-all shadow-2xs">
+                    <div className="space-y-1">
+                      <span className="font-mono text-[10px] font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
+                        [{idx + 1}]
+                      </span>
+                      <p className="text-xs font-bold text-slate-900">"{ref.title}"</p>
+                      <p className="text-[11px] text-desc">
+                        {ref.authors ? `Authors: ${ref.authors}` : ''} {ref.publisher ? `| ${ref.publisher}` : ''} {ref.url ? `| Link: ${ref.url}` : ''}
+                      </p>
+                    </div>
+
+                    {!isLocked && (
+                      <button
+                        type="button"
+                        onClick={() => setReferences(references.filter((_, i) => i !== idx))}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-xl"
+                        title="Remove Reference"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
 
@@ -922,7 +965,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
           </div>
         )}
 
-        {/* STEP 8: SDG MAPPING (Moved to Step 8 per user requirement!) */}
+        {/* STEP 8: SDG MAPPING */}
         {activeStep === 8 && (
           <div className="space-y-4">
             <h3 className="text-sm font-bold uppercase text-brand-700 flex items-center">
@@ -930,7 +973,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
               Step 8: UN Sustainable Development Goals (SDG) Mapping *
             </h3>
             <p className="text-xs text-desc">
-              <strong>Compulsory Requirement:</strong> Every Course Outcome (CO1 to CO5) MUST be mapped to at least one Sustainable Development Goal and corresponding unit syllabus topic.
+              Map each Course Outcome (CO1 to CO5) to the relevant UN Sustainable Development Goal (SDG) and Unit Syllabus Topic.
             </p>
             <SDGMappingForm
               units={units}
@@ -942,59 +985,197 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
           </div>
         )}
 
-        {/* STEP 9: REVIEW & SUBMIT */}
+        {/* STEP 9: FINAL REVIEW & SUBMISSION COMMAND CENTER */}
         {activeStep === 9 && (
-          <div className="space-y-6">
-            <h3 className="text-sm font-bold uppercase text-brand-700">Step 9: Final Review & Submission to HoD</h3>
-            <p className="text-xs text-desc">Review your complete syllabus submission below before submitting to the Head of Department.</p>
-
-            <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 text-xs space-y-2">
-              <p className="font-bold text-slate-900">Submission Checklist Summary:</p>
-              <ul className="list-disc list-inside text-slate-700 space-y-1">
-                <li>Objectives: <strong>{objectives.filter((o) => o.trim()).length} Defined</strong></li>
-                <li>Syllabus Units: <strong>{units.filter((u) => u.content.trim()).length} / 5 Completed</strong></li>
-                <li>Course Outcomes: <strong>{courseOutcomes.filter((c) => (typeof c === 'string' ? c.trim() : c?.description?.trim())).length} / 5 Completed</strong></li>
-                <li>Textbooks: <strong>{textbooks.filter((t) => t.title.trim()).length} Entry(ies)</strong></li>
-                <li>CO/PO Correlations Mapped: <strong>{correlatedPairs.length} Cells</strong></li>
-                <li>SDG Mappings Configured: <strong>{sdgMappings.length} Mapped Topics</strong></li>
-              </ul>
+          <div className="space-y-6 text-xs">
+            <div className="border-b pb-3">
+              <h3 className="text-sm font-extrabold uppercase text-brand-700">Step 9: Final Review & Submission to HoD</h3>
+              <p className="text-xs text-desc">Review your complete syllabus submission summary and verification checklist below before submitting to the Head of Department.</p>
             </div>
 
+            {/* Course Summary Banner */}
+            <div className="p-5 rounded-3xl bg-purple-50/60 border border-purple-200 grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+              <div>
+                <p className="text-[10px] uppercase font-bold text-brand-700">Subject Details</p>
+                <p className="font-extrabold text-slate-900 mt-0.5">{subject.subjectCode} — {subject.subjectName}</p>
+                <p className="text-desc text-[11px]">{subject.subjectType?.name} ({subject.subjectCategory?.code})</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase font-bold text-brand-700">L - T - P - C</p>
+                <p className="font-extrabold text-slate-900 mt-0.5">{subject.lecture} - {subject.tutorial} - {subject.practical} - {subject.credits}</p>
+                <p className="text-desc text-[11px]">Total: {totalContactHours} Contact Hours</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase font-bold text-brand-700">Semester & Academic Year</p>
+                <p className="font-extrabold text-slate-900 mt-0.5">Semester {subject.semester}</p>
+                <p className="text-desc text-[11px]">{subject.academicYear?.year || '2026–2027'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase font-bold text-brand-700">Submission Deadline</p>
+                <p className="font-extrabold text-slate-900 mt-0.5">
+                  {subject.facultyDeadline ? new Date(subject.facultyDeadline).toLocaleDateString() : 'As Scheduled'}
+                </p>
+                <p className="text-desc text-[11px]">Assigned Faculty: {subject.assignedFaculty?.name}</p>
+              </div>
+            </div>
+
+            {/* Section Summary Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Section 1: Objectives & COs */}
+              <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-2xs">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <h4 className="font-bold text-slate-900 flex items-center space-x-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>1. Objectives & Course Outcomes</span>
+                  </h4>
+                  <button onClick={() => setActiveStep(1)} className="text-[11px] font-bold text-brand-600 hover:underline">
+                    Edit →
+                  </button>
+                </div>
+                <div className="space-y-1.5 text-[11px]">
+                  <p>Course Objectives: <strong className="text-slate-900">{objectives.filter((o) => o.trim()).length} / 5 Defined</strong></p>
+                  <p>Course Outcomes: <strong className="text-slate-900">{courseOutcomes.filter((c) => (typeof c === 'string' ? c.trim() : c?.description?.trim())).length} / 5 Mandatory COs</strong></p>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {courseOutcomes.map((co, idx) => (
+                      <span key={idx} className="px-2 py-0.5 rounded bg-purple-100 text-brand-800 text-[10px] font-bold">
+                        CO{idx + 1} ({typeof co === 'object' && co?.cognitiveLevel ? co.cognitiveLevel : 'K3'})
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Syllabus Units & Experiments */}
+              <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-2xs">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <h4 className="font-bold text-slate-900 flex items-center space-x-1.5">
+                    <BookOpen className="w-4 h-4 text-brand-600" />
+                    <span>2. Syllabus Units & Practical</span>
+                  </h4>
+                  <button onClick={() => setActiveStep(2)} className="text-[11px] font-bold text-brand-600 hover:underline">
+                    Edit →
+                  </button>
+                </div>
+                <div className="space-y-1.5 text-[11px]">
+                  <p>Syllabus Units: <strong className="text-slate-900">{units.filter((u) => u.content.trim()).length} / 5 Completed</strong></p>
+                  {experiments.filter((e) => e.title.trim()).length > 0 && (
+                    <p>Laboratory Experiments: <strong className="text-slate-900">{experiments.filter((e) => e.title.trim()).length} Experiments Listed</strong></p>
+                  )}
+                  <p className="text-desc text-[10px]">Topic Builder used for clean structured layout (no manual hyphens).</p>
+                </div>
+              </div>
+
+              {/* Section 3: Textbooks & References */}
+              <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-2xs">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <h4 className="font-bold text-slate-900 flex items-center space-x-1.5">
+                    <FileText className="w-4 h-4 text-indigo-600" />
+                    <span>3. Textbooks & References</span>
+                  </h4>
+                  <button onClick={() => setActiveStep(4)} className="text-[11px] font-bold text-brand-600 hover:underline">
+                    Edit →
+                  </button>
+                </div>
+                <div className="space-y-1.5 text-[11px]">
+                  <p>Textbooks Added: <strong className="text-slate-900">{textbooks.length} Books</strong></p>
+                  <p>References Added: <strong className="text-slate-900">{references.length} References/Links</strong></p>
+                  {textbooks.length > 0 && (
+                    <p className="text-desc text-[10px] truncate">1st Book: "{textbooks[0].title}"</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Section 4: Mappings & SDG Goals */}
+              <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3 shadow-2xs">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <h4 className="font-bold text-slate-900 flex items-center space-x-1.5">
+                    <Globe className="w-4 h-4 text-blue-600" />
+                    <span>4. CO/PO Mapping & SDG Goals</span>
+                  </h4>
+                  <button onClick={() => setActiveStep(8)} className="text-[11px] font-bold text-brand-600 hover:underline">
+                    Edit →
+                  </button>
+                </div>
+                <div className="space-y-1.5 text-[11px]">
+                  <p>CO/PO Mapping Cells: <strong className="text-slate-900">{correlatedPairs.length} Correlated Cells</strong></p>
+                  <p>SDG Mappings Configured: <strong className="text-slate-900">{sdgMappings.length} Goal Mappings</strong></p>
+                  <p className="text-desc text-[10px]">All CO1..CO5 mapped to unit syllabus topics and UN SDGs.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Verification Checklist */}
+            <div className="p-5 rounded-3xl bg-slate-50 border border-slate-200 space-y-3">
+              <h4 className="font-extrabold text-slate-900 uppercase text-[11px] tracking-wider">
+                Submission Readiness Verification Checklist
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center space-x-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>3 to 5 Course Objectives defined</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>All 5 Syllabus Units completed</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>5 Course Outcomes with Bloom's Cognitive Levels</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Textbooks & References configured</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>CO/PO Matrix & Justifications written</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>SDG Goal Topic mappings complete</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Submit Action Button */}
             {!isLocked && (
-              <div className="flex justify-end pt-4 border-t">
+              <div className="flex items-center justify-between pt-4 border-t">
+                <span className="text-desc text-xs">
+                  Once submitted, syllabus will be locked for HoD review.
+                </span>
                 <button
                   onClick={handleFinalSubmit}
                   disabled={loading}
-                  className="px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center space-x-2"
+                  className="px-8 py-3.5 bg-brand-600 hover:bg-brand-700 text-white font-extrabold text-xs rounded-2xl shadow-md flex items-center space-x-2 transition-all"
                 >
                   <Send className="w-4 h-4" />
-                  <span>{loading ? 'Submitting...' : 'Submit Syllabus to HoD'}</span>
+                  <span>{loading ? 'Submitting Syllabus...' : 'Submit Syllabus to Head of Department'}</span>
                 </button>
               </div>
             )}
           </div>
         )}
+      </div>
 
-        {/* Bottom Stepper Nav Controls */}
-        <div className="flex items-center justify-between pt-6 border-t border-purple-100">
+      {/* Bottom Stepper Nav Controls */}
+      <div className="flex items-center justify-between pt-6 border-t border-purple-100">
+        <button
+          onClick={() => setActiveStep((prev) => Math.max(1, prev - 1))}
+          disabled={activeStep === 1}
+          className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl disabled:opacity-50 flex items-center"
+        >
+          <ChevronLeft className="w-4 h-4 mr-1" /> Previous Step
+        </button>
+
+        {activeStep < 9 && (
           <button
-            onClick={() => setActiveStep((prev) => Math.max(1, prev - 1))}
-            disabled={activeStep === 1}
-            className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl disabled:opacity-50 flex items-center"
+            onClick={() => setActiveStep((prev) => Math.min(9, prev + 1))}
+            className="px-5 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs flex items-center"
           >
-            <ChevronLeft className="w-4 h-4 mr-1" /> Previous Step
+            <span>Next Step</span>
+            <ChevronRight className="w-4 h-4 ml-1" />
           </button>
-
-          {activeStep < 9 && (
-            <button
-              onClick={() => setActiveStep((prev) => Math.min(9, prev + 1))}
-              className="px-5 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs flex items-center"
-            >
-              <span>Next Step</span>
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </button>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

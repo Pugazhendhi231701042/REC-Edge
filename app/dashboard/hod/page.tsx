@@ -669,20 +669,26 @@ export default function HoDDashboard() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {facultyWorkload.map((fw: any) => (
-                <div key={fw.faculty.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 space-y-3">
+                <div
+                  key={fw.faculty.id}
+                  onClick={() => setSelectedFacultyForModal(fw)}
+                  className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 space-y-3 cursor-pointer hover:border-brand-300 hover:bg-purple-50/50 hover:shadow-md transition-all group"
+                >
                   <div className="flex items-center justify-between">
                     <span className="font-mono text-[10px] font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
                       ID: {fw.faculty.userCode || 'N/A'}
                     </span>
-                    <span className="text-xs font-bold text-slate-800">{fw.totalAssigned} Subjects</span>
+                    <span className="text-xs font-bold text-slate-800 bg-white px-2 py-0.5 rounded-full border border-purple-200">
+                      {fw.totalAssigned} Subjects
+                    </span>
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-slate-900">{fw.faculty.name}</h4>
+                    <h4 className="text-sm font-bold text-slate-900 group-hover:text-brand-700 transition-colors">{fw.faculty.name}</h4>
                     <p className="text-xs text-desc">{fw.faculty.email}</p>
                   </div>
-                  <div className="pt-2 border-t border-purple-100 text-xs space-y-1">
-                    <p>Approved: <strong className="text-emerald-700">{fw.approved}</strong></p>
-                    <p>Submitted/Review: <strong className="text-blue-700">{fw.submitted}</strong></p>
+                  <div className="pt-2 border-t border-purple-100 text-xs flex items-center justify-between">
+                    <span className="text-slate-600">Approved: <strong className="text-emerald-700">{fw.approved}</strong> | Review: <strong className="text-blue-700">{fw.submitted}</strong></span>
+                    <span className="text-[11px] font-bold text-brand-600 group-hover:underline">View Works →</span>
                   </div>
                 </div>
               ))}
