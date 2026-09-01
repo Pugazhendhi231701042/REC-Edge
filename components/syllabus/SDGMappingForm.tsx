@@ -21,6 +21,7 @@ interface SDGMappingFormProps {
   sdgMappings: SDGMappingItem[];
   onChange: (updated: SDGMappingItem[]) => void;
   disabled?: boolean;
+  isLabCourse?: boolean;
 }
 
 const default17SDGs: SDGGoalItem[] = [
@@ -57,6 +58,7 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
   sdgMappings,
   onChange,
   disabled = false,
+  isLabCourse = false,
 }) => {
   const [activeCO, setActiveCO] = useState<number>(1);
   const cos = [1, 2, 3, 4, 5];
@@ -65,23 +67,27 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
   const [selectedSDG, setSelectedSDG] = useState<number>(0);
   const [selectedTopic, setSelectedTopic] = useState<string>('');
 
+  // Collect all topics across units for lab course or selected unit for theory
   const currentUnit = units.find((u) => u.unitNumber === activeCO) || {
     unitNumber: activeCO,
     unitName: `Unit ${activeCO}`,
     content: '',
   };
 
-  const currentTopics = parseUnitTopics(currentUnit.content);
+  const currentTopics = isLabCourse
+    ? Array.from(new Set(units.flatMap((u) => parseUnitTopics(u.content))))
+    : parseUnitTopics(currentUnit.content);
 
   const handleAddMapping = () => {
     if (!selectedSDG || !selectedTopic.trim() || disabled) return;
 
+    const targetCO = isLabCourse ? 1 : activeCO;
     const exists = sdgMappings.some(
-      (m) => m.coNumber === activeCO && m.sdgNumber === selectedSDG && m.topic === selectedTopic
+      (m) => m.coNumber === targetCO && m.sdgNumber === selectedSDG && m.topic === selectedTopic
     );
 
     if (!exists) {
-      onChange([...sdgMappings, { coNumber: activeCO, sdgNumber: selectedSDG, topic: selectedTopic }]);
+      onChange([...sdgMappings, { coNumber: targetCO, sdgNumber: selectedSDG, topic: selectedTopic }]);
       setSelectedTopic('');
     }
   };
@@ -93,47 +99,48 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
 
   return (
     <div className="space-y-6 text-xs text-slate-800 font-sans">
-      {/* CO Selection Navigation Bar */}
-      <div className="flex items-center justify-between border-b pb-3 overflow-x-auto">
-        <div className="flex items-center space-x-2">
-          {cos.map((coNum) => {
-            const isMapped = sdgMappings.some((m) => m.coNumber === coNum);
-            const count = sdgMappings.filter((m) => m.coNumber === coNum).length;
+      {/* CO Selection Navigation Bar (Theory Courses Only) */}
+      {!isLabCourse && (
+        <div className="flex items-center justify-between border-b pb-3 overflow-x-auto">
+          <div className="flex items-center space-x-2">
+            {cos.map((coNum) => {
+              const count = sdgMappings.filter((m) => m.coNumber === coNum).length;
 
-            return (
-              <button
-                key={coNum}
-                type="button"
-                onClick={() => {
-                  setActiveCO(coNum);
-                  setSelectedSDG(0);
-                  setSelectedTopic('');
-                }}
-                className={`px-4 py-2 rounded-xl font-bold transition-all flex items-center space-x-2 ${
-                  activeCO === coNum
-                    ? 'bg-brand-600 text-white shadow-sm'
-                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                <span>CO{coNum}</span>
-                {count > 0 ? (
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] ${activeCO === coNum ? 'bg-brand-700 text-white' : 'bg-emerald-100 text-emerald-800'}`}>
-                    {count} Mapped
-                  </span>
-                ) : (
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] ${activeCO === coNum ? 'bg-purple-800 text-white' : 'bg-amber-100 text-amber-900'}`}>
-                    Missing
-                  </span>
-                )}
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={coNum}
+                  type="button"
+                  onClick={() => {
+                    setActiveCO(coNum);
+                    setSelectedSDG(0);
+                    setSelectedTopic('');
+                  }}
+                  className={`px-4 py-2 rounded-xl font-bold transition-all flex items-center space-x-2 ${
+                    activeCO === coNum
+                      ? 'bg-brand-600 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  <span>CO{coNum}</span>
+                  {count > 0 ? (
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] ${activeCO === coNum ? 'bg-brand-700 text-white' : 'bg-emerald-100 text-emerald-800'}`}>
+                      {count} Mapped
+                    </span>
+                  ) : (
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] ${activeCO === coNum ? 'bg-purple-800 text-white' : 'bg-amber-100 text-amber-900'}`}>
+                      Missing
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <span className="text-[11px] font-bold text-desc">
+            Total SDGs Mapped: <strong className="text-brand-700 font-extrabold">{sdgMappings.length} Mappings</strong>
+          </span>
         </div>
-
-        <span className="text-[11px] font-bold text-desc">
-          Total SDGs Mapped: <strong className="text-brand-700 font-extrabold">{sdgMappings.length} Mappings</strong>
-        </span>
-      </div>
+      )}
 
       {/* Active CO Unit Details & Form */}
       <div className="p-6 bg-white rounded-3xl border border-purple-100 shadow-sm space-y-6">

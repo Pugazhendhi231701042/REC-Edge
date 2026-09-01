@@ -94,6 +94,23 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: creditResult.warning }, { status: 400 });
   }
 
+  // Unique Subject Name Check
+  const duplicateSubject = await prisma.subject.findFirst({
+    where: {
+      departmentId: dept.id,
+      regulationId: activeReg.id,
+      subjectName: subjectName.trim(),
+      id: id ? { not: id } : undefined,
+    },
+  });
+
+  if (duplicateSubject) {
+    return NextResponse.json(
+      { error: `A subject with the name '${subjectName.trim()}' already exists in this department (${duplicateSubject.subjectCode}).` },
+      { status: 400 }
+    );
+  }
+
   // Subject code generation logic
   let subjectCode = '';
   if (id) {
@@ -119,7 +136,7 @@ export async function POST(req: Request) {
     const updated = await prisma.subject.update({
       where: { id },
       data: {
-        subjectName,
+        subjectName: subjectName.trim(),
         subjectTypeId,
         subjectCategoryId,
         lecture: Number(lecture),
@@ -135,7 +152,7 @@ export async function POST(req: Request) {
       action: 'UPDATE_SUBJECT',
       entity: 'Subject',
       entityId: updated.id,
-      details: { subjectCode: updated.subjectCode, subjectName },
+      details: { subjectCode: updated.subjectCode, subjectName: subjectName.trim() },
     });
 
     return NextResponse.json({ success: true, subject: updated });
@@ -149,7 +166,7 @@ export async function POST(req: Request) {
       semester: Number(semester),
       subjectTypeId,
       subjectCategoryId,
-      subjectName,
+      subjectName: subjectName.trim(),
       subjectCode,
       lecture: Number(lecture),
       tutorial: Number(tutorial),
@@ -166,13 +183,13 @@ export async function POST(req: Request) {
     action: 'CREATE_SUBJECT',
     entity: 'Subject',
     entityId: created.id,
-    details: { subjectCode: created.subjectCode, subjectName },
+    details: { subjectCode: created.subjectCode, subjectName: subjectName.trim() },
   });
 
   return NextResponse.json({ success: true, subject: created });
 }
 
-// DELETE Endpoint for HoD to delete unassigned subject
+// DELETE Endpoint for HoD to delete unassigned subject(s)
 export async function DELETE(req: Request) {
   const session = await getCurrentUser();
   if (!session || session.role !== 'HOD') {
@@ -180,40 +197,42 @@ export async function DELETE(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const subjectId = searchParams.get('id');
+  const singleId = searchParams.get('id');
 
-  if (!subjectId) {
-    return NextResponse.json({ error: 'Subject ID is required.' }, { status: 400 });
+  let targetIds: string[] = [];
+
+  if (singleId) {
+    targetIds = [singleId];
+  } else {
+    try {
+      const body = await req.json();
+      if (Array.isArray(body.subjectIds)) {
+        targetIds = body.subjectIds;
+      }
+    } catch (e) {}
   }
 
-  const subject = await prisma.subject.findUnique({
-    where: { id: subjectId },
-  });
-
-  if (!subject) {
-    return NextResponse.json({ error: 'Subject not found.' }, { status: 404 });
+  if (targetIds.length === 0) {
+    return NextResponse.json({ error: 'Subject ID(s) required.' }, { status: 400 });
   }
 
-  // Permission Rule: Delete allowed ONLY if unassigned
-  if (subject.assignedFacultyId !== null || subject.status === 'ASSIGNED') {
-    return NextResponse.json(
-      { error: 'Cannot delete a subject that has already been assigned to a faculty member.' },
-      { status: 403 }
-    );
-  }
-
-  await prisma.subject.delete({
-    where: { id: subjectId },
+  // Delete subjects belonging to HoD's department that are unassigned
+  const deleted = await prisma.subject.deleteMany({
+    where: {
+      id: { in: targetIds },
+      departmentId: session.departmentId || undefined,
+      assignedFacultyId: null,
+    },
   });
 
   await logAudit({
     userId: session.userId,
     userRole: session.role,
-    action: 'DELETE_UNASSIGNED_SUBJECT',
+    action: 'DELETE_UNASSIGNED_SUBJECTS',
     entity: 'Subject',
-    entityId: subjectId,
-    details: { subjectCode: subject.subjectCode, subjectName: subject.subjectName },
+    entityId: targetIds.join(','),
+    details: { count: deleted.count },
   });
 
-  return NextResponse.json({ success: true, message: 'Unassigned subject deleted successfully.' });
+  return NextResponse.json({ success: true, count: deleted.count, message: `${deleted.count} subject(s) deleted successfully.` });
 }

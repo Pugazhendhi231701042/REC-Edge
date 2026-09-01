@@ -52,6 +52,7 @@ export default function HoDDashboard() {
   const [selectedFacultyId, setSelectedFacultyId] = useState('');
   const [assignDeadline, setAssignDeadline] = useState('');
   const [selectedFacultyForModal, setSelectedFacultyForModal] = useState<any | null>(null);
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
 
   const [poStatements, setPoStatements] = useState<Record<string, string>>({});
   const [psoStatements, setPsoStatements] = useState<Record<string, string>>({});
@@ -73,6 +74,64 @@ export default function HoDDashboard() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [subjectToDelete, setSubjectToDelete] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const handleAssignFaculty = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const idsToAssign = targetSubjectForAssign ? [targetSubjectForAssign.id] : selectedSubjectIds;
+    if (idsToAssign.length === 0 || !selectedFacultyId) return;
+
+    if (!confirm(`Are you sure you want to assign ${idsToAssign.length} subject(s) to this faculty member?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/hod/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subjectIds: idsToAssign,
+          facultyId: selectedFacultyId,
+          deadline: assignDeadline || null,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to assign faculty.');
+        return;
+      }
+
+      setShowAssignModal(false);
+      setAssignDeadline('');
+      setTargetSubjectForAssign(null);
+      setSelectedSubjectIds([]);
+      await fetchData();
+    } catch (err) {
+      console.error('Failed to assign faculty');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedSubjectIds.length === 0) return;
+    if (!confirm(`Are you sure you want to delete ${selectedSubjectIds.length} selected unassigned subject(s)?`)) return;
+
+    try {
+      const res = await fetch('/api/hod/subjects', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subjectIds: selectedSubjectIds }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to delete selected subjects.');
+        return;
+      }
+      setSelectedSubjectIds([]);
+      await fetchData();
+    } catch (err) {
+      console.error('Failed to bulk delete subjects');
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -183,38 +242,7 @@ export default function HoDDashboard() {
     }
   };
 
-  const handleAssignFaculty = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!targetSubjectForAssign || !selectedFacultyId) return;
 
-    if (!confirm('Are you sure you want to assign this faculty member to the subject?')) {
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/hod/assign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subjectId: targetSubjectForAssign.id,
-          facultyId: selectedFacultyId,
-          deadline: assignDeadline || null,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || 'Failed to assign faculty.');
-        return;
-      }
-
-      setShowAssignModal(false);
-      setAssignDeadline('');
-      fetchData();
-    } catch (err) {
-      console.error('Failed to assign faculty');
-    }
-  };
 
   const handleConfirmDeleteUnassigned = async () => {
     if (!subjectToDelete) return;
@@ -553,19 +581,48 @@ export default function HoDDashboard() {
               </div>
             )}
 
-            {/* Semester Tabs */}
-            <div className="flex items-center space-x-2 border-b pb-3 overflow-x-auto">
-              {semesterNumbers.map((sem) => (
-                <button
-                  key={sem}
-                  onClick={() => setActiveSemester(sem)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                    activeSemester === sem ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  Semester {sem}
-                </button>
-              ))}
+            {/* Bulk Action Bar & Semester Tabs */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+              <div className="flex items-center space-x-2 overflow-x-auto">
+                {semesterNumbers.map((sem) => (
+                  <button
+                    key={sem}
+                    onClick={() => {
+                      setActiveSemester(sem);
+                      setSelectedSubjectIds([]);
+                    }}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                      activeSemester === sem ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    Semester {sem}
+                  </button>
+                ))}
+              </div>
+
+              {selectedSubjectIds.length > 0 && (
+                <div className="flex items-center space-x-2 bg-purple-50 p-1.5 rounded-2xl border border-purple-200">
+                  <span className="text-xs font-bold text-brand-800 px-2">
+                    {selectedSubjectIds.length} Selected
+                  </span>
+                  <button
+                    onClick={() => {
+                      setTargetSubjectForAssign(null);
+                      setSelectedFacultyId('');
+                      setShowAssignModal(true);
+                    }}
+                    className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
+                  >
+                    <UserCheck className="w-3.5 h-3.5 mr-1" /> Bulk Assign
+                  </button>
+                  <button
+                    onClick={handleBulkDelete}
+                    className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1" /> Bulk Delete
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Subject Table */}
@@ -573,6 +630,19 @@ export default function HoDDashboard() {
               <table className="w-full text-xs text-left">
                 <thead className="bg-purple-50 text-slate-700 font-semibold">
                   <tr>
+                    <th className="p-3 w-8">
+                      <input
+                        type="checkbox"
+                        checked={activeSemSubjects.length > 0 && activeSemSubjects.every((s) => selectedSubjectIds.includes(s.id))}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedSubjectIds(activeSemSubjects.map((s) => s.id));
+                          } else {
+                            setSelectedSubjectIds([]);
+                          }
+                        }}
+                      />
+                    </th>
                     <th className="p-3">Subject Code</th>
                     <th className="p-3">Subject Name</th>
                     <th className="p-3">Type</th>
@@ -586,15 +656,30 @@ export default function HoDDashboard() {
                 <tbody className="divide-y divide-slate-100">
                   {activeSemSubjects.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="p-8 text-center text-desc text-xs">
+                      <td colSpan={9} className="p-8 text-center text-desc text-xs">
                         No subjects formed yet for Semester {activeSemester}.
                       </td>
                     </tr>
                   ) : (
                     activeSemSubjects.map((subj) => {
                       const isUnassigned = !subj.assignedFacultyId && subj.status !== 'ASSIGNED';
+                      const isSelected = selectedSubjectIds.includes(subj.id);
+
                       return (
-                        <tr key={subj.id} className="hover:bg-slate-50">
+                        <tr key={subj.id} className={`hover:bg-slate-50 ${isSelected ? 'bg-purple-50/50' : ''}`}>
+                          <td className="p-3">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedSubjectIds([...selectedSubjectIds, subj.id]);
+                                } else {
+                                  setSelectedSubjectIds(selectedSubjectIds.filter((id) => id !== subj.id));
+                                }
+                              }}
+                            />
+                          </td>
                           <td className="p-3 font-mono font-bold text-brand-700">{subj.subjectCode}</td>
                           <td className="p-3 font-bold text-slate-900">{subj.subjectName}</td>
                           <td className="p-3 text-slate-600">{subj.subjectType?.name}</td>
@@ -616,17 +701,19 @@ export default function HoDDashboard() {
                             <StatusBadge status={subj.syllabusStatus} />
                           </td>
                           <td className="p-3 text-right space-x-2">
-                            <button
-                              onClick={() => {
-                                setTargetSubjectForAssign(subj);
-                                setSelectedFacultyId(subj.assignedFacultyId || '');
-                                setShowAssignModal(true);
-                              }}
-                              className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-bold rounded-lg border border-indigo-200 text-xs inline-flex items-center"
-                            >
-                              <UserCheck className="w-3.5 h-3.5 mr-1" />
-                              {subj.assignedFaculty ? 'Reassign' : 'Assign'}
-                            </button>
+                            {!subj.assignedFaculty && (
+                              <button
+                                onClick={() => {
+                                  setTargetSubjectForAssign(subj);
+                                  setSelectedFacultyId(subj.assignedFacultyId || '');
+                                  setShowAssignModal(true);
+                                }}
+                                className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-bold rounded-lg border border-indigo-200 text-xs inline-flex items-center"
+                              >
+                                <UserCheck className="w-3.5 h-3.5 mr-1" />
+                                Assign
+                              </button>
+                            )}
 
                             {isUnassigned && (
                               <button

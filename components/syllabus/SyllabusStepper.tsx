@@ -981,6 +981,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
               sdgMappings={sdgMappings}
               onChange={setSdgMappings}
               disabled={isLocked}
+              isLabCourse={templateType === 'LAB'}
             />
           </div>
         )}
