@@ -103,8 +103,13 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTab, onTabCh
   };
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {
+      console.error('Logout error:', e);
+    } finally {
+      window.location.href = '/login';
+    }
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {

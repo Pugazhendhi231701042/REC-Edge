@@ -80,7 +80,14 @@ export default function HoDDashboard() {
     const idsToAssign = targetSubjectForAssign ? [targetSubjectForAssign.id] : selectedSubjectIds;
     if (idsToAssign.length === 0 || !selectedFacultyId) return;
 
-    if (!confirm(`Are you sure you want to assign ${idsToAssign.length} subject(s) to this faculty member?`)) {
+    // Rule: Bulk assign works ONLY if ALL selected subjects are unassigned!
+    const alreadyAssigned = subjects.filter((s) => idsToAssign.includes(s.id) && s.assignedFacultyId);
+    if (alreadyAssigned.length > 0) {
+      alert(`Bulk assignment can only be performed on unassigned subjects. The following selected subject(s) are already assigned: ${alreadyAssigned.map((s) => s.subjectCode).join(', ')}.`);
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to assign ${idsToAssign.length} unassigned subject(s) to this faculty member?`)) {
       return;
     }
 

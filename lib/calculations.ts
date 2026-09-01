@@ -7,8 +7,9 @@ export interface CreditResult {
 }
 
 /**
- * Calculates academic credits based on configurable weights (Default: L*1.0, T*1.0, P*0.5).
- * Disallows non-integer credit values (e.g. 1.5).
+ * Calculates academic credits based on configuration.
+ * Method A (SUM / DIRECT): C = L + T + P
+ * Method B (WEIGHTED): C = L*wL + T*wT + P*wP
  */
 export function calculateCredits(
   L: number,
@@ -16,7 +17,8 @@ export function calculateCredits(
   P: number,
   lWeight = 1.0,
   tWeight = 1.0,
-  pWeight = 0.5
+  pWeight = 0.5,
+  calculationMethod = 'WEIGHTED'
 ): CreditResult {
   const lVal = Number(L) || 0;
   const tVal = Number(T) || 0;
@@ -30,7 +32,10 @@ export function calculateCredits(
     };
   }
 
-  const rawCredits = lVal * lWeight + tVal * tWeight + pVal * pWeight;
+  const isDirectSum = calculationMethod === 'SUM' || calculationMethod === 'DIRECT' || calculationMethod === 'METHOD_A';
+  const rawCredits = isDirectSum
+    ? lVal + tVal + pVal
+    : lVal * lWeight + tVal * tWeight + pVal * pWeight;
 
   if (!Number.isInteger(rawCredits)) {
     return {

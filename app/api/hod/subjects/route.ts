@@ -83,13 +83,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Practical hours (P) must be at least 1 for non-Theory courses.' }, { status: 400 });
   }
 
-  // Fetch dynamic credit calculation weights
+  // Fetch dynamic credit calculation weights & method
   const creditConfig = await prisma.creditConfig.findUnique({ where: { id: 'default-credit-config' } });
   const lWeight = creditConfig ? creditConfig.lWeight : 1.0;
   const tWeight = creditConfig ? creditConfig.tWeight : 1.0;
   const pWeight = creditConfig ? creditConfig.pWeight : 0.5;
+  const method = creditConfig ? creditConfig.calculationMethod : 'WEIGHTED';
 
-  const creditResult = calculateCredits(lecture, tutorial, practical, lWeight, tWeight, pWeight);
+  const creditResult = calculateCredits(lecture, tutorial, practical, lWeight, tWeight, pWeight, method);
   if (!creditResult.valid) {
     return NextResponse.json({ error: creditResult.warning }, { status: 400 });
   }

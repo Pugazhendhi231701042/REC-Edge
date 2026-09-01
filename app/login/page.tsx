@@ -29,7 +29,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email: identifier, password }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({ error: 'Server error. Please try again or contact administrator.' }));
       if (!res.ok) {
         throw new Error(data.error || 'Authentication failed.');
       }
