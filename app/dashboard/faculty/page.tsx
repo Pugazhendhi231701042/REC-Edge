@@ -397,20 +397,23 @@ export default function FacultyDashboard() {
               </div>
             )}
 
-            {/* TAB 3: SUBMITTED / REVIEW DEDICATED PAGE */}
-            {activeTab === 'review' && (
+            {/* TAB: SUBMITTED SYLLABI DEDICATED PAGE */}
+            {(activeTab === 'submitted' || activeTab === 'review') && (
               <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">Submitted & Under Review Syllabi</h3>
-                  <p className="text-xs text-desc">Track review status or correct returned syllabi.</p>
+                  <h3 className="text-base font-bold text-slate-900">Submitted Syllabi</h3>
+                  <p className="text-xs text-desc">Track review status of submitted syllabi awaiting HoD or Dean approval.</p>
                 </div>
 
                 <div className="space-y-4">
-                  {subjects
-                    .filter((s) => s.syllabusStatus === 'SUBMITTED' || s.syllabusStatus === 'RESUBMITTED' || s.syllabusStatus === 'RETURNED_FOR_CORRECTION')
-                    .map((subj) => {
-                      const isReturned = subj.syllabusStatus === 'RETURNED_FOR_CORRECTION';
-                      return (
+                  {subjects.filter((s) => s.syllabusStatus === 'SUBMITTED' || s.syllabusStatus === 'RESUBMITTED' || s.syllabusStatus === 'HOD_APPROVED').length === 0 ? (
+                    <div className="p-8 text-center bg-purple-50/20 rounded-2xl text-xs text-desc">
+                      No submitted syllabi under review.
+                    </div>
+                  ) : (
+                    subjects
+                      .filter((s) => s.syllabusStatus === 'SUBMITTED' || s.syllabusStatus === 'RESUBMITTED' || s.syllabusStatus === 'HOD_APPROVED')
+                      .map((subj) => (
                         <div key={subj.id} className="p-5 rounded-2xl border border-purple-100 bg-purple-50/20 flex flex-col md:flex-row md:items-center justify-between gap-4">
                           <div>
                             <div className="flex items-center space-x-2">
@@ -418,37 +421,78 @@ export default function FacultyDashboard() {
                               <StatusBadge status={subj.syllabusStatus} />
                             </div>
                             <h4 className="text-sm font-bold text-slate-900 mt-1">{subj.subjectName}</h4>
-
-                            {isReturned && subj.submission?.correctionReason && (
-                              <p className="text-xs text-amber-900 mt-2 bg-amber-100 p-2.5 rounded-xl border border-amber-300">
-                                <strong>HoD Feedback:</strong> "{subj.submission.correctionReason}"
-                              </p>
-                            )}
                           </div>
 
-                          {isReturned ? (
+                          <div className="flex items-center space-x-2 shrink-0">
+                            <span className="text-xs font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-200">
+                              Locked for Review
+                            </span>
+                            <button
+                              onClick={() => fetchFullSubjectForPdf(subj)}
+                              className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
+                            >
+                              <Eye className="w-3.5 h-3.5 mr-1" /> Preview PDF (DRAFT)
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB: RETURNED SYLLABI DEDICATED PAGE */}
+            {activeTab === 'returned' && (
+              <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
+                <div>
+                  <h3 className="text-base font-bold text-amber-900 flex items-center">
+                    <RotateCcw className="w-4 h-4 mr-1.5 text-amber-600" />
+                    Returned Syllabi (Action Required)
+                  </h3>
+                  <p className="text-xs text-desc">Syllabi returned by HoD needing correction before resubmission.</p>
+                </div>
+
+                <div className="space-y-4">
+                  {subjects.filter((s) => s.syllabusStatus === 'RETURNED_FOR_CORRECTION').length === 0 ? (
+                    <div className="p-8 text-center bg-amber-50/20 rounded-2xl text-xs text-amber-800 font-medium border border-amber-200">
+                      No returned syllabi requiring correction.
+                    </div>
+                  ) : (
+                    subjects
+                      .filter((s) => s.syllabusStatus === 'RETURNED_FOR_CORRECTION')
+                      .map((subj) => (
+                        <div key={subj.id} className="p-5 rounded-2xl border border-amber-200 bg-amber-50/20 space-y-4">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <span className="font-mono text-xs font-bold text-amber-800">{subj.subjectCode}</span>
+                                <StatusBadge status={subj.syllabusStatus} />
+                              </div>
+                              <h4 className="text-sm font-bold text-slate-900 mt-1">{subj.subjectName}</h4>
+                            </div>
+
                             <button
                               onClick={() => setActiveSubject(subj)}
                               className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center shrink-0"
                             >
-                              <RotateCcw className="w-4 h-4 mr-1.5" /> Continue Editing
+                              <RotateCcw className="w-4 h-4 mr-1.5" /> Continue Editing & Correct →
                             </button>
-                          ) : (
-                            <div className="flex items-center space-x-2 shrink-0">
-                              <span className="text-xs font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-200">
-                                Locked for Review
-                              </span>
-                              <button
-                                onClick={() => fetchFullSubjectForPdf(subj)}
-                                className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
-                              >
-                                <Eye className="w-3.5 h-3.5 mr-1" /> Preview PDF (DRAFT)
-                              </button>
+                          </div>
+
+                          {subj.submission?.correctionReason && (
+                            <div className="p-3.5 rounded-2xl bg-amber-100/80 border border-amber-300 text-xs text-amber-950 space-y-1">
+                              <p className="font-extrabold flex items-center text-amber-900">
+                                <RotateCcw className="w-3.5 h-3.5 mr-1 text-amber-700" />
+                                Returned for Correction
+                              </p>
+                              <p className="font-semibold text-slate-900 whitespace-pre-wrap">
+                                {subj.submission.correctionReason}
+                              </p>
                             </div>
                           )}
                         </div>
-                      );
-                    })}
+                      ))
+                  )}
                 </div>
               </div>
             )}

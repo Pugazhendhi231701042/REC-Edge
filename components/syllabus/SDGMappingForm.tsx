@@ -56,13 +56,22 @@ function parseUnitTopics(content: string): string[] {
   if (!content) return [];
   const lines = content.split('\n');
   const topics: string[] = [];
+  let currentMainTopic = '';
 
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
-    const cleaned = trimmed.replace(/^[\d+.\-–—\s├└│\s]+/, '').trim();
+
+    const isSubtopic = /^[├└│|\\-]+\s*/.test(trimmed) || /^\s+[-*•]/.test(line);
+    const cleaned = trimmed.replace(/^[\d+.\-–—\s├└│|\\-]+/, '').trim();
+
     if (cleaned.length > 0) {
-      topics.push(cleaned);
+      if (isSubtopic && currentMainTopic) {
+        topics.push(`${currentMainTopic} ↳ ${cleaned}`);
+      } else {
+        currentMainTopic = cleaned;
+        topics.push(cleaned);
+      }
     }
   }
 

@@ -249,22 +249,44 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     sdgMappings,
   });
 
-  const handleSaveDraft = async () => {
-    if (isLocked) return;
-    if (!confirm('Are you sure you want to save draft?')) return;
+  const [autoSaveStatus, setAutoSaveStatus] = useState<string>('');
+  const [isInitialLoad, setIsInitialLoad] = useState<boolean>(true);
 
-    setLoading(true);
-    setError('');
-    try {
-      const draftData = getFormData();
-      draftData.isSubmit = false;
-      await onSaveDraft(draftData);
-    } catch (err: any) {
-      setError(err.message || 'Failed to save draft.');
-    } finally {
-      setLoading(false);
+  // Auto-Save Effect (Debounced 1500ms)
+  useEffect(() => {
+    if (isLocked) return;
+    if (isInitialLoad) {
+      setIsInitialLoad(false);
+      return;
     }
-  };
+
+    const timer = setTimeout(async () => {
+      try {
+        setAutoSaveStatus('Saving...');
+        const draftData = getFormData();
+        draftData.isSubmit = false;
+        await onSaveDraft(draftData);
+        setAutoSaveStatus('All changes auto-saved');
+        setTimeout(() => setAutoSaveStatus(''), 2500);
+      } catch (err) {
+        setAutoSaveStatus('');
+      }
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [
+    objectives,
+    units,
+    experiments,
+    courseOutcomes,
+    textbooks,
+    references,
+    coPoMappings,
+    coPoJustifications,
+    sdgMappings,
+    unitContactHours,
+    labContactHours,
+  ]);
 
   const validateFormBeforeSubmit = (): { valid: boolean; missing: string[]; firstMissingStep: number } => {
     const missing: string[] = [];
@@ -441,21 +463,17 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
         </div>
 
         <div className="flex items-center space-x-3">
+          {autoSaveStatus && (
+            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200 animate-pulse">
+              ✓ {autoSaveStatus}
+            </span>
+          )}
           {isLocked && (
             <button
               onClick={() => setShowPdfModal(true)}
               className="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs flex items-center transition-colors"
             >
               <Eye className="w-4 h-4 mr-1.5" /> Preview PDF (DRAFT)
-            </button>
-          )}
-          {!isLocked && (
-            <button
-              onClick={handleSaveDraft}
-              disabled={loading}
-              className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl shadow-xs flex items-center transition-colors"
-            >
-              <Save className="w-4 h-4 mr-1.5" /> Save Draft
             </button>
           )}
         </div>
@@ -992,6 +1010,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
             </p>
             <SDGMappingForm
               units={units}
+              experiments={experiments}
               sdgGoals={sdgGoals}
               sdgMappings={sdgMappings}
               onChange={setSdgMappings}

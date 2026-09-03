@@ -15,6 +15,8 @@ import {
   Layers,
   HelpCircle,
   Clock,
+  RotateCcw,
+  Send,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -129,6 +131,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: 'REVIEW & APPROVALS',
       items: [
         { id: 'review', label: 'Submissions Review', icon: <FileCheck className="w-4 h-4" /> },
+        { id: 'approval_pending', label: 'Approval Pending', icon: <Clock className="w-4 h-4" /> },
         { id: 'approved', label: 'Approved Syllabi', icon: <CheckCircle2 className="w-4 h-4" /> },
       ],
     },
@@ -151,9 +154,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: 'SYLLABUS',
       items: [
         { id: 'subjects', label: 'My Subjects', icon: <BookOpen className="w-4 h-4" /> },
-        { id: 'in_progress', label: 'In Progress Subjects', icon: <Clock className="w-4 h-4" /> },
-        { id: 'review', label: 'Submitted / Review', icon: <FileCheck className="w-4 h-4" /> },
-        { id: 'approved', label: 'Approved Syllabi', icon: <CheckCircle2 className="w-4 h-4" /> },
+        { id: 'in_progress', label: 'In Progress', icon: <Clock className="w-4 h-4" /> },
+        { id: 'submitted', label: 'Submitted', icon: <FileCheck className="w-4 h-4" /> },
+        { id: 'returned', label: 'Returned', icon: <RotateCcw className="w-4 h-4" /> },
+        { id: 'approved', label: 'Approved', icon: <CheckCircle2 className="w-4 h-4" /> },
       ],
     },
   ];

@@ -29,8 +29,8 @@ export async function POST(req: Request) {
   }
 
   if (action === 'RETURN') {
-    if (!reason || !reason.trim()) {
-      return NextResponse.json({ error: 'A correction reason is mandatory when returning a syllabus.' }, { status: 400 });
+    if (!Array.isArray(sections) || sections.length === 0) {
+      return NextResponse.json({ error: 'At least one section needing correction must be selected.' }, { status: 400 });
     }
     if (!returnDeadline || !returnDeadline.trim()) {
       return NextResponse.json({ error: 'Correction Return Deadline is mandatory when returning a syllabus for correction.' }, { status: 400 });
@@ -41,10 +41,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Return correction deadline date must be in the future.' }, { status: 400 });
     }
 
-    let fullReason = reason.trim();
-    if (Array.isArray(sections) && sections.length > 0) {
-      fullReason = `[Sections Flagged for Correction: ${sections.join(' | ')}]\nFeedback: ${reason.trim()}`;
-    }
+    const feedbackText = reason && reason.trim() ? reason.trim() : 'Please review and update the flagged sections.';
+    let fullReason = `[Sections Flagged for Correction: ${sections.join(' | ')}]\nFeedback: ${feedbackText}`;
 
     await prisma.subject.update({
       where: { id: subjectId },

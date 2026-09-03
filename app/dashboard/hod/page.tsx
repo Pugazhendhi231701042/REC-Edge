@@ -310,10 +310,6 @@ export default function HoDDashboard() {
         alert('Please select at least one section needing correction before returning.');
         return;
       }
-      if (!correctionReason.trim()) {
-        alert('A detailed correction reason is mandatory when returning a syllabus.');
-        return;
-      }
       if (!returnDeadline || !returnDeadline.trim()) {
         alert('Correction Return Deadline is mandatory when returning a syllabus for correction.');
         return;
@@ -889,6 +885,47 @@ export default function HoDDashboard() {
           </div>
         )}
 
+        {/* TAB 5.5: APPROVAL PENDING DEDICATED PAGE */}
+        {activeTab === 'approval_pending' && (
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
+            <div>
+              <h3 className="text-base font-bold text-slate-900 flex items-center">
+                <Clock className="w-4 h-4 mr-1.5 text-brand-600" />
+                Approval Pending Syllabi (Awaiting Dean Final Approval)
+              </h3>
+              <p className="text-xs text-desc">Syllabi approved by HoD and currently forwarded to the Academic Dean for final institutional approval.</p>
+            </div>
+
+            {subjects.filter((s) => s.syllabusStatus === 'HOD_APPROVED').length === 0 ? (
+              <p className="text-xs text-desc py-8 text-center bg-purple-50/20 rounded-2xl">
+                No department syllabi currently pending Dean approval.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {subjects
+                  .filter((s) => s.syllabusStatus === 'HOD_APPROVED')
+                  .map((subj) => (
+                    <div key={subj.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 space-y-3 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-blue-800 uppercase bg-blue-100 px-2 py-0.5 rounded border border-blue-300">
+                          Forwarded to Dean | {subj.subjectCode}
+                        </span>
+                        <h4 className="text-xs font-bold text-slate-900 mt-1">{subj.subjectName}</h4>
+                        <p className="text-[11px] text-desc">Faculty: {subj.assignedFaculty?.name}</p>
+                      </div>
+                      <button
+                        onClick={() => fetchFullSubjectForReview(subj)}
+                        className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs"
+                      >
+                        Inspect Syllabus
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* TAB 6: APPROVED SYLLABI DEDICATED PAGE */}
         {activeTab === 'approved' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
@@ -1182,15 +1219,20 @@ export default function HoDDashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-700">Faculty Submission Deadline (Optional)</label>
+                  <label className="block font-semibold mb-1 text-slate-700">Faculty Submission Deadline * (Mandatory - Must be within Dean HoD Stage Deadline)</label>
                   <input
                     type="date"
+                    required
                     min={new Date().toISOString().split('T')[0]}
+                    max={department?.activeStageDeadline ? new Date(department.activeStageDeadline).toISOString().split('T')[0] : undefined}
                     value={assignDeadline}
                     onChange={(e) => setAssignDeadline(e.target.value)}
-                    className="w-full p-2.5 border rounded-xl font-semibold text-slate-800"
+                    className="w-full p-2.5 border rounded-xl font-bold text-slate-900 bg-white"
                   />
-                  <p className="text-[10px] text-desc mt-1">Specify a future deadline date for faculty syllabus completion.</p>
+                  <p className="text-[10px] text-desc mt-1">
+                    Specify a mandatory future deadline date for faculty syllabus completion.
+                    {department?.activeStageDeadline && ` Must be on or before Dean HoD Stage Deadline (${new Date(department.activeStageDeadline).toLocaleDateString()}).`}
+                  </p>
                 </div>
                 <div className="flex justify-end space-x-3 pt-3 border-t">
                   <button type="button" onClick={() => setShowAssignModal(false)} className="px-4 py-2 rounded-xl text-slate-600 font-semibold">
