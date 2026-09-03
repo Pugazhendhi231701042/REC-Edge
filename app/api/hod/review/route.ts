@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized. HoD role required.' }, { status: 403 });
   }
 
-  const { subjectId, action, reason, returnDeadline } = await req.json();
+  const { subjectId, action, reason, returnDeadline, sections } = await req.json();
 
   if (!subjectId || !action) {
     return NextResponse.json({ error: 'Subject ID and action (APPROVE/RETURN) are required.' }, { status: 400 });
@@ -41,6 +41,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Return correction deadline date must be in the future.' }, { status: 400 });
     }
 
+    let fullReason = reason.trim();
+    if (Array.isArray(sections) && sections.length > 0) {
+      fullReason = `[Sections Flagged for Correction: ${sections.join(' | ')}]\nFeedback: ${reason.trim()}`;
+    }
+
     await prisma.subject.update({
       where: { id: subjectId },
       data: {
@@ -53,7 +58,7 @@ export async function POST(req: Request) {
       await prisma.syllabusSubmission.update({
         where: { id: subject.submission.id },
         data: {
-          correctionReason: `[HoD Feedback]: ${reason.trim()}`,
+          correctionReason: fullReason,
           returnedAt: new Date(),
         },
       });

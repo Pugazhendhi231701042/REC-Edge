@@ -28,6 +28,18 @@ import {
   Save,
 } from 'lucide-react';
 
+const AVAILABLE_CORRECTION_SECTIONS = [
+  'Step 1: Course Objectives & COs',
+  'Step 2: Syllabus Units & Contact Hours',
+  'Step 3: Course Outcomes & Cognitive Levels',
+  'Step 4: Textbooks',
+  'Step 5: Reference Books / Links',
+  'Step 6: CO-PO / PSO Correlation Matrix',
+  'Step 7: PO / PSO Correlation Justifications',
+  'Step 8: UN SDG Mapping',
+  'General / Overall Revisions',
+];
+
 export default function HoDDashboard() {
   const [activeTab, setActiveTab] = useState<string>('overview');
   const [department, setDepartment] = useState<any>(null);
@@ -64,6 +76,7 @@ export default function HoDDashboard() {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewSubject, setReviewSubject] = useState<any>(null);
   const [correctionReason, setCorrectionReason] = useState('');
+  const [selectedCorrectionSections, setSelectedCorrectionSections] = useState<string[]>([]);
   const [returnDeadline, setReturnDeadline] = useState('');
 
   const [showExtensionModal, setShowExtensionModal] = useState(false);
@@ -293,8 +306,12 @@ export default function HoDDashboard() {
   const handleReviewAction = async (action: 'APPROVE' | 'RETURN') => {
     if (!reviewSubject) return;
     if (action === 'RETURN') {
+      if (selectedCorrectionSections.length === 0) {
+        alert('Please select at least one section needing correction before returning.');
+        return;
+      }
       if (!correctionReason.trim()) {
-        alert('A correction reason is mandatory when returning a syllabus.');
+        alert('A detailed correction reason is mandatory when returning a syllabus.');
         return;
       }
       if (!returnDeadline || !returnDeadline.trim()) {
@@ -317,6 +334,7 @@ export default function HoDDashboard() {
           subjectId: reviewSubject.id,
           action,
           reason: correctionReason,
+          sections: selectedCorrectionSections,
           returnDeadline: returnDeadline || null,
         }),
       });
@@ -329,6 +347,7 @@ export default function HoDDashboard() {
 
       setShowReviewModal(false);
       setCorrectionReason('');
+      setSelectedCorrectionSections([]);
       setReturnDeadline('');
       fetchData();
     } catch (err) {
@@ -1210,31 +1229,72 @@ export default function HoDDashboard() {
                 />
               )}
 
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
-                <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">HoD Review Decision</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-slate-700">Correction Reason (Mandatory if Returning)</label>
-                    <textarea
-                      rows={2}
-                      value={correctionReason}
-                      onChange={(e) => setCorrectionReason(e.target.value)}
-                      placeholder="e.g. Please revise justification for CO3 -> PO4..."
-                      className="w-full p-2.5 text-xs border rounded-xl"
-                    />
+              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+                <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">HoD Review Decision</h4>
+
+                <div className="space-y-4">
+                  {/* Section Selection for Returning */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-800">
+                      Select Sections Needing Correction (Mandatory if Returning) *
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 p-3 bg-white border border-purple-100 rounded-2xl max-h-40 overflow-y-auto">
+                      {AVAILABLE_CORRECTION_SECTIONS.map((sec) => {
+                        const isChecked = selectedCorrectionSections.includes(sec);
+                        return (
+                          <label
+                            key={sec}
+                            className={`flex items-center space-x-2 p-2 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                              isChecked
+                                ? 'bg-purple-100/90 text-brand-900 border border-purple-300 font-bold'
+                                : 'text-slate-700 hover:bg-slate-50 border border-transparent'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedCorrectionSections([...selectedCorrectionSections, sec]);
+                                } else {
+                                  setSelectedCorrectionSections(selectedCorrectionSections.filter((s) => s !== sec));
+                                }
+                              }}
+                              className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                            />
+                            <span className="truncate">{sec}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-slate-700">Correction Return Deadline (Mandatory if Returning) *</label>
-                    <input
-                      type="date"
-                      min={new Date().toISOString().split('T')[0]}
-                      value={returnDeadline}
-                      onChange={(e) => setReturnDeadline(e.target.value)}
-                      className="w-full p-2.5 text-xs border rounded-xl font-bold text-slate-800"
-                    />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="block text-xs font-semibold text-slate-700">Detailed Correction Reason (Mandatory if Returning) *</label>
+                      <textarea
+                        rows={3}
+                        value={correctionReason}
+                        onChange={(e) => setCorrectionReason(e.target.value)}
+                        placeholder="e.g. Please revise justification for CO3 -> PO4..."
+                        className="w-full p-2.5 text-xs border rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="block text-xs font-semibold text-slate-700">Correction Return Deadline (Mandatory if Returning) *</label>
+                      <input
+                        type="date"
+                        min={new Date().toISOString().split('T')[0]}
+                        value={returnDeadline}
+                        onChange={(e) => setReturnDeadline(e.target.value)}
+                        className="w-full p-2.5 text-xs border rounded-xl font-bold text-slate-800"
+                      />
+                      <p className="text-[10px] text-desc mt-1">Specify deadline date for faculty correction.</p>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center justify-end space-x-3">
+
+                <div className="flex items-center justify-end space-x-3 pt-2 border-t border-slate-200">
                   <button
                     onClick={() => handleReviewAction('RETURN')}
                     className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"

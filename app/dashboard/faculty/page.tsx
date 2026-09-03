@@ -55,6 +55,20 @@ export default function FacultyDashboard() {
     }
   };
 
+  const fetchFullSubjectForPdf = async (subj: any) => {
+    try {
+      const res = await fetch(`/api/faculty/syllabus/${subj.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setViewPdfSubject(data.subject);
+      } else {
+        setViewPdfSubject(subj);
+      }
+    } catch (err) {
+      setViewPdfSubject(subj);
+    }
+  };
+
   const handleSaveDraft = async (data: any) => {
     if (!activeSubject) return;
     try {
@@ -269,9 +283,17 @@ export default function FacultyDashboard() {
                                   <Eye className="w-3.5 h-3.5 mr-1" /> View Subject
                                 </button>
                               ) : isSubmitted ? (
-                                <span className="text-blue-700 bg-blue-50 px-3 py-1 rounded-xl border border-blue-200">
-                                  Under HoD Review
-                                </span>
+                                <div className="flex items-center space-x-2">
+                                  <span className="text-blue-700 bg-blue-50 px-2.5 py-1 rounded-xl border border-blue-200 text-[11px] font-bold">
+                                    Locked for Review
+                                  </span>
+                                  <button
+                                    onClick={() => fetchFullSubjectForPdf(subj)}
+                                    className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl shadow-xs flex items-center font-bold text-xs"
+                                  >
+                                    <Eye className="w-3.5 h-3.5 mr-1" /> Preview PDF (DRAFT)
+                                  </button>
+                                </div>
                               ) : isReturned ? (
                                 <button
                                   onClick={() => setActiveSubject(subj)}
@@ -412,9 +434,17 @@ export default function FacultyDashboard() {
                               <RotateCcw className="w-4 h-4 mr-1.5" /> Continue Editing
                             </button>
                           ) : (
-                            <span className="text-xs font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-200 shrink-0">
-                              Locked for Review
-                            </span>
+                            <div className="flex items-center space-x-2 shrink-0">
+                              <span className="text-xs font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded-xl border border-blue-200">
+                                Locked for Review
+                              </span>
+                              <button
+                                onClick={() => fetchFullSubjectForPdf(subj)}
+                                className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
+                              >
+                                <Eye className="w-3.5 h-3.5 mr-1" /> Preview PDF (DRAFT)
+                              </button>
+                            </div>
                           )}
                         </div>
                       );

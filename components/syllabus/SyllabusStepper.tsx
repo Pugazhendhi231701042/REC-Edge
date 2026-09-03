@@ -17,6 +17,7 @@ import {
   Lock,
   Globe,
   Eye,
+  X,
 } from 'lucide-react';
 import { COPOMappingTable } from './COPOMappingTable';
 import { SDGMappingForm, SDGGoalItem, SDGMappingItem } from './SDGMappingForm';
@@ -406,13 +407,19 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     <div className="space-y-6 select-none">
       {/* Edit Lock Banner if Submitted */}
       {isLocked && (
-        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-between text-xs text-amber-900 shadow-sm">
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 shadow-sm">
           <div className="flex items-center space-x-2">
             <Lock className="w-5 h-5 text-amber-600 shrink-0" />
             <span>
               <strong>Syllabus Submission Locked:</strong> This syllabus has been submitted to the HoD for review. You cannot make edits unless returned for correction.
             </span>
           </div>
+          <button
+            onClick={() => setShowPdfModal(true)}
+            className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-xs flex items-center shrink-0"
+          >
+            <Eye className="w-4 h-4 mr-1.5" /> Preview & Download PDF (DRAFT)
+          </button>
         </div>
       )}
 
@@ -434,6 +441,14 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
         </div>
 
         <div className="flex items-center space-x-3">
+          {isLocked && (
+            <button
+              onClick={() => setShowPdfModal(true)}
+              className="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs flex items-center transition-colors"
+            >
+              <Eye className="w-4 h-4 mr-1.5" /> Preview PDF (DRAFT)
+            </button>
+          )}
           {!isLocked && (
             <button
               onClick={handleSaveDraft}
@@ -1178,6 +1193,33 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
           </button>
         )}
       </div>
+
+      {/* PDF Preview Modal for Faculty when locked/submitted */}
+      {showPdfModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-4xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Syllabus PDF Preview (DRAFT Watermark)</h3>
+                <p className="text-xs text-desc">{subject.subjectCode} — {subject.subjectName}</p>
+              </div>
+              <button onClick={() => setShowPdfModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <SyllabusPDFGenerator
+              subject={subject}
+              submission={{
+                ...getFormData(),
+                totalContactHours,
+              }}
+              documentTitle={`Syllabus_${subject.subjectCode}_Draft`}
+              hideJustifications={false}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
