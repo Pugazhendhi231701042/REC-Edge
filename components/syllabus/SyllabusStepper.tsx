@@ -55,6 +55,11 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [submissionErrorModal, setSubmissionErrorModal] = useState<{ isOpen: boolean; title: string; reasons: string[] }>({
+    isOpen: false,
+    title: '',
+    reasons: [],
+  });
 
   // Form State
   const [objectives, setObjectives] = useState<string[]>(['', '', '']);
@@ -288,6 +293,57 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     labContactHours,
   ]);
 
+  const getStepStatus = (stepId: number): 'COMPLETED' | 'STARTED' | 'NOT_STARTED' => {
+    switch (stepId) {
+      case 1: {
+        const validObjs = objectives.filter((o) => o.trim()).length;
+        if (validObjs >= 3) return 'COMPLETED';
+        if (validObjs > 0) return 'STARTED';
+        return 'NOT_STARTED';
+      }
+      case 2: {
+        if (templateType === 'LAB') {
+          const validExps = experiments.filter((e) => e.title && e.title.trim()).length;
+          if (validExps >= 10) return 'COMPLETED';
+          if (validExps > 0) return 'STARTED';
+          return 'NOT_STARTED';
+        } else {
+          const filledUnits = units.filter((u) => u.content && u.content.trim()).length;
+          if (filledUnits >= 5) return 'COMPLETED';
+          if (filledUnits > 0) return 'STARTED';
+          return 'NOT_STARTED';
+        }
+      }
+      case 3: {
+        const validCOs = courseOutcomes.filter((co) =>
+          typeof co === 'string' ? co.trim() : co?.description?.trim()
+        ).length;
+        if (validCOs >= 5) return 'COMPLETED';
+        if (validCOs > 0) return 'STARTED';
+        return 'NOT_STARTED';
+      }
+      case 4:
+        if (textbooks.filter((t) => t.title && t.title.trim()).length >= 1) return 'COMPLETED';
+        return 'NOT_STARTED';
+      case 5:
+        if (references.filter((r) => r.title && r.title.trim()).length >= 1) return 'COMPLETED';
+        return 'NOT_STARTED';
+      case 6:
+        if (Object.keys(coPoMappings).length > 0) return 'COMPLETED';
+        return 'NOT_STARTED';
+      case 7:
+        if (Object.keys(coPoJustifications).length > 0) return 'COMPLETED';
+        return 'NOT_STARTED';
+      case 8:
+        if (sdgMappings.length > 0) return 'COMPLETED';
+        return 'NOT_STARTED';
+      case 9:
+        return 'NOT_STARTED';
+      default:
+        return 'NOT_STARTED';
+    }
+  };
+
   const validateFormBeforeSubmit = (): { valid: boolean; missing: string[]; firstMissingStep: number } => {
     const missing: string[] = [];
     let firstMissingStep = 9;
@@ -309,8 +365,8 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     }
     if (templateType === 'LAB' || templateType === 'THEORY_LAB' || templateType === 'LAB_ORIENTED_THEORY') {
       const validExps = experiments.filter((e) => e.title.trim());
-      if (validExps.length < 7) {
-        missing.push('⚠ Minimum 7 Laboratory Experiments are required for Lab-Oriented courses.');
+      if (validExps.length < 10) {
+        missing.push('⚠ Minimum 10 Laboratory Experiments are required for Lab courses.');
         if (firstMissingStep > 2) firstMissingStep = 2;
       }
     }
@@ -377,6 +433,11 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
       setMissingChecklist(validation.missing);
       setActiveStep(validation.firstMissingStep);
       setError(`Validation Error: Please complete missing required fields on Step ${validation.firstMissingStep}: ${steps[validation.firstMissingStep - 1].label}.`);
+      setSubmissionErrorModal({
+        isOpen: true,
+        title: `Validation Error — Step ${validation.firstMissingStep}: ${steps[validation.firstMissingStep - 1].label}`,
+        reasons: validation.missing,
+      });
       return;
     }
 
@@ -387,15 +448,18 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
       setShowConfirmModal(false);
       setShowSuccessModal(true);
     } catch (err: any) {
+      const reasons = err.missing && Array.isArray(err.missing) ? err.missing : [err.message || 'Submission failed. Please check required fields.'];
       if (err.missing && Array.isArray(err.missing)) {
         setMissingChecklist(err.missing);
         const targetStep = determineFirstMissingStep(err.missing);
         setActiveStep(targetStep);
-        setError(`Please complete required missing items on Step ${targetStep}: ${steps[targetStep - 1].label}.`);
-        setShowConfirmModal(false);
-      } else {
-        setError(err.message || 'Submission failed.');
       }
+      setShowConfirmModal(false);
+      setSubmissionErrorModal({
+        isOpen: true,
+        title: 'Unable to Submit Syllabus to HoD',
+        reasons,
+      });
     } finally {
       setLoading(false);
     }
@@ -479,49 +543,69 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
         </div>
       </div>
 
-      {/* Visual Progress Bar */}
-      <div className="bg-white p-4 rounded-3xl border border-purple-100 shadow-sm space-y-2">
-        <div className="flex justify-between items-center text-xs font-extrabold text-slate-800">
-          <span className="flex items-center text-brand-700">
-            <Sparkles className="w-4 h-4 mr-1.5 text-brand-600" />
-            Syllabus Formation Progress: Step {activeStep} of {steps.length} — {steps[activeStep - 1].label}
-          </span>
-          <span className="text-brand-700 bg-purple-100 px-2.5 py-0.5 rounded-full border border-purple-200">
-            {Math.round((activeStep / steps.length) * 100)}% Completed
-          </span>
+      {/* Horizontal Timeline Progress Bar with Section Status Dots */}
+      <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-3">
+          <div className="flex items-center space-x-2">
+            <Sparkles className="w-5 h-5 text-brand-600" />
+            <h3 className="text-sm font-extrabold text-slate-900">
+              Syllabus Formation Progress — Step {activeStep} of {steps.length}: <span className="text-brand-700">{steps[activeStep - 1].label}</span>
+            </h3>
+          </div>
+          <div className="flex items-center space-x-3 text-[11px] font-bold">
+            <span className="flex items-center text-emerald-700">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 mr-1"></span> Completed
+            </span>
+            <span className="flex items-center text-amber-700">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 mr-1"></span> In Progress
+            </span>
+            <span className="flex items-center text-slate-500">
+              <span className="w-2.5 h-2.5 rounded-full bg-slate-300 mr-1"></span> Not Started
+            </span>
+          </div>
         </div>
-        <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-          <div
-            className="bg-brand-600 h-2.5 rounded-full transition-all duration-300 shadow-xs"
-            style={{ width: `${Math.round((activeStep / steps.length) * 100)}%` }}
-          ></div>
-        </div>
-      </div>
 
-      {/* Stepper Navigation Header */}
-      <div className="bg-white p-4 rounded-3xl border border-purple-100 shadow-sm overflow-x-auto">
-        <div className="flex items-center space-x-1 min-w-max">
-          {steps.map((step) => {
-            const isActive = activeStep === step.id;
-            const isDone = activeStep > step.id;
+        {/* Horizontal Node Stepper Bar */}
+        <div className="overflow-x-auto py-2">
+          <div className="flex items-center justify-between min-w-[700px] relative px-4">
+            {/* Background Connector Line */}
+            <div className="absolute left-6 right-6 top-5 h-1 bg-slate-100 -z-0"></div>
 
-            return (
-              <button
-                key={step.id}
-                onClick={() => setActiveStep(step.id)}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                  isActive
-                    ? 'bg-brand-600 text-white shadow-sm'
-                    : isDone
-                    ? 'bg-purple-50 text-brand-700 hover:bg-purple-100'
-                    : 'text-slate-500 hover:bg-slate-100'
-                }`}
-              >
-                <span>{step.icon}</span>
-                <span>{step.id}. {step.label}</span>
-              </button>
-            );
-          })}
+            {steps.map((step) => {
+              const status = getStepStatus(step.id);
+              const isActive = activeStep === step.id;
+
+              let dotStyle = 'bg-slate-100 border-2 border-slate-300 text-slate-500';
+              if (status === 'COMPLETED') {
+                dotStyle = 'bg-emerald-600 border-2 border-emerald-600 text-white shadow-xs';
+              } else if (status === 'STARTED') {
+                dotStyle = 'bg-amber-500 border-2 border-amber-500 text-white ring-4 ring-amber-100';
+              }
+
+              if (isActive) {
+                dotStyle += ' ring-4 ring-brand-300 scale-110 font-black';
+              }
+
+              return (
+                <button
+                  key={step.id}
+                  onClick={() => setActiveStep(step.id)}
+                  className="flex flex-col items-center group relative z-10 transition-all"
+                >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xs transition-all ${dotStyle}`}>
+                    {status === 'COMPLETED' ? (
+                      <CheckCircle2 className="w-5 h-5 text-white" />
+                    ) : (
+                      <span>{step.id}</span>
+                    )}
+                  </div>
+                  <span className={`text-[11px] font-bold mt-1.5 transition-colors ${isActive ? 'text-brand-700' : 'text-slate-600 group-hover:text-slate-900'}`}>
+                    {step.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -1236,6 +1320,45 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
               documentTitle={`Syllabus_${subject.subjectCode}_Draft`}
               hideJustifications={false}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Submission Error / Missing Validation Pop-up Modal */}
+      {submissionErrorModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border-2 border-red-300">
+            <div className="flex items-center space-x-3 text-red-600">
+              <AlertCircle className="w-7 h-7 shrink-0 text-red-600" />
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  {submissionErrorModal.title || 'Unable to Submit Syllabus'}
+                </h3>
+                <p className="text-xs text-desc">Syllabus validation failed</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-700">
+              The system could not submit your syllabus to the HoD because the following required items are incomplete:
+            </p>
+
+            <div className="p-4 bg-red-50 rounded-2xl border border-red-200 text-xs text-red-900 space-y-2 max-h-52 overflow-y-auto">
+              {submissionErrorModal.reasons.map((reason, idx) => (
+                <p key={idx} className="font-semibold flex items-start">
+                  <span className="mr-2 text-red-600 font-bold">•</span>
+                  <span>{reason}</span>
+                </p>
+              ))}
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setSubmissionErrorModal({ isOpen: false, title: '', reasons: [] })}
+                className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-md"
+              >
+                Got It, Let Me Fix This
+              </button>
+            </div>
           </div>
         </div>
       )}

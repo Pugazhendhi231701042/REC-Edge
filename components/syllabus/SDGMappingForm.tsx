@@ -56,21 +56,21 @@ function parseUnitTopics(content: string): string[] {
   if (!content) return [];
   const lines = content.split('\n');
   const topics: string[] = [];
-  let currentMainTopic = '';
+  let mainTopicCount = 0;
 
   for (const line of lines) {
     const trimmed = line.trim();
     if (!trimmed) continue;
 
     const isSubtopic = /^[├└│|\\-]+\s*/.test(trimmed) || /^\s+[-*•]/.test(line);
-    const cleaned = trimmed.replace(/^[\d+.\-–—\s├└│|\\-]+/, '').trim();
+    const cleaned = trimmed.replace(/^[\d+.\-–—\s├└│|\\-•*]+/, '').trim();
 
     if (cleaned.length > 0) {
-      if (isSubtopic && currentMainTopic) {
-        topics.push(`${currentMainTopic} ↳ ${cleaned}`);
+      if (isSubtopic && mainTopicCount > 0) {
+        topics.push(`   └─ Subtopic: ${cleaned}`);
       } else {
-        currentMainTopic = cleaned;
-        topics.push(cleaned);
+        mainTopicCount++;
+        topics.push(`Topic ${mainTopicCount}: ${cleaned}`);
       }
     }
   }
@@ -79,8 +79,9 @@ function parseUnitTopics(content: string): string[] {
 
   const parts = content.split(/[,;\n]/);
   return parts
-    .map((p) => p.replace(/^[.\s,]+|[.\s,]+$/g, '').trim())
-    .filter((p) => p.length > 0);
+    .map((p) => p.replace(/^[.\s,\-–—]+|[.\s,\-–—]+$/g, '').trim())
+    .filter((p) => p.length > 0)
+    .map((p, idx) => `Topic ${idx + 1}: ${p}`);
 }
 
 export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
