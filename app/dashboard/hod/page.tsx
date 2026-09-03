@@ -78,6 +78,7 @@ export default function HoDDashboard() {
   const [correctionReason, setCorrectionReason] = useState('');
   const [selectedCorrectionSections, setSelectedCorrectionSections] = useState<string[]>([]);
   const [returnDeadline, setReturnDeadline] = useState('');
+  const [showReturnPanel, setShowReturnPanel] = useState(false);
 
   const [showExtensionModal, setShowExtensionModal] = useState(false);
   const [extDeadline, setExtDeadline] = useState('');
@@ -375,6 +376,7 @@ export default function HoDDashboard() {
   };
 
   const fetchFullSubjectForReview = async (subj: any) => {
+    setShowReturnPanel(false);
     try {
       const res = await fetch(`/api/faculty/syllabus/${subj.id}`);
       if (res.ok) {
@@ -1274,82 +1276,123 @@ export default function HoDDashboard() {
               <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
                 <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">HoD Review Decision</h4>
 
-                <div className="space-y-4">
-                  {/* Section Selection for Returning */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-800">
-                      Select Sections Needing Correction (Mandatory if Returning) *
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 p-3 bg-white border border-purple-100 rounded-2xl max-h-40 overflow-y-auto">
-                      {AVAILABLE_CORRECTION_SECTIONS.map((sec) => {
-                        const isChecked = selectedCorrectionSections.includes(sec);
-                        return (
-                          <label
-                            key={sec}
-                            className={`flex items-center space-x-2 p-2 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
-                              isChecked
-                                ? 'bg-purple-100/90 text-brand-900 border border-purple-300 font-bold'
-                                : 'text-slate-700 hover:bg-slate-50 border border-transparent'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedCorrectionSections([...selectedCorrectionSections, sec]);
-                                } else {
-                                  setSelectedCorrectionSections(selectedCorrectionSections.filter((s) => s !== sec));
-                                }
-                              }}
-                              className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-                            />
-                            <span className="truncate">{sec}</span>
+                {!showReturnPanel ? (
+                  <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-2">
+                    {reviewSubject?.syllabusStatus === 'APPROVED' ? (
+                      <span className="text-xs font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-4 py-2.5 rounded-xl flex items-center">
+                        <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-600" /> Dean Approved Document (Locked against return)
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setShowReturnPanel(true)}
+                        className="w-full sm:w-auto px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center transition-all"
+                      >
+                        <RotateCcw className="w-4 h-4 mr-1.5" /> Return for Correction
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleReviewAction('APPROVE')}
+                      className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center justify-center transition-all"
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-1.5" /> Approve Syllabus
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4 p-4 bg-amber-50/50 border border-amber-200 rounded-2xl animate-fadeIn">
+                    <div className="flex items-center justify-between border-b border-amber-200/60 pb-2">
+                      <span className="text-xs font-bold text-amber-900 flex items-center">
+                        <RotateCcw className="w-4 h-4 mr-1.5 text-amber-600" /> Specify Correction Requirements
+                      </span>
+                      <button
+                        onClick={() => setShowReturnPanel(false)}
+                        className="text-xs font-semibold text-slate-500 hover:text-slate-800"
+                      >
+                        Cancel / Back
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Section Selection for Returning */}
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-slate-800">
+                          Select Sections Needing Correction (Mandatory) *
+                        </label>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 p-3 bg-white border border-purple-100 rounded-2xl max-h-40 overflow-y-auto">
+                          {AVAILABLE_CORRECTION_SECTIONS.map((sec) => {
+                            const isChecked = selectedCorrectionSections.includes(sec);
+                            return (
+                              <label
+                                key={sec}
+                                className={`flex items-center space-x-2 p-2 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                                  isChecked
+                                    ? 'bg-purple-100/90 text-brand-900 border border-purple-300 font-bold'
+                                    : 'text-slate-700 hover:bg-slate-50 border border-transparent'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedCorrectionSections([...selectedCorrectionSections, sec]);
+                                    } else {
+                                      setSelectedCorrectionSections(selectedCorrectionSections.filter((s) => s !== sec));
+                                    }
+                                  }}
+                                  className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                                />
+                                <span className="truncate">{sec}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="block text-xs font-semibold text-slate-700">
+                            Detailed Correction Reason (Optional)
                           </label>
-                        );
-                      })}
+                          <textarea
+                            rows={3}
+                            value={correctionReason}
+                            onChange={(e) => setCorrectionReason(e.target.value)}
+                            placeholder="e.g. Please revise justification for CO3 -> PO4..."
+                            className="w-full p-2.5 text-xs border rounded-xl bg-white"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="block text-xs font-bold text-slate-800">
+                            Correction Return Deadline (Mandatory) *
+                          </label>
+                          <input
+                            type="date"
+                            min={new Date().toISOString().split('T')[0]}
+                            value={returnDeadline}
+                            onChange={(e) => setReturnDeadline(e.target.value)}
+                            className="w-full p-2.5 text-xs border rounded-xl font-bold text-slate-800 bg-white"
+                          />
+                          <p className="text-[10px] text-desc mt-1">Specify deadline date for faculty correction.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end space-x-3 pt-2 border-t border-amber-200/60">
+                      <button
+                        onClick={() => setShowReturnPanel(false)}
+                        className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => handleReviewAction('RETURN')}
+                        className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center"
+                      >
+                        <RotateCcw className="w-4 h-4 mr-1.5" /> Confirm & Return to Faculty
+                      </button>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="block text-xs font-semibold text-slate-700">Detailed Correction Reason (Mandatory if Returning) *</label>
-                      <textarea
-                        rows={3}
-                        value={correctionReason}
-                        onChange={(e) => setCorrectionReason(e.target.value)}
-                        placeholder="e.g. Please revise justification for CO3 -> PO4..."
-                        className="w-full p-2.5 text-xs border rounded-xl"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="block text-xs font-semibold text-slate-700">Correction Return Deadline (Mandatory if Returning) *</label>
-                      <input
-                        type="date"
-                        min={new Date().toISOString().split('T')[0]}
-                        value={returnDeadline}
-                        onChange={(e) => setReturnDeadline(e.target.value)}
-                        className="w-full p-2.5 text-xs border rounded-xl font-bold text-slate-800"
-                      />
-                      <p className="text-[10px] text-desc mt-1">Specify deadline date for faculty correction.</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-end space-x-3 pt-2 border-t border-slate-200">
-                  <button
-                    onClick={() => handleReviewAction('RETURN')}
-                    className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
-                  >
-                    <RotateCcw className="w-4 h-4 mr-1.5" /> Return for Correction
-                  </button>
-                  <button
-                    onClick={() => handleReviewAction('APPROVE')}
-                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center"
-                  >
-                    <CheckCircle2 className="w-4 h-4 mr-1.5" /> Approve Syllabus
-                  </button>
-                </div>
+                )}
               </div>
             </div>
           </div>
