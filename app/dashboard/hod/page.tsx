@@ -26,6 +26,7 @@ import {
   Clock,
   AlertCircle,
   Save,
+  Edit3,
 } from 'lucide-react';
 
 const AVAILABLE_CORRECTION_SECTIONS = [
@@ -246,6 +247,7 @@ export default function HoDDashboard() {
       });
       if (res.ok) {
         setSaveSuccessMsg('All PO & PSO statements saved successfully!');
+        alert('✓ All PO & PSO statements saved successfully!');
         setTimeout(() => setSaveSuccessMsg(''), 6000);
       }
     } catch (err) {
@@ -319,7 +321,7 @@ export default function HoDDashboard() {
 
     const confirmMsg = action === 'APPROVE'
       ? 'Are you sure you want to approve this syllabus and forward it to the Academic Dean for final review?'
-      : 'Are you sure you want to return this syllabus to the faculty member for correction?';
+      : 'Are you sure you want to return this syllabus to the assigned faculty member for correction?';
 
     if (!confirm(confirmMsg)) return;
 
@@ -340,6 +342,12 @@ export default function HoDDashboard() {
       if (!res.ok) {
         alert(data.error || 'Failed to complete review action.');
         return;
+      }
+
+      if (action === 'RETURN') {
+        alert('✓ Syllabus successfully returned to faculty for correction.');
+      } else {
+        alert('✓ Syllabus successfully approved and forwarded to Academic Dean.');
       }
 
       setShowReviewModal(false);
@@ -1037,11 +1045,9 @@ export default function HoDDashboard() {
                   <h4 className="text-xs font-extrabold text-brand-900 uppercase tracking-wider">
                     Step 1: Set Number of POs & PSOs
                   </h4>
-                  {isStructureConfirmed && (
-                    <span className="text-[11px] font-semibold text-slate-500 italic">
-                      Contact MasterAdmin to edit counts after confirmation.
-                    </span>
-                  )}
+                  <span className="text-[11px] font-semibold text-slate-500 italic">
+                    HoD can adjust counts at any time before or after subject assignment.
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end text-xs">
@@ -1079,12 +1085,21 @@ export default function HoDDashboard() {
                         className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center space-x-1.5"
                       >
                         <CheckCircle2 className="w-4 h-4" />
-                        <span>Confirm Structure</span>
+                        <span>Confirm PO & PSO Counts</span>
                       </button>
                     ) : (
-                      <div className="p-2.5 rounded-xl bg-slate-200/80 text-slate-700 font-bold text-center border border-slate-300">
-                        🔒 Counts Confirmed
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm('Are you sure you want to unlock PO & PSO counts to edit them?')) {
+                            setIsStructureConfirmed(false);
+                          }
+                        }}
+                        className="w-full py-2.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold rounded-xl border border-amber-300 transition-all flex items-center justify-center space-x-1.5"
+                      >
+                        <Edit3 className="w-4 h-4 text-amber-700" />
+                        <span>Unlock & Edit Counts</span>
+                      </button>
                     )}
                   </div>
                 </div>

@@ -1132,9 +1132,16 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
               <div>
                 <p className="text-[10px] uppercase font-bold text-brand-700">Submission Deadline</p>
                 <p className="font-extrabold text-slate-900 mt-0.5">
-                  {subject.facultyDeadline ? new Date(subject.facultyDeadline).toLocaleDateString() : 'As Scheduled'}
+                  {subject.facultyDeadline
+                    ? `${new Date(subject.facultyDeadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} at 11:59 PM`
+                    : 'As Scheduled'}
                 </p>
-                <p className="text-desc text-[11px]">Assigned Faculty: {subject.assignedFaculty?.name}</p>
+                <p className="text-xs font-bold text-indigo-900 mt-1">
+                  Assigned Faculty: <span className="font-extrabold text-slate-900">{subject.assignedFaculty?.name || 'Faculty Member'}</span>{' '}
+                  <span className="font-mono text-[11px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded border border-indigo-200">
+                    ID: {subject.assignedFaculty?.userCode || subject.assignedFacultyId || 'N/A'}
+                  </span>
+                </p>
               </div>
             </div>
 
@@ -1169,18 +1176,26 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                 <div className="flex items-center justify-between border-b pb-2">
                   <h4 className="font-bold text-slate-900 flex items-center space-x-1.5">
                     <BookOpen className="w-4 h-4 text-brand-600" />
-                    <span>2. Syllabus Units & Practical</span>
+                    <span>2. {templateType === 'LAB' ? 'Laboratory Experiments' : 'Syllabus Units & Practical'}</span>
                   </h4>
                   <button onClick={() => setActiveStep(2)} className="text-[11px] font-bold text-brand-600 hover:underline">
                     Edit →
                   </button>
                 </div>
                 <div className="space-y-1.5 text-[11px]">
-                  <p>Syllabus Units: <strong className="text-slate-900">{units.filter((u) => u.content.trim()).length} / 5 Completed</strong></p>
-                  {experiments.filter((e) => e.title.trim()).length > 0 && (
-                    <p>Laboratory Experiments: <strong className="text-slate-900">{experiments.filter((e) => e.title.trim()).length} Experiments Listed</strong></p>
+                  {templateType === 'LAB' ? (
+                    <p>Laboratory Experiments: <strong className="text-slate-900">{experiments.filter((e) => e.title.trim()).length} / 10 Completed</strong></p>
+                  ) : (
+                    <>
+                      <p>Syllabus Units: <strong className="text-slate-900">{units.filter((u) => u.content.trim()).length} / 5 Completed</strong></p>
+                      {experiments.filter((e) => e.title.trim()).length > 0 && (
+                        <p>Laboratory Experiments: <strong className="text-slate-900">{experiments.filter((e) => e.title.trim()).length} Experiments Listed</strong></p>
+                      )}
+                    </>
                   )}
-                  <p className="text-desc text-[10px]">Topic Builder used for clean structured layout (no manual hyphens).</p>
+                  <p className="text-desc text-[10px]">
+                    {templateType === 'LAB' ? 'Minimum 10 Laboratory experiments configured.' : 'Topic Builder used for clean structured layout (no manual hyphens).'}
+                  </p>
                 </div>
               </div>
 
@@ -1235,7 +1250,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                 </div>
                 <div className="flex items-center space-x-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>All 5 Syllabus Units completed</span>
+                  <span>{templateType === 'LAB' ? 'Minimum 10 Laboratory Experiments completed' : 'All 5 Syllabus Units completed'}</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
