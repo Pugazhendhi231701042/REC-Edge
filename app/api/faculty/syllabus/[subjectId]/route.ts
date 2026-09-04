@@ -161,13 +161,13 @@ export async function POST(
       missing.push('⚠ Exactly 5 Course Outcomes (CO1..CO5) are mandatory.');
     }
 
-    // Textbooks check
-    if (!textbooks || textbooks.length === 0 || textbooks.some((t: any) => !t.title?.trim() || !t.authors?.trim())) {
+    // Textbooks check (Not mandatory for LAB courses)
+    if (templateType !== 'LAB' && (!textbooks || textbooks.length === 0 || textbooks.some((t: any) => !t.title?.trim() || !t.authors?.trim()))) {
       missing.push('⚠ At least 1 complete Textbook entry (Title, Author) is required.');
     }
 
-    // References check
-    if (!references || references.length === 0 || references.some((r: any) => !r.title?.trim())) {
+    // References check (Not mandatory for LAB courses)
+    if (templateType !== 'LAB' && (!references || references.length === 0 || references.some((r: any) => !r.title?.trim()))) {
       missing.push('⚠ At least 1 Reference entry is required.');
     }
 

@@ -85,19 +85,19 @@ export default function FacultyDashboard() {
 
   const handleSubmitSyllabus = async (data: any) => {
     if (!activeSubject) return;
-    try {
-      const res = await fetch(`/api/faculty/syllabus/${activeSubject.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, action: 'SUBMIT' }),
-      });
-      if (res.ok) {
-        setActiveSubject(null);
-        fetchAssignedSubjects();
-      }
-    } catch (err) {
-      console.error('Failed to submit syllabus');
+    const res = await fetch(`/api/faculty/syllabus/${activeSubject.id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, action: 'SUBMIT', isSubmit: true }),
+    });
+    const resData = await res.json();
+    if (!res.ok) {
+      const err: any = new Error(resData.error || 'Submission failed.');
+      err.missing = resData.missing;
+      throw err;
     }
+    setActiveSubject(null);
+    fetchAssignedSubjects();
   };
 
   const assignedCount = subjects.length;

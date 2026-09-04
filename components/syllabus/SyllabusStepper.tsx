@@ -424,10 +424,6 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
   const handleFinalSubmit = async () => {
     if (isLocked) return;
 
-    if (!confirm('Are you sure you want to submit this syllabus to the Head of Department (HoD) for review?')) {
-      return;
-    }
-
     const validation = validateFormBeforeSubmit();
     if (!validation.valid) {
       setMissingChecklist(validation.missing);
@@ -435,9 +431,13 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
       setError(`Validation Error: Please complete missing required fields on Step ${validation.firstMissingStep}: ${steps[validation.firstMissingStep - 1].label}.`);
       setSubmissionErrorModal({
         isOpen: true,
-        title: `Validation Error — Step ${validation.firstMissingStep}: ${steps[validation.firstMissingStep - 1].label}`,
+        title: `Unable to Submit Syllabus — Missing Requirements`,
         reasons: validation.missing,
       });
+      return;
+    }
+
+    if (!confirm('Are you sure you want to submit this syllabus to the Head of Department (HoD) for review?')) {
       return;
     }
 
@@ -754,12 +754,16 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
         {activeStep === 3 && (
           <div className="space-y-4">
             <h3 className="text-sm font-bold uppercase text-brand-700">Step 3: Course Outcomes (COs) & Cognitive Levels</h3>
-            <p className="text-xs text-desc">Define exactly 5 mandatory Course Outcomes corresponding to Units 1 to 5 and select Cognitive Level (Bloom's Taxonomy).</p>
+            <p className="text-xs text-desc">
+              {templateType === 'LAB'
+                ? "Define 5 common Course Outcomes for the given laboratory experiments and select Cognitive Level (Bloom's Taxonomy)."
+                : "Define exactly 5 mandatory Course Outcomes corresponding to Units 1 to 5 and select Cognitive Level (Bloom's Taxonomy)."}
+            </p>
             {courseOutcomes.map((co, idx) => (
               <div key={idx} className="p-4 border rounded-2xl bg-slate-50/50 space-y-2">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <label className="text-xs font-bold text-slate-700">
-                    CO{idx + 1} (Corresponds to Unit {idx + 1}) *
+                    {templateType === 'LAB' ? `CO${idx + 1} (Common Outcome ${idx + 1}) *` : `CO${idx + 1} (Corresponds to Unit ${idx + 1}) *`}
                   </label>
                   <div className="flex items-center space-x-2">
                     <span className="text-[11px] font-semibold text-slate-600">Cognitive Level:</span>
@@ -1131,16 +1135,19 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
               </div>
               <div>
                 <p className="text-[10px] uppercase font-bold text-brand-700">Submission Deadline</p>
-                <p className="font-extrabold text-slate-900 mt-0.5">
+                <p className="font-extrabold text-slate-900 mt-0.5 font-mono">
                   {subject.facultyDeadline
-                    ? `${new Date(subject.facultyDeadline).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} at 11:59 PM`
-                    : 'As Scheduled'}
+                    ? (() => {
+                        const d = new Date(subject.facultyDeadline);
+                        const day = String(d.getDate()).padStart(2, '0');
+                        const month = String(d.getMonth() + 1).padStart(2, '0');
+                        const year = d.getFullYear();
+                        return `${day}/${month}/${year} 23:59`;
+                      })()
+                    : '01/10/2026 23:59'}
                 </p>
-                <p className="text-xs font-bold text-indigo-900 mt-1">
-                  Assigned Faculty: <span className="font-extrabold text-slate-900">{subject.assignedFaculty?.name || 'Faculty Member'}</span>{' '}
-                  <span className="font-mono text-[11px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded border border-indigo-200">
-                    ID: {subject.assignedFaculty?.userCode || subject.assignedFacultyId || 'N/A'}
-                  </span>
+                <p className="text-xs font-bold text-slate-900 mt-1">
+                  Assigned Faculty: <span className="font-mono font-extrabold text-brand-700 bg-purple-100 px-2 py-0.5 rounded border border-purple-200">{subject.assignedFaculty?.userCode || subject.assignedFaculty?.email?.split('@')[0]?.toUpperCase() || 'CSF01'}</span>
                 </p>
               </div>
             </div>
