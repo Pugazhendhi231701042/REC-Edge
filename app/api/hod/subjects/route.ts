@@ -78,7 +78,7 @@ export async function POST(req: Request) {
 
       if (poStmtCount === 0 || psoStmtCount === 0) {
         return NextResponse.json(
-          { error: 'Program Outcomes (POs) and Program Specific Outcomes (PSOs) must be created and saved before adding subjects.' },
+          { error: 'Program Outcomes (POs) and Program Specific Outcomes (PSOs) structure must be confirmed and statements saved by HoD before creating subjects.' },
           { status: 400 }
         );
       }
@@ -88,17 +88,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'All subject fields are required.' }, { status: 400 });
     }
 
-    // Non-Theory Practical Hours Validation (P >= 1)
+    // L-T-P-C Validation: Theory L >= 1, Lab P >= 1
     const subjectType = await prisma.subjectType.findUnique({ where: { id: subjectTypeId } });
     if (!subjectType) {
       return NextResponse.json({ error: 'Invalid Subject Type.' }, { status: 400 });
     }
 
     const isNonTheory = subjectType.templateType !== 'THEORY' || subjectType.name.toLowerCase() !== 'theory';
+    const lVal = Number(lecture) || 0;
     const pVal = Number(practical) || 0;
 
+    if (!isNonTheory && lVal < 1) {
+      return NextResponse.json({ error: 'Lecture hours (L) must be at least 1 for Theory courses.' }, { status: 400 });
+    }
+
     if (isNonTheory && pVal < 1) {
-      return NextResponse.json({ error: 'Practical hours (P) must be at least 1 for non-Theory courses.' }, { status: 400 });
+      return NextResponse.json({ error: 'Practical hours (P) must be at least 1 for Practical / Lab courses.' }, { status: 400 });
     }
 
     // Fetch dynamic credit calculation weights & method

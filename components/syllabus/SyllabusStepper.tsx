@@ -1197,7 +1197,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                         value={unit.unitName}
                         onChange={(e) => {
                           const newUnits = [...units];
-                          newUnits[idx].unitName = e.target.value;
+                          newUnits[idx].unitName = e.target.value.toUpperCase();
                           setUnits(newUnits);
                         }}
                         placeholder={`Unit ${unit.unitNumber} Title (e.g. Differential Calculus)...`}

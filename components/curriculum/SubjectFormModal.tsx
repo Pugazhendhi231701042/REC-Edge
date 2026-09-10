@@ -122,7 +122,7 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
       setSubjectCategoryId(''); // Default to - Select Subject Category -
       setCoursePrefix(availablePrefixes[0] || departmentCode || 'CS');
       setSelectedVertical('Vertical A');
-      setLecture(3);
+      setLecture(0);
       setTutorial(0);
       setPractical(0);
     }
@@ -144,6 +144,7 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
     ? selectedType.templateType !== 'THEORY' || selectedType.name.toLowerCase() !== 'theory'
     : false;
   const isInvalidNonTheoryPractical = isNonTheory && practical < 1;
+  const isInvalidTheoryLecture = !isNonTheory && lecture < 1;
 
   // Extract vertical letter (e.g. "Vertical E" -> "E")
   const verticalLetter = selectedVertical.toUpperCase().startsWith('VERTICAL ')
@@ -165,6 +166,16 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
 
     if (!isElectiveCategory && (!selectedSemester || Number(selectedSemester) < 1)) {
       setError('Please select a valid Semester.');
+      return;
+    }
+
+    if (!isNonTheory && lecture < 1) {
+      setError('Lecture hours (L) must be at least 1 for Theory courses.');
+      return;
+    }
+
+    if (isNonTheory && practical < 1) {
+      setError('Practical hours (P) must be at least 1 for Lab / Practical courses.');
       return;
     }
 
@@ -384,7 +395,9 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
                   max="10"
                   value={lecture}
                   onChange={(e) => setLecture(parseInt(e.target.value) || 0)}
-                  className="w-full px-2 py-1.5 text-center text-sm font-semibold border border-slate-300 rounded-lg focus:ring-brand-500"
+                  className={`w-full px-2 py-1.5 text-center text-sm font-semibold border rounded-lg focus:ring-brand-500 ${
+                    isInvalidTheoryLecture ? 'border-red-500 bg-red-50 text-red-900 font-bold' : 'border-slate-300'
+                  }`}
                 />
               </div>
 

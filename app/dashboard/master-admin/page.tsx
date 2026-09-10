@@ -37,6 +37,8 @@ import {
   Calendar,
   MapPin,
   Layers,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 
 export default function MasterAdminDashboard() {
@@ -123,8 +125,12 @@ export default function MasterAdminDashboard() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isUnauthorized, setIsUnauthorized] = useState(false);
 
-  // Regulation Create Modal State
+  // Academic Config Sub-tab State
+  const [academicSubTab, setAcademicSubTab] = useState<'regulations' | 'credit' | 'popso' | 'sdgs'>('regulations');
+
+  // Regulation Create / Edit Modal State
   const [showRegModal, setShowRegModal] = useState(false);
+  const [editingRegulation, setEditingRegulation] = useState<any>(null);
   const [regCodeInput, setRegCodeInput] = useState('');
   const [regNameInput, setRegNameInput] = useState('');
   const [regDisplayNameInput, setRegDisplayNameInput] = useState('');
@@ -346,28 +352,49 @@ export default function MasterAdminDashboard() {
     if (!regCodeInput.trim() || !regNameInput.trim()) return;
 
     try {
+      const payload = editingRegulation
+        ? {
+            action: 'EDIT_REGULATION',
+            regId: editingRegulation.id,
+            code: regCodeInput.trim(),
+            name: regNameInput.trim(),
+            displayName: regDisplayNameInput.trim() || regNameInput.trim(),
+          }
+        : {
+            code: regCodeInput.trim(),
+            name: regNameInput.trim(),
+            displayName: regDisplayNameInput.trim() || regNameInput.trim(),
+          };
+
       const res = await fetch('/api/master-admin/regulations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code: regCodeInput.trim(),
-          name: regNameInput.trim(),
-          displayName: regDisplayNameInput.trim() || regNameInput.trim(),
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create regulation.');
+      if (!res.ok) throw new Error(data.error || 'Failed to save regulation.');
 
       setShowRegModal(false);
+      setEditingRegulation(null);
       setRegCodeInput('');
       setRegNameInput('');
       setRegDisplayNameInput('');
-      alert('✓ New regulation created successfully!');
+      alert(editingRegulation ? '✓ Regulation updated successfully!' : '✓ New regulation created successfully!');
       fetchData();
     } catch (err: any) {
       alert(err.message);
     }
+  };
+
+  const handleMoveCategory = (idx: number, direction: 'UP' | 'DOWN') => {
+    const targetIdx = direction === 'UP' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= subjectCategories.length) return;
+    const newCategories = [...subjectCategories];
+    const temp = newCategories[idx];
+    newCategories[idx] = newCategories[targetIdx];
+    newCategories[targetIdx] = temp;
+    setSubjectCategories(newCategories);
   };
 
   const handleDeleteRegulation = async (r: any) => {
@@ -1320,282 +1347,396 @@ export default function MasterAdminDashboard() {
           </div>
         )}
 
-        {/* TAB: REGULATIONS & TYPES */}
-        {activeTab === 'regulations' && (
+        {/* TAB: ACADEMIC CONFIGURATION (MERGED) */}
+        {(activeTab === 'academic_config' || activeTab === 'regulations' || activeTab === 'creditconfig' || activeTab === 'popso' || activeTab === 'sdgs') && (
           <div className="space-y-6">
+            {/* Header & Sub-Tab Navigation Pills */}
             <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 gap-3">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">Academic Regulations Management</h3>
-                  <p className="text-xs text-desc">Manage institutional regulations (e.g. Regulation 26, Regulation 27) and mark active regulation.</p>
+                  <h3 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center">
+                    <Sliders className="w-5 h-5 text-brand-600 mr-2" />
+                    Academic Configuration Master
+                  </h3>
+                  <p className="text-xs text-desc mt-0.5">
+                    Centralized management for institutional regulations, subject categories, credit calculation rules, PO/PSO structures, and UN SDGs.
+                  </p>
                 </div>
-                <button
-                  onClick={() => setShowRegModal(true)}
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
-                >
-                  <Plus className="w-4 h-4 mr-1.5" /> Create New Regulation
-                </button>
               </div>
 
-              <div className="space-y-3">
-                {regulations.map((r) => (
-                  <div key={r.id} className="p-4 border rounded-2xl flex items-center justify-between bg-slate-50">
-                    <div>
-                      <span className="font-bold text-slate-900 text-sm">{r.displayName}</span>
-                      <span className="ml-2 text-xs text-desc">Code: {r.code}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {r.active ? (
-                        <span className="px-3 py-1 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-full border border-emerald-300">
-                          Current Active Regulation
-                        </span>
-                      ) : (
-                        <>
-                          <button
-                            onClick={async () => {
-                              await fetch('/api/master-admin/regulations', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ action: 'SET_ACTIVE', regId: r.id }),
-                              });
-                              fetchData();
-                            }}
-                            className="px-3 py-1 text-xs font-semibold text-brand-700 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200"
-                          >
-                            Make Active
-                          </button>
-                          <button
-                            onClick={() => handleDeleteRegulation(r)}
-                            className="px-3 py-1 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 inline-flex items-center"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              {/* 4-Tab Sub Navigation Bar */}
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setAcademicSubTab('regulations')}
+                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center space-x-2 ${
+                    academicSubTab === 'regulations'
+                      ? 'bg-brand-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span>1. Regulations & Subject Categories</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAcademicSubTab('credit')}
+                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center space-x-2 ${
+                    academicSubTab === 'credit'
+                      ? 'bg-brand-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>2. Credit Formula & Domain Prefixes</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAcademicSubTab('popso')}
+                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center space-x-2 ${
+                    academicSubTab === 'popso'
+                      ? 'bg-brand-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>3. PO / PSO Structure Config</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAcademicSubTab('sdgs')}
+                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center space-x-2 ${
+                    academicSubTab === 'sdgs'
+                      ? 'bg-brand-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>4. Global SDGs Master</span>
+                </button>
               </div>
             </div>
 
-            <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
-              <h3 className="text-base font-bold text-slate-900">Subject Type Codes Configuration</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {subjectTypes.map((st) => (
-                  <div key={st.id} className="p-4 border border-purple-100 rounded-2xl bg-purple-50/30 flex items-center justify-between">
+            {/* SUB-SECTION 1: REGULATIONS & TYPES & CATEGORIES */}
+            {academicSubTab === 'regulations' && (
+              <div className="space-y-6">
+                <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b pb-3">
                     <div>
-                      <h4 className="text-xs font-bold text-slate-900">{st.name}</h4>
-                      <p className="text-[11px] font-mono text-brand-700">Code: <strong>{st.code}</strong></p>
+                      <h3 className="text-base font-bold text-slate-900">Academic Regulations Management</h3>
+                      <p className="text-xs text-desc">Manage institutional regulations (e.g. Regulation 26, Regulation 27) and mark active regulation.</p>
                     </div>
                     <button
                       onClick={() => {
-                        setEditingSubjectType(st);
-                        setTypeCodeValue(st.code);
-                        setTypeNameValue(st.name);
-                        setShowSubjectTypeModal(true);
+                        setEditingRegulation(null);
+                        setRegCodeInput('');
+                        setRegNameInput('');
+                        setRegDisplayNameInput('');
+                        setShowRegModal(true);
                       }}
-                      className="px-3 py-1 bg-brand-600 text-white font-bold text-xs rounded-lg flex items-center"
+                      className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
                     >
-                      <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit Code
+                      <Plus className="w-4 h-4 mr-1.5" /> Create New Regulation
                     </button>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {/* SUBJECT CATEGORIES CONFIGURATION */}
-            <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b pb-3">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Subject Categories Configuration</h3>
-                  <p className="text-xs text-desc">Configure course categories (e.g., PC, PE, OE, MC, EEC) reflected in subject creation dropdowns.</p>
-                </div>
-                <button
-                  onClick={() => {
-                    setEditingCategory(null);
-                    setCatCodeInput('');
-                    setCatNameInput('');
-                    setCatDescInput('');
-                    setShowCategoryModal(true);
-                  }}
-                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
-                >
-                  <Plus className="w-4 h-4 mr-1.5" /> Create Category
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {subjectCategories.map((cat) => (
-                  <div key={cat.id} className="p-4 border border-purple-100 rounded-2xl bg-purple-50/20 flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-mono text-xs font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
-                          {cat.code}
-                        </span>
-                        <h4 className="text-xs font-bold text-slate-900">{cat.name}</h4>
+                  <div className="space-y-3">
+                    {regulations.map((r) => (
+                      <div key={r.id} className="p-4 border rounded-2xl flex items-center justify-between bg-slate-50">
+                        <div>
+                          <span className="font-bold text-slate-900 text-sm">{r.displayName}</span>
+                          <span className="ml-2 text-xs text-desc">Code: {r.code}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => {
+                              setEditingRegulation(r);
+                              setRegCodeInput(r.code);
+                              setRegNameInput(r.name);
+                              setRegDisplayNameInput(r.displayName || r.name);
+                              setShowRegModal(true);
+                            }}
+                            className="px-3 py-1 text-xs font-semibold text-brand-700 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 inline-flex items-center"
+                          >
+                            <Edit className="w-3.5 h-3.5 mr-1" /> Edit Details
+                          </button>
+                          {r.active ? (
+                            <span className="px-3 py-1 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-full border border-emerald-300">
+                              Current Active Regulation
+                            </span>
+                          ) : (
+                            <>
+                              <button
+                                onClick={async () => {
+                                  await fetch('/api/master-admin/regulations', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ action: 'SET_ACTIVE', regId: r.id }),
+                                  });
+                                  fetchData();
+                                }}
+                                className="px-3 py-1 text-xs font-semibold text-brand-700 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200"
+                              >
+                                Make Active
+                              </button>
+                              <button
+                                onClick={() => handleDeleteRegulation(r)}
+                                className="px-3 py-1 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 inline-flex items-center"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      {cat.description && <p className="text-[11px] text-desc mt-1">{cat.description}</p>}
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
+                  <h3 className="text-base font-bold text-slate-900">Subject Type Codes Configuration</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {subjectTypes.map((st) => (
+                      <div key={st.id} className="p-4 border border-purple-100 rounded-2xl bg-purple-50/30 flex items-center justify-between">
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-900">{st.name}</h4>
+                          <p className="text-[11px] font-mono text-brand-700">Code: <strong>{st.code}</strong></p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setEditingSubjectType(st);
+                            setTypeCodeValue(st.code);
+                            setTypeNameValue(st.name);
+                            setShowSubjectTypeModal(true);
+                          }}
+                          className="px-3 py-1 bg-brand-600 text-white font-bold text-xs rounded-lg flex items-center"
+                        >
+                          <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit Code
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* SUBJECT CATEGORIES CONFIGURATION WITH REORDER (MOVE UP/DOWN) & MAX 2 CHAR CODES */}
+                <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b pb-3">
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900">Subject Categories Configuration (Max Code Length: 2)</h3>
+                      <p className="text-xs text-desc">Configure course category codes (e.g., PC, PE, OE, MC, HS). Use ↑ / ↓ buttons to reorder.</p>
                     </div>
-                    <div className="flex items-center space-x-1.5">
-                      <button
-                        onClick={() => {
-                          setEditingCategory(cat);
-                          setCatCodeInput(cat.code);
-                          setCatNameInput(cat.name);
-                          setCatDescInput(cat.description || '');
-                          setShowCategoryModal(true);
-                        }}
-                        className="px-2.5 py-1 bg-brand-50 text-brand-800 font-bold rounded-lg border border-purple-200 text-xs inline-flex items-center"
-                      >
-                        <Edit className="w-3.5 h-3.5 mr-1" /> Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteSubjectCategory(cat)}
-                        className="px-2.5 py-1 bg-red-50 text-red-700 font-bold rounded-lg border border-red-200 text-xs inline-flex items-center"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
-                      </button>
+                    <button
+                      onClick={() => {
+                        setEditingCategory(null);
+                        setCatCodeInput('');
+                        setCatNameInput('');
+                        setCatDescInput('');
+                        setShowCategoryModal(true);
+                      }}
+                      className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
+                    >
+                      <Plus className="w-4 h-4 mr-1.5" /> Create Category
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {subjectCategories.map((cat, catIdx) => (
+                      <div key={cat.id} className="p-4 border border-purple-100 rounded-2xl bg-purple-50/20 flex items-center justify-between">
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <span className="font-mono text-xs font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
+                              {cat.code}
+                            </span>
+                            <h4 className="text-xs font-bold text-slate-900">{cat.name}</h4>
+                          </div>
+                          {cat.description && <p className="text-[11px] text-desc mt-1">{cat.description}</p>}
+                        </div>
+                        <div className="flex items-center space-x-1.5">
+                          {/* Reorder Buttons (Move Up / Move Down) */}
+                          <div className="flex items-center space-x-0.5 bg-white p-1 rounded-lg border border-slate-200">
+                            <button
+                              type="button"
+                              disabled={catIdx === 0}
+                              onClick={() => handleMoveCategory(catIdx, 'UP')}
+                              className="p-1 text-slate-600 hover:text-brand-600 disabled:opacity-30 rounded hover:bg-purple-50"
+                              title="Move Category Up"
+                            >
+                              <ArrowUp className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={catIdx === subjectCategories.length - 1}
+                              onClick={() => handleMoveCategory(catIdx, 'DOWN')}
+                              className="p-1 text-slate-600 hover:text-brand-600 disabled:opacity-30 rounded hover:bg-purple-50"
+                              title="Move Category Down"
+                            >
+                              <ArrowDown className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              setEditingCategory(cat);
+                              setCatCodeInput(cat.code);
+                              setCatNameInput(cat.name);
+                              setCatDescInput(cat.description || '');
+                              setShowCategoryModal(true);
+                            }}
+                            className="px-2.5 py-1 bg-brand-50 text-brand-800 font-bold rounded-lg border border-purple-200 text-xs inline-flex items-center"
+                          >
+                            <Edit className="w-3.5 h-3.5 mr-1" /> Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSubjectCategory(cat)}
+                            className="px-2.5 py-1 bg-red-50 text-red-700 font-bold rounded-lg border border-red-200 text-xs inline-flex items-center"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SUB-SECTION 2: CREDIT FORMULA & DOMAIN PREFIXES */}
+            {academicSubTab === 'credit' && (
+              <div className="space-y-6">
+                <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5 max-w-xl">
+                  <h3 className="text-base font-bold text-slate-900">Credit Calculation Formula Config</h3>
+                  {creditMsg && <div className="p-3 rounded-xl bg-emerald-50 text-xs text-emerald-700 border border-emerald-200">{creditMsg}</div>}
+                  <form onSubmit={(e) => { e.preventDefault(); handleSaveCreditConfig(); }} className="space-y-4">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">Lecture (L)</label>
+                        <input type="number" step="0.1" required value={lWeight} onChange={(e) => setLWeight(parseFloat(e.target.value) || 1.0)} className="w-full p-2 text-xs border rounded-xl text-center font-bold" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">Tutorial (T)</label>
+                        <input type="number" step="0.1" required value={tWeight} onChange={(e) => setTWeight(parseFloat(e.target.value) || 1.0)} className="w-full p-2 text-xs border rounded-xl text-center font-bold" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">Practical (P)</label>
+                        <input type="number" step="0.1" required value={pWeight} onChange={(e) => setPWeight(parseFloat(e.target.value) || 0.5)} className="w-full p-2 text-xs border rounded-xl text-center font-bold" />
+                      </div>
+                    </div>
+                    <div className="p-3 bg-purple-50 text-brand-800 rounded-xl text-xs font-semibold">
+                      Formula: Credits = (L × {lWeight}) + (T × {tWeight}) + (P × {pWeight})
+                    </div>
+                    <button type="submit" className="w-full py-2.5 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-md">
+                      Save Credit Formula Config
+                    </button>
+                  </form>
+                </div>
+
+                {/* COURSE CODE PREFIXES (DOMAINS) CONFIGURATION */}
+                <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b pb-3">
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900">Course Code Prefixes (Offering Dept / Domain)</h3>
+                      <p className="text-xs text-desc">Manage domain prefixes (e.g. GE, PH, HS, MC, CS, EC, EE) used for elective subject code generation.</p>
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
 
-            {/* COURSE CODE PREFIXES (DOMAINS) CONFIGURATION */}
-            <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b pb-3">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Course Code Prefixes (Offering Dept / Domain)</h3>
-                  <p className="text-xs text-desc">Manage domain prefixes (e.g. GE, PH, HS, MC, CS, EC, EE) used for elective subject code generation.</p>
-                </div>
-              </div>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {customPrefixes.split(',').map((p) => p.trim()).filter(Boolean).map((pfx) => (
+                      <div key={pfx} className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-purple-50 text-brand-900 border border-purple-200">
+                        <span>{pfx}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePrefix(pfx)}
+                          className="ml-2 p-0.5 text-purple-400 hover:text-red-600 rounded hover:bg-purple-100 transition-colors"
+                          title={`Remove ${pfx}`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
 
-              <div className="flex flex-wrap gap-2 pt-1">
-                {customPrefixes.split(',').map((p) => p.trim()).filter(Boolean).map((pfx) => (
-                  <div key={pfx} className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-purple-50 text-brand-900 border border-purple-200">
-                    <span>{pfx}</span>
+                  <div className="flex items-center space-x-2 pt-2 border-t border-purple-100 max-w-sm">
+                    <input
+                      type="text"
+                      maxLength={2}
+                      value={newPrefixInput}
+                      onChange={(e) => setNewPrefixInput(e.target.value.toUpperCase())}
+                      placeholder="e.g. CD or GE"
+                      className="flex-1 px-3 py-1.5 text-xs font-mono border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 uppercase"
+                    />
                     <button
                       type="button"
-                      onClick={() => handleRemovePrefix(pfx)}
-                      className="ml-2 p-0.5 text-purple-400 hover:text-red-600 rounded hover:bg-purple-100 transition-colors"
-                      title={`Remove ${pfx}`}
+                      onClick={() => handleAddPrefix(newPrefixInput)}
+                      className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <Plus className="w-4 h-4 mr-1" /> Add Prefix
                     </button>
                   </div>
-                ))}
-              </div>
-
-              <div className="flex items-center space-x-2 pt-2 border-t border-purple-100 max-w-sm">
-                <input
-                  type="text"
-                  maxLength={2}
-                  value={newPrefixInput}
-                  onChange={(e) => setNewPrefixInput(e.target.value.toUpperCase())}
-                  placeholder="e.g. CD or GE"
-                  className="flex-1 px-3 py-1.5 text-xs font-mono border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 uppercase"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleAddPrefix(newPrefixInput)}
-                  className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
-                >
-                  <Plus className="w-4 h-4 mr-1" /> Add Prefix
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB: CREDIT WEIGHTS */}
-        {activeTab === 'creditconfig' && (
-          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5 max-w-xl">
-            <h3 className="text-base font-bold text-slate-900">Credit Calculation Formula Config</h3>
-            {creditMsg && <div className="p-3 rounded-xl bg-emerald-50 text-xs text-emerald-700 border border-emerald-200">{creditMsg}</div>}
-            <form onSubmit={(e) => { e.preventDefault(); handleSaveCreditConfig(); }} className="space-y-4">
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Lecture (L)</label>
-                  <input type="number" step="0.1" required value={lWeight} onChange={(e) => setLWeight(parseFloat(e.target.value) || 1.0)} className="w-full p-2 text-xs border rounded-xl text-center font-bold" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Tutorial (T)</label>
-                  <input type="number" step="0.1" required value={tWeight} onChange={(e) => setTWeight(parseFloat(e.target.value) || 1.0)} className="w-full p-2 text-xs border rounded-xl text-center font-bold" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Practical (P)</label>
-                  <input type="number" step="0.1" required value={pWeight} onChange={(e) => setPWeight(parseFloat(e.target.value) || 0.5)} className="w-full p-2 text-xs border rounded-xl text-center font-bold" />
                 </div>
               </div>
-              <div className="p-3 bg-purple-50 text-brand-800 rounded-xl text-xs font-semibold">
-                Formula: Credits = (L × {lWeight}) + (T × {tWeight}) + (P × {pWeight})
-              </div>
-              <button type="submit" className="w-full py-2.5 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-md">
-                Save Credit Formula Config
-              </button>
-            </form>
-          </div>
-        )}
+            )}
 
-        {/* TAB: UN SDGS MASTER */}
-        {activeTab === 'sdgs' && (
-          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">17 UN Sustainable Development Goals (SDGs) Master</h3>
-              <p className="text-xs text-desc">Institutional SDG goal definitions common across all college departments.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {sdgGoals.map((sdg) => (
-                <div key={sdg.id} className="p-4 border border-purple-100 rounded-2xl bg-purple-50/20 flex items-center justify-between">
+            {/* SUB-SECTION 3: PO / PSO CONFIG */}
+            {academicSubTab === 'popso' && (
+              <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5 max-w-xl">
+                <h3 className="text-base font-bold text-slate-900">PO & PSO Count Configuration</h3>
+                {poMsg && <div className="p-3 rounded-xl bg-emerald-50 text-xs text-emerald-700 border border-emerald-200">{poMsg}</div>}
+                <div className="space-y-3">
                   <div>
-                    <span className="text-[10px] font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
-                      SDG {sdg.sdgNumber}
-                    </span>
-                    <h4 className="text-xs font-bold text-slate-900 mt-1">{sdg.name}</h4>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">Select Department</label>
+                    <select value={selectedDeptForConfig} onChange={(e) => setSelectedDeptForConfig(e.target.value)} className="w-full p-2 text-xs border rounded-xl">
+                      {departments.map((d) => <option key={d.id} value={d.id}>{d.programmeName} ({d.shortName})</option>)}
+                    </select>
                   </div>
-                  <button
-                    onClick={() => {
-                      setEditingSdg(sdg);
-                      setSdgNameInput(sdg.name);
-                      setShowSdgModal(true);
-                    }}
-                    className="px-3 py-1 bg-brand-600 text-white font-bold text-xs rounded-lg flex items-center"
-                  >
-                    <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">POs Count</label>
+                      <input type="number" value={poCount} onChange={(e) => setPoCount(parseInt(e.target.value) || 12)} className="w-full p-2 text-xs border rounded-xl font-bold" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">PSOs Count</label>
+                      <input type="number" value={psoCount} onChange={(e) => setPsoCount(parseInt(e.target.value) || 3)} className="w-full p-2 text-xs border rounded-xl font-bold" />
+                    </div>
+                  </div>
+                  <button onClick={handleSavePOPSOConfig} className="w-full py-2.5 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-xs">
+                    Save PO / PSO Structure
                   </button>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+              </div>
+            )}
 
-        {/* TAB: PO / PSO CONFIG */}
-        {activeTab === 'popso' && (
-          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5 max-w-xl">
-            <h3 className="text-base font-bold text-slate-900">PO & PSO Count Configuration</h3>
-            {poMsg && <div className="p-3 rounded-xl bg-emerald-50 text-xs text-emerald-700 border border-emerald-200">{poMsg}</div>}
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Select Department</label>
-                <select value={selectedDeptForConfig} onChange={(e) => setSelectedDeptForConfig(e.target.value)} className="w-full p-2 text-xs border rounded-xl">
-                  {departments.map((d) => <option key={d.id} value={d.id}>{d.programmeName} ({d.shortName})</option>)}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+            {/* SUB-SECTION 4: UN SDGS MASTER */}
+            {academicSubTab === 'sdgs' && (
+              <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">POs Count</label>
-                  <input type="number" value={poCount} onChange={(e) => setPoCount(parseInt(e.target.value) || 12)} className="w-full p-2 text-xs border rounded-xl font-bold" />
+                  <h3 className="text-base font-bold text-slate-900">17 UN Sustainable Development Goals (SDGs) Master</h3>
+                  <p className="text-xs text-desc">Institutional SDG goal definitions common across all college departments.</p>
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">PSOs Count</label>
-                  <input type="number" value={psoCount} onChange={(e) => setPsoCount(parseInt(e.target.value) || 3)} className="w-full p-2 text-xs border rounded-xl font-bold" />
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {sdgGoals.map((sdg) => (
+                    <div key={sdg.id} className="p-4 border border-purple-100 rounded-2xl bg-purple-50/20 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
+                          SDG {sdg.sdgNumber}
+                        </span>
+                        <h4 className="text-xs font-bold text-slate-900 mt-1">{sdg.name}</h4>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setEditingSdg(sdg);
+                          setSdgNameInput(sdg.name);
+                          setShowSdgModal(true);
+                        }}
+                        className="px-3 py-1 bg-brand-600 text-white font-bold text-xs rounded-lg flex items-center"
+                      >
+                        <Edit2 className="w-3.5 h-3.5 mr-1" /> Edit
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <button onClick={handleSavePOPSOConfig} className="w-full py-2.5 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-xs">
-                Save PO / PSO Structure
-              </button>
-            </div>
+            )}
           </div>
         )}
 

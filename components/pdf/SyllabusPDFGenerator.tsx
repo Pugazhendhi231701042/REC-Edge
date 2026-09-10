@@ -110,7 +110,7 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
           onClick={handlePrint}
           className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md flex items-center transition-all"
         >
-          <Printer className="w-4 h-4 mr-2" /> Print Acknowledgement
+          <Download className="w-4 h-4 mr-2" /> Download PDF
         </button>
       </div>
 
@@ -174,13 +174,16 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {submission.objectives.map((o: any, idx: number) => (
-                  <tr key={idx} className="border-b border-slate-900">
-                    <td className="border border-slate-900 p-2 text-left leading-relaxed">
-                      ●  {cleanPrefix(o.description)}
-                    </td>
-                  </tr>
-                ))}
+                {submission.objectives.map((o: any, idx: number) => {
+                  const text = typeof o === 'string' ? o : o?.description || '';
+                  return (
+                    <tr key={idx} className="border-b border-slate-900">
+                      <td className="border border-slate-900 p-2 text-left leading-relaxed font-medium">
+                        ●  {cleanPrefix(text)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -251,24 +254,31 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
             <table className="w-full border-collapse border border-slate-900 text-xs mb-4 page-break-inside-avoid">
               <thead>
                 <tr className="bg-slate-100 font-bold border-b border-slate-900">
-                  <th className="border border-slate-900 p-2 text-left uppercase font-bold text-slate-900">
+                  <th colSpan={2} className="border border-slate-900 p-2 text-left uppercase font-bold text-slate-900">
                     Course Outcomes:
                   </th>
                 </tr>
                 <tr className="bg-slate-50 border-b border-slate-900">
-                  <td className="border border-slate-900 p-2 text-left italic text-slate-700">
+                  <td colSpan={2} className="border border-slate-900 p-2 text-left italic text-slate-700">
                     On completion of the course, students will be able to
                   </td>
                 </tr>
               </thead>
               <tbody>
-                {submission.courseOutcomes.map((co: any, idx: number) => (
-                  <tr key={idx} className="border-b border-slate-900">
-                    <td className="border border-slate-900 p-2 text-left leading-relaxed">
-                      ●  <strong>CO{co.coNumber}{co.cognitiveLevel ? ` (${co.cognitiveLevel})` : ''}:</strong> {cleanPrefix(co.description)}
-                    </td>
-                  </tr>
-                ))}
+                {submission.courseOutcomes.map((co: any, idx: number) => {
+                  const desc = typeof co === 'string' ? co : co?.description || '';
+                  const level = typeof co === 'object' && co?.cognitiveLevel ? co.cognitiveLevel : `K${Math.min(idx + 2, 5)}`;
+                  return (
+                    <tr key={idx} className="border-b border-slate-900">
+                      <td className="border border-slate-900 p-2 text-left leading-relaxed">
+                        ●  <strong>CO{co.coNumber || idx + 1}:</strong> {cleanPrefix(desc)}
+                      </td>
+                      <td className="border border-slate-900 p-2 text-center font-extrabold w-[14%] bg-purple-50/60 text-brand-900 border-l border-slate-900">
+                        {level}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -327,29 +337,35 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
               <thead>
                 <tr className="bg-slate-100 font-bold border-b border-slate-900">
                   <th className="border border-slate-900 p-1.5 font-bold">CO</th>
+                  <th className="border border-slate-900 p-1 font-bold text-[10px] bg-purple-100 text-brand-900">Cognitive Level</th>
                   {poKeys.map((k) => (
                     <th key={k} className="border border-slate-900 p-1 text-[10px] font-bold">{k}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {[1, 2, 3, 4, 5].map((coNum) => (
-                  <tr key={coNum} className="border-b border-slate-900">
-                    <td className="border border-slate-900 p-1.5 font-bold bg-slate-50">CO{coNum}</td>
-                    {poKeys.map((k) => {
-                      const corr = mappingsMap[`${coNum}_${k}`] ?? 0;
-                      return (
-                        <td key={k} className="border border-slate-900 p-1 font-medium text-slate-900">
-                          {corr > 0 ? corr : '-'}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                {[1, 2, 3, 4, 5].map((coNum, idx) => {
+                  const coObj = (submission.courseOutcomes || [])[idx];
+                  const level = typeof coObj === 'object' && coObj?.cognitiveLevel ? coObj.cognitiveLevel : `K${Math.min(idx + 2, 5)}`;
+                  return (
+                    <tr key={coNum} className="border-b border-slate-900">
+                      <td className="border border-slate-900 p-1.5 font-bold bg-slate-50">CO{coNum}</td>
+                      <td className="border border-slate-900 p-1 font-bold bg-purple-50 text-brand-900">{level}</td>
+                      {poKeys.map((k) => {
+                        const corr = mappingsMap[`${coNum}_${k}`] ?? 0;
+                        return (
+                          <td key={k} className="border border-slate-900 p-1 font-medium text-slate-900">
+                            {corr > 0 ? corr : '-'}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr className="bg-slate-100 font-black border-t-2 border-slate-900">
-                  <td className="border border-slate-900 p-1.5 font-black text-slate-900">Average</td>
+                  <td colSpan={2} className="border border-slate-900 p-1.5 font-black text-slate-900 text-center">Average</td>
                   {poKeys.map((k) => {
                     let total = 0;
                     let count = 0;

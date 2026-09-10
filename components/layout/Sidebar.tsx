@@ -90,10 +90,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       title: 'ACADEMIC CONFIGURATION',
       items: [
-        { id: 'regulations', label: 'Regulations & Types', icon: <Sliders className="w-4 h-4" /> },
-        { id: 'creditconfig', label: 'Credit Weights Config', icon: <BookOpen className="w-4 h-4" /> },
-        { id: 'popso', label: 'PO / PSO Structure', icon: <BookOpen className="w-4 h-4" /> },
-        { id: 'sdgs', label: 'Global SDGs Master', icon: <BookOpen className="w-4 h-4" /> },
+        { id: 'academic_config', label: 'Academic Configuration', icon: <Sliders className="w-4 h-4" /> },
       ],
     },
     {

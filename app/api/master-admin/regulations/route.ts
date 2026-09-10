@@ -38,9 +38,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Category Code and Name are required.' }, { status: 400 });
     }
 
+    const cleanCode = catCode.trim().toUpperCase();
+    if (cleanCode.length > 2) {
+      return NextResponse.json({ error: 'Subject Category Code must be maximum 2 characters (e.g. PC, PE, OE, MC).' }, { status: 400 });
+    }
+
     const createdCat = await prisma.subjectCategory.create({
       data: {
-        code: catCode.trim().toUpperCase(),
+        code: cleanCode,
         name: catName.trim(),
         description: catDescription ? catDescription.trim() : null,
       },
@@ -62,10 +67,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Category ID, Code, and Name are required.' }, { status: 400 });
     }
 
+    const cleanCode = catCode.trim().toUpperCase();
+    if (cleanCode.length > 2) {
+      return NextResponse.json({ error: 'Subject Category Code must be maximum 2 characters (e.g. PC, PE, OE, MC).' }, { status: 400 });
+    }
+
     const updatedCat = await prisma.subjectCategory.update({
       where: { id: catId },
       data: {
-        code: catCode.trim().toUpperCase(),
+        code: cleanCode,
         name: catName.trim(),
         description: catDescription ? catDescription.trim() : null,
       },
@@ -80,6 +90,32 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ success: true, subjectCategory: updatedCat });
+  }
+
+  if (action === 'EDIT_REGULATION') {
+    if (!regId || !code || !name) {
+      return NextResponse.json({ error: 'Regulation ID, Code, and Name are required.' }, { status: 400 });
+    }
+
+    const updatedReg = await prisma.regulation.update({
+      where: { id: regId },
+      data: {
+        code: code.trim(),
+        name: name.trim(),
+        displayName: displayName ? displayName.trim() : name.trim(),
+      },
+    });
+
+    await logAudit({
+      userId: session.userId,
+      userRole: session.role,
+      action: 'UPDATE_REGULATION',
+      entity: 'Regulation',
+      entityId: regId,
+      details: { code: updatedReg.code, name: updatedReg.name },
+    });
+
+    return NextResponse.json({ success: true, regulation: updatedReg });
   }
 
   if (action === 'DELETE_SUBJECT_CATEGORY') {

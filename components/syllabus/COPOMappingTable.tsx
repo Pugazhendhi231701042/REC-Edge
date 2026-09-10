@@ -42,6 +42,7 @@ export const COPOMappingTable: React.FC<COPOMappingTableProps> = ({
         <thead className="bg-purple-50 text-slate-700 font-semibold">
           <tr>
             <th className="p-2.5 text-left border-r border-purple-100 min-w-[80px]">CO / PO</th>
+            <th className="p-2 border-r border-purple-100 text-[10px] font-bold bg-purple-100/80 text-brand-900 min-w-[70px]">Cognitive Level</th>
             {poKeys.map((key) => {
               const stmt = getStatementText(key);
               return (
@@ -63,10 +64,13 @@ export const COPOMappingTable: React.FC<COPOMappingTableProps> = ({
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 font-medium">
-          {cos.map((coNum) => (
+          {cos.map((coNum, idx) => (
             <tr key={coNum} className="hover:bg-slate-50 transition-colors">
               <td className="p-2.5 font-bold text-brand-700 text-left border-r border-purple-100 bg-purple-50/40">
                 CO{coNum}
+              </td>
+              <td className="p-2 font-extrabold text-brand-900 text-center border-r border-purple-100 bg-purple-50/60 text-xs">
+                K{Math.min(idx + 2, 5)}
               </td>
               {poKeys.map((key) => {
                 const mapKey = `${coNum}_${key}`;
@@ -100,12 +104,13 @@ export const COPOMappingTable: React.FC<COPOMappingTableProps> = ({
           ))}
         </tbody>
 
-        {/* Requirement 08: Bottom Row with Calculated Column Averages */}
+        {/* Bottom Row with Calculated Column Averages */}
         <tfoot className="bg-purple-100/70 border-t-2 border-purple-200 font-extrabold text-slate-900">
           <tr>
             <td className="p-2.5 text-left border-r border-purple-200 text-brand-900 bg-purple-100 font-black">
               Average
             </td>
+            <td className="p-2 border-r border-purple-200 bg-purple-100/80"></td>
             {poKeys.map((key) => {
               let total = 0;
               let count = 0;
