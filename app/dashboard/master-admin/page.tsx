@@ -46,6 +46,7 @@ export default function MasterAdminDashboard() {
   const [users, setUsers] = useState<any[]>([]);
   const [regulations, setRegulations] = useState<any[]>([]);
   const [subjectTypes, setSubjectTypes] = useState<any[]>([]);
+  const [subjectCategories, setSubjectCategories] = useState<any[]>([]);
   const [sdgGoals, setSdgGoals] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [workflowData, setWorkflowData] = useState<any>({ subjects: [], extensionRequests: [], metrics: {} });
@@ -102,11 +103,14 @@ export default function MasterAdminDashboard() {
   const [editingSdg, setEditingSdg] = useState<any>(null);
   const [sdgNameInput, setSdgNameInput] = useState('');
 
-  // Credit Config Weights State
+  // Credit Config Weights & Custom Prefixes State
   const [calculationMethod, setCalculationMethod] = useState<'SUM' | 'WEIGHTED'>('SUM');
   const [lWeight, setLWeight] = useState(1.0);
   const [tWeight, setTWeight] = useState(1.0);
   const [pWeight, setPWeight] = useState(0.5);
+  const [hoursPerCredit, setHoursPerCredit] = useState(15);
+  const [customPrefixes, setCustomPrefixes] = useState("GE, PH, HS, MC, CS, EC, EE, ME, CE, AI, CB, IT");
+  const [newPrefixInput, setNewPrefixInput] = useState('');
   const [creditMsg, setCreditMsg] = useState('');
 
   // PO/PSO Config State
@@ -115,6 +119,23 @@ export default function MasterAdminDashboard() {
   const [psoCount, setPsoCount] = useState(3);
   const [poMsg, setPoMsg] = useState('');
 
+  // User Auth & Authorization State
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isUnauthorized, setIsUnauthorized] = useState(false);
+
+  // Regulation Create Modal State
+  const [showRegModal, setShowRegModal] = useState(false);
+  const [regCodeInput, setRegCodeInput] = useState('');
+  const [regNameInput, setRegNameInput] = useState('');
+  const [regDisplayNameInput, setRegDisplayNameInput] = useState('');
+
+  // Subject Category Modal State
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<any>(null);
+  const [catCodeInput, setCatCodeInput] = useState('');
+  const [catNameInput, setCatNameInput] = useState('');
+  const [catDescInput, setCatDescInput] = useState('');
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -122,6 +143,18 @@ export default function MasterAdminDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      const resMe = await fetch('/api/auth/me');
+      if (resMe.ok) {
+        const meData = await resMe.json();
+        if (meData.authenticated && meData.user) {
+          setCurrentUser(meData.user);
+          if (meData.user.role !== 'MASTERADMIN') {
+            setIsUnauthorized(true);
+            setLoading(false);
+            return;
+          }
+        }
+      }
       const [resDepts, resUsers, resRegs, resLogs, resCredit, resSdgs, resWorkflow, resSettings, resStages] = await Promise.all([
         fetch('/api/master-admin/departments'),
         fetch('/api/master-admin/users'),
@@ -154,6 +187,7 @@ export default function MasterAdminDashboard() {
         const data = await resRegs.json();
         setRegulations(data.regulations || []);
         setSubjectTypes(data.subjectTypes || []);
+        setSubjectCategories(data.subjectCategories || []);
       }
       if (resSdgs.ok) {
         const data = await resSdgs.json();
@@ -170,6 +204,10 @@ export default function MasterAdminDashboard() {
           setLWeight(data.config.lWeight ?? 1.0);
           setTWeight(data.config.tWeight ?? 1.0);
           setPWeight(data.config.pWeight ?? 0.5);
+          setHoursPerCredit(data.config.hoursPerCredit ?? 15);
+          if (data.config.customPrefixes) {
+            setCustomPrefixes(data.config.customPrefixes);
+          }
         }
       }
       if (resWorkflow.ok) {
@@ -303,6 +341,110 @@ export default function MasterAdminDashboard() {
     }
   };
 
+  const handleCreateRegulation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regCodeInput.trim() || !regNameInput.trim()) return;
+
+    try {
+      const res = await fetch('/api/master-admin/regulations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: regCodeInput.trim(),
+          name: regNameInput.trim(),
+          displayName: regDisplayNameInput.trim() || regNameInput.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create regulation.');
+
+      setShowRegModal(false);
+      setRegCodeInput('');
+      setRegNameInput('');
+      setRegDisplayNameInput('');
+      alert('✓ New regulation created successfully!');
+      fetchData();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteRegulation = async (r: any) => {
+    if (r.active) {
+      alert('Cannot delete the active regulation. Please set another regulation as active first.');
+      return;
+    }
+    if (!confirm(`Are you sure you want to delete regulation '${r.displayName}'?`)) return;
+
+    try {
+      const res = await fetch(`/api/master-admin/regulations?id=${r.id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete regulation.');
+
+      alert(`✓ ${data.message}`);
+      fetchData();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleSaveSubjectCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catCodeInput.trim() || !catNameInput.trim()) return;
+
+    try {
+      const res = await fetch('/api/master-admin/regulations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: editingCategory ? 'EDIT_SUBJECT_CATEGORY' : 'CREATE_SUBJECT_CATEGORY',
+          catId: editingCategory?.id,
+          catCode: catCodeInput.trim().toUpperCase(),
+          catName: catNameInput.trim(),
+          catDescription: catDescInput.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save subject category.');
+
+      setShowCategoryModal(false);
+      setEditingCategory(null);
+      setCatCodeInput('');
+      setCatNameInput('');
+      setCatDescInput('');
+      alert(`✓ Subject Category ${editingCategory ? 'updated' : 'created'} successfully!`);
+      fetchData();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteSubjectCategory = async (cat: any) => {
+    if (!confirm(`Are you sure you want to delete Subject Category '${cat.code} — ${cat.name}'?`)) return;
+
+    try {
+      const res = await fetch('/api/master-admin/regulations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'DELETE_SUBJECT_CATEGORY',
+          catId: cat.id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete subject category.');
+
+      alert('✓ Subject Category deleted successfully!');
+      fetchData();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
   const handleSaveSdgGoal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSdg) return;
@@ -326,20 +468,53 @@ export default function MasterAdminDashboard() {
     }
   };
 
-  const handleSaveCreditConfig = async () => {
-    setCreditMsg('');
+  const handleSaveCreditConfig = async (newPrefixList?: string | unknown) => {
+    const targetPrefixes = typeof newPrefixList === 'string' ? newPrefixList : customPrefixes;
     try {
       const res = await fetch('/api/master-admin/credit-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ calculationMethod, lWeight, tWeight, pWeight }),
+        body: JSON.stringify({
+          calculationMethod,
+          lWeight,
+          tWeight,
+          pWeight,
+          hoursPerCredit,
+          customPrefixes: targetPrefixes,
+        }),
       });
       if (res.ok) {
-        setCreditMsg(`Credit calculation rule updated to ${calculationMethod === 'SUM' ? 'Direct Sum (C = L+T+P)' : 'Weighted Formula'}.`);
+        setCreditMsg(`Credit configuration & prefixes updated successfully.`);
+        if (typeof newPrefixList === 'string') {
+          setCustomPrefixes(newPrefixList);
+        }
       }
     } catch (err) {
       console.error('Failed to update credit weights');
     }
+  };
+
+  const handleAddPrefix = (prefixToAdd: string) => {
+    const cleanPrefix = prefixToAdd.trim().toUpperCase();
+    if (!cleanPrefix) return;
+    const currentList = customPrefixes.split(',').map((p) => p.trim()).filter(Boolean);
+    if (currentList.includes(cleanPrefix)) {
+      alert(`Prefix '${cleanPrefix}' already exists.`);
+      return;
+    }
+    const updatedList = [...currentList, cleanPrefix].join(', ');
+    handleSaveCreditConfig(updatedList);
+    setNewPrefixInput('');
+  };
+
+  const handleRemovePrefix = (prefixToRemove: string) => {
+    const currentList = customPrefixes.split(',').map((p) => p.trim()).filter(Boolean);
+    if (currentList.length <= 1) {
+      alert('Must have at least one course code prefix configured.');
+      return;
+    }
+    const updatedList = currentList.filter((p) => p !== prefixToRemove).join(', ');
+    handleSaveCreditConfig(updatedList);
   };
 
   const handleSavePOPSOConfig = async () => {
@@ -384,6 +559,42 @@ export default function MasterAdminDashboard() {
     setSemesters(dept.semesters);
     setHodId(dept.hodId || '');
     setShowDeptModal(true);
+  };
+
+  const handleDeleteDepartment = async (deptId: string, deptName: string) => {
+    if (!confirm(`Are you sure you want to delete Department "${deptName}"? This will permanently remove all associated subjects and records.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/master-admin/departments?id=${deptId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || 'Department deleted successfully.');
+        fetchData();
+      } else {
+        setError(data.error || 'Failed to delete department.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error deleting department.');
+    }
+  };
+
+  const handleDeleteSubject = async (subjectId: string, subjectCode: string) => {
+    if (!confirm(`Are you sure you want to delete Subject "${subjectCode}"? This will permanently remove the subject and any attached syllabus submission.`)) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/master-admin/subjects?id=${subjectId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message || 'Subject deleted successfully.');
+        fetchData();
+      } else {
+        setError(data.error || 'Failed to delete subject.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Error deleting subject.');
+    }
   };
 
   const openAddUser = () => {
@@ -520,6 +731,43 @@ export default function MasterAdminDashboard() {
       </div>
     );
   };
+
+  if (isUnauthorized) {
+    return (
+      <AppShell>
+        <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center select-none">
+          <div className="p-6 rounded-3xl bg-red-50/90 border border-red-200 text-red-900 max-w-md w-full space-y-4 shadow-xl backdrop-blur-md">
+            <div className="w-16 h-16 rounded-2xl bg-red-100 border border-red-300 flex items-center justify-center mx-auto text-red-600 shadow-sm">
+              <ShieldAlert className="w-9 h-9" />
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-slate-900">Access Denied</h2>
+              <p className="text-xs font-semibold text-slate-600 mt-1.5 leading-relaxed">
+                You are currently logged in as <strong className="text-brand-700">{currentUser?.name || 'User'}</strong> (<span className="font-mono text-slate-800 font-bold">{currentUser?.role || 'Non-MasterAdmin'}</span>).
+              </p>
+              <p className="text-[11px] text-desc mt-2">
+                Access to the Master Admin Management System is restricted to Master Admin accounts only.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                const targetPath = currentUser?.role === 'HOD'
+                  ? '/dashboard/hod'
+                  : currentUser?.role === 'SUPERADMIN'
+                  ? '/dashboard/dean'
+                  : '/dashboard/faculty';
+                window.location.href = targetPath;
+              }}
+              className="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-black text-xs rounded-2xl shadow-md transition-all flex items-center justify-center space-x-2"
+            >
+              <span>Return to My Dashboard</span>
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </button>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell activeTab={activeTab} onTabChange={(tab) => {
@@ -786,9 +1034,14 @@ export default function MasterAdminDashboard() {
                     <span className="text-[10px] font-bold text-brand-700 uppercase bg-purple-100 px-2 py-0.5 rounded">
                       {d.programmeType} | Code: {d.departmentCode}
                     </span>
-                    <button onClick={() => openEditDept(d)} className="text-xs font-bold text-brand-600 hover:underline">
-                      Edit
-                    </button>
+                    <div className="flex items-center space-x-2">
+                      <button onClick={() => openEditDept(d)} className="text-xs font-bold text-brand-600 hover:underline">
+                        Edit
+                      </button>
+                      <button onClick={() => handleDeleteDepartment(d.id, d.programmeName)} className="text-xs font-bold text-red-600 hover:underline">
+                        Delete
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <h4 className="text-sm font-bold text-slate-900">{d.programmeName}</h4>
@@ -796,7 +1049,7 @@ export default function MasterAdminDashboard() {
                   </div>
                   <div className="pt-2 border-t border-purple-100 text-xs text-slate-700 space-y-1">
                     <p><strong>Configured Semesters:</strong> {d.semesters}</p>
-                    <p><strong>HoD:</strong> {d.hod ? `${d.hod.name} (${d.hod.userCode || 'N/A'})` : 'Unassigned'}</p>
+                    <p><strong>HoD:</strong> {d.hod ? `${d.hod.name}${d.hod.userCode ? ` (${d.hod.userCode})` : ''}` : 'Unassigned'}</p>
                   </div>
                 </div>
               ))}
@@ -907,6 +1160,7 @@ export default function MasterAdminDashboard() {
                     <th className="p-3 text-center">L-T-P-C</th>
                     <th className="p-3">Faculty</th>
                     <th className="p-3">Syllabus Status</th>
+                    <th className="p-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -920,6 +1174,14 @@ export default function MasterAdminDashboard() {
                       <td className="p-3 text-center font-semibold">{s.lecture}-{s.tutorial}-{s.practical}-{s.credits}</td>
                       <td className="p-3 font-semibold text-indigo-900">{s.assignedFaculty ? `${s.assignedFaculty.name} (${s.assignedFaculty.userCode})` : 'Unassigned'}</td>
                       <td className="p-3"><StatusBadge status={s.syllabusStatus} /></td>
+                      <td className="p-3 text-right">
+                        <button
+                          onClick={() => handleDeleteSubject(s.id, s.subjectCode)}
+                          className="px-2.5 py-1 text-[11px] font-bold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-lg transition-all"
+                        >
+                          Delete
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1058,7 +1320,19 @@ export default function MasterAdminDashboard() {
         {activeTab === 'regulations' && (
           <div className="space-y-6">
             <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
-              <h3 className="text-base font-bold text-slate-900">Academic Regulations Management</h3>
+              <div className="flex items-center justify-between border-b pb-3">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Academic Regulations Management</h3>
+                  <p className="text-xs text-desc">Manage institutional regulations (e.g. Regulation 26, Regulation 27) and mark active regulation.</p>
+                </div>
+                <button
+                  onClick={() => setShowRegModal(true)}
+                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
+                >
+                  <Plus className="w-4 h-4 mr-1.5" /> Create New Regulation
+                </button>
+              </div>
+
               <div className="space-y-3">
                 {regulations.map((r) => (
                   <div key={r.id} className="p-4 border rounded-2xl flex items-center justify-between bg-slate-50">
@@ -1066,25 +1340,35 @@ export default function MasterAdminDashboard() {
                       <span className="font-bold text-slate-900 text-sm">{r.displayName}</span>
                       <span className="ml-2 text-xs text-desc">Code: {r.code}</span>
                     </div>
-                    {r.active ? (
-                      <span className="px-3 py-1 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-full border border-emerald-300">
-                        Current Active Regulation
-                      </span>
-                    ) : (
-                      <button
-                        onClick={async () => {
-                          await fetch('/api/master-admin/regulations', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ action: 'SET_ACTIVE', regId: r.id }),
-                          });
-                          fetchData();
-                        }}
-                        className="px-3 py-1 text-xs font-semibold text-brand-700 bg-purple-50 hover:bg-purple-100 rounded-lg"
-                      >
-                        Make Active
-                      </button>
-                    )}
+                    <div className="flex items-center space-x-2">
+                      {r.active ? (
+                        <span className="px-3 py-1 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-full border border-emerald-300">
+                          Current Active Regulation
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            onClick={async () => {
+                              await fetch('/api/master-admin/regulations', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ action: 'SET_ACTIVE', regId: r.id }),
+                              });
+                              fetchData();
+                            }}
+                            className="px-3 py-1 text-xs font-semibold text-brand-700 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200"
+                          >
+                            Make Active
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRegulation(r)}
+                            className="px-3 py-1 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 inline-flex items-center"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1112,6 +1396,107 @@ export default function MasterAdminDashboard() {
                     </button>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* SUBJECT CATEGORIES CONFIGURATION */}
+            <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b pb-3">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Subject Categories Configuration</h3>
+                  <p className="text-xs text-desc">Configure course categories (e.g., PC, PE, OE, MC, EEC) reflected in subject creation dropdowns.</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setEditingCategory(null);
+                    setCatCodeInput('');
+                    setCatNameInput('');
+                    setCatDescInput('');
+                    setShowCategoryModal(true);
+                  }}
+                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
+                >
+                  <Plus className="w-4 h-4 mr-1.5" /> Create Category
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {subjectCategories.map((cat) => (
+                  <div key={cat.id} className="p-4 border border-purple-100 rounded-2xl bg-purple-50/20 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-mono text-xs font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
+                          {cat.code}
+                        </span>
+                        <h4 className="text-xs font-bold text-slate-900">{cat.name}</h4>
+                      </div>
+                      {cat.description && <p className="text-[11px] text-desc mt-1">{cat.description}</p>}
+                    </div>
+                    <div className="flex items-center space-x-1.5">
+                      <button
+                        onClick={() => {
+                          setEditingCategory(cat);
+                          setCatCodeInput(cat.code);
+                          setCatNameInput(cat.name);
+                          setCatDescInput(cat.description || '');
+                          setShowCategoryModal(true);
+                        }}
+                        className="px-2.5 py-1 bg-brand-50 text-brand-800 font-bold rounded-lg border border-purple-200 text-xs inline-flex items-center"
+                      >
+                        <Edit className="w-3.5 h-3.5 mr-1" /> Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteSubjectCategory(cat)}
+                        className="px-2.5 py-1 bg-red-50 text-red-700 font-bold rounded-lg border border-red-200 text-xs inline-flex items-center"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* COURSE CODE PREFIXES (DOMAINS) CONFIGURATION */}
+            <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b pb-3">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Course Code Prefixes (Offering Dept / Domain)</h3>
+                  <p className="text-xs text-desc">Manage domain prefixes (e.g. GE, PH, HS, MC, CS, EC, EE) used for elective subject code generation.</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                {customPrefixes.split(',').map((p) => p.trim()).filter(Boolean).map((pfx) => (
+                  <div key={pfx} className="inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-purple-50 text-brand-900 border border-purple-200">
+                    <span>{pfx}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePrefix(pfx)}
+                      className="ml-2 p-0.5 text-purple-400 hover:text-red-600 rounded hover:bg-purple-100 transition-colors"
+                      title={`Remove ${pfx}`}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center space-x-2 pt-2 border-t border-purple-100 max-w-sm">
+                <input
+                  type="text"
+                  value={newPrefixInput}
+                  onChange={(e) => setNewPrefixInput(e.target.value)}
+                  placeholder="e.g. AD or BM"
+                  className="flex-1 px-3 py-1.5 text-xs font-mono border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 uppercase"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleAddPrefix(newPrefixInput)}
+                  className="px-4 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Add Prefix
+                </button>
               </div>
             </div>
           </div>
@@ -1471,6 +1856,22 @@ export default function MasterAdminDashboard() {
                     </div>
                   )}
 
+                  <div className="pt-4 border-t border-purple-100 space-y-1.5">
+                    <label className="block text-xs font-bold text-slate-900">Contact Hours per Credit Standard</label>
+                    <p className="text-[11px] text-desc">Default standard: 15 contact hours per 1 credit (Theory 3 credits = 45h, Lab 2 credits = 30h, Lab-Oriented 4 credits = 60h)</p>
+                    <div className="flex items-center space-x-3 pt-1">
+                      <input
+                        type="number"
+                        min="1"
+                        max="60"
+                        value={hoursPerCredit}
+                        onChange={(e) => setHoursPerCredit(parseInt(e.target.value) || 15)}
+                        className="w-32 p-2 border rounded-xl font-extrabold text-xs"
+                      />
+                      <span className="text-xs font-semibold text-slate-700">Contact Hours / Credit</span>
+                    </div>
+                  </div>
+
                   <div className="pt-2 flex justify-end">
                     <button
                       type="button"
@@ -1514,6 +1915,57 @@ export default function MasterAdminDashboard() {
                 documentTitle="MasterAdmin Syllabus Inspection"
                 hideJustifications={false}
               />
+            </div>
+          </div>
+        )}
+
+        {/* Subject Category Create / Edit Modal */}
+        {showCategoryModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+              <h3 className="text-base font-bold text-slate-900">{editingCategory ? 'Edit Subject Category' : 'Create Subject Category'}</h3>
+              <form onSubmit={handleSaveSubjectCategory} className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-semibold mb-1">Category Code (e.g. PC, PE, OE, MC) *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="OE"
+                    value={catCodeInput}
+                    onChange={(e) => setCatCodeInput(e.target.value)}
+                    className="w-full p-2 border rounded-xl font-mono uppercase font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1">Category Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Open Elective"
+                    value={catNameInput}
+                    onChange={(e) => setCatNameInput(e.target.value)}
+                    className="w-full p-2 border rounded-xl"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1">Description (Optional)</label>
+                  <input
+                    type="text"
+                    placeholder="Interdisciplinary elective courses offered across college departments"
+                    value={catDescInput}
+                    onChange={(e) => setCatDescInput(e.target.value)}
+                    className="w-full p-2 border rounded-xl"
+                  />
+                </div>
+                <div className="flex justify-end space-x-2 pt-3 border-t">
+                  <button type="button" onClick={() => setShowCategoryModal(false)} className="px-3 py-1.5 rounded-xl text-slate-600">
+                    Cancel
+                  </button>
+                  <button type="submit" className="px-4 py-1.5 rounded-xl bg-brand-600 text-white font-bold">
+                    {editingCategory ? 'Update Category' : 'Create Category'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
@@ -1590,6 +2042,57 @@ export default function MasterAdminDashboard() {
                 <div className="flex justify-end space-x-2 pt-3 border-t">
                   <button type="button" onClick={() => setShowUserModal(false)} className="px-3 py-1.5 rounded-xl text-slate-600">Cancel</button>
                   <button type="submit" className="px-4 py-1.5 rounded-xl bg-brand-600 text-white font-bold">{editingUser ? 'Update User' : 'Create Account'}</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Create Regulation Modal */}
+        {showRegModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+              <h3 className="text-base font-bold text-slate-900">Create New Academic Regulation</h3>
+              <form onSubmit={handleCreateRegulation} className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-semibold mb-1">Regulation Code (e.g. 27, 26) *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="27"
+                    value={regCodeInput}
+                    onChange={(e) => setRegCodeInput(e.target.value)}
+                    className="w-full p-2 border rounded-xl font-mono font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1">Regulation Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Regulation 2027"
+                    value={regNameInput}
+                    onChange={(e) => setRegNameInput(e.target.value)}
+                    className="w-full p-2 border rounded-xl"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1">Display Name</label>
+                  <input
+                    type="text"
+                    placeholder="Regulation 2027 (R27)"
+                    value={regDisplayNameInput}
+                    onChange={(e) => setRegDisplayNameInput(e.target.value)}
+                    className="w-full p-2 border rounded-xl"
+                  />
+                </div>
+                <div className="flex justify-end space-x-2 pt-3 border-t">
+                  <button type="button" onClick={() => setShowRegModal(false)} className="px-3 py-1.5 rounded-xl text-slate-600">
+                    Cancel
+                  </button>
+                  <button type="submit" className="px-4 py-1.5 rounded-xl bg-brand-600 text-white font-bold">
+                    Create Regulation
+                  </button>
                 </div>
               </form>
             </div>

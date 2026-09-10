@@ -115,7 +115,7 @@ export async function POST(req: Request) {
         data: {
           recipientId: subject.assignedFaculty.id,
           title: `Syllabus Approved by HoD: ${subject.subjectCode}`,
-          message: `Your syllabus for ${subject.subjectCode} - ${subject.subjectName} has been approved by the HoD and forwarded to the Dean for final institutional approval.`,
+          message: `Your syllabus for ${subject.subjectCode} - ${subject.subjectName} has been approved by the HoD and added to the Department Curriculum Book.`,
           type: 'SYLLABUS_APPROVED',
           relatedEntity: subject.id,
         },

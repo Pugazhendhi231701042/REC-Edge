@@ -55,11 +55,39 @@ export async function POST(req: Request) {
   });
 
   if (action === 'APPROVE') {
-    // Update AcademicStage deadline
+    // 1. Calculate extension delta in milliseconds
+    const oldDeadline = ext.currentDeadline ? new Date(ext.currentDeadline).getTime() : Date.now();
+    const newDeadline = new Date(ext.requestedDeadline).getTime();
+    const deltaMs = newDeadline - oldDeadline;
+
+    // 2. Update target AcademicStage deadline
     await prisma.academicStage.update({
       where: { id: ext.stageId },
       data: { deadline: ext.requestedDeadline },
     });
+
+    // 3. Cascade shift to all subsequent stages (order > current stage order)
+    if (deltaMs > 0 && ext.stage?.order) {
+      const subsequentStages = await prisma.academicStage.findMany({
+        where: { order: { gt: ext.stage.order } },
+      });
+
+      for (const subStage of subsequentStages) {
+        const updateData: any = {};
+        if (subStage.startDate) {
+          updateData.startDate = new Date(new Date(subStage.startDate).getTime() + deltaMs);
+        }
+        if (subStage.deadline) {
+          updateData.deadline = new Date(new Date(subStage.deadline).getTime() + deltaMs);
+        }
+        if (Object.keys(updateData).length > 0) {
+          await prisma.academicStage.update({
+            where: { id: subStage.id },
+            data: updateData,
+          });
+        }
+      }
+    }
   }
 
   // Notify HoD

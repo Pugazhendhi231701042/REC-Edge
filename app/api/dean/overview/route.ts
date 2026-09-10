@@ -115,7 +115,19 @@ export async function GET() {
       subjectType: true,
       subjectCategory: true,
       assignedFaculty: { select: { name: true, email: true, userCode: true } },
-      submission: true,
+      submission: {
+        include: {
+          objectives: { orderBy: { order: 'asc' } },
+          syllabusUnits: { orderBy: { unitNumber: 'asc' } },
+          experiments: { orderBy: { experimentNumber: 'asc' } },
+          courseOutcomes: { orderBy: { coNumber: 'asc' } },
+          textbooks: { orderBy: { order: 'asc' } },
+          references: { orderBy: { order: 'asc' } },
+          coPoMappings: true,
+          coPoJustifications: true,
+          sdgMappings: true,
+        },
+      },
     },
     orderBy: [{ departmentId: 'asc' }, { semester: 'asc' }],
   });

@@ -14,13 +14,13 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className = ''
         return {
           bg: 'bg-emerald-50 text-emerald-800 border-emerald-300 font-bold',
           icon: <ShieldCheck className="w-3.5 h-3.5 mr-1 text-emerald-600" />,
-          label: 'Dean Approved (Final)',
+          label: 'Approved by Dean (Final Bundle)',
         };
       case 'HOD_APPROVED':
         return {
           bg: 'bg-indigo-50 text-indigo-800 border-indigo-200 font-semibold',
           icon: <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-indigo-600" />,
-          label: 'HoD Approved → Sent to Dean',
+          label: 'HoD Approved (Curriculum Book Ready)',
         };
       case 'SUBMITTED':
       case 'RESUBMITTED':

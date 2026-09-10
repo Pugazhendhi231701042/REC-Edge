@@ -16,35 +16,40 @@ export async function GET(req: Request) {
     return NextResponse.json({ poStatements: [], psoStatements: [], poCount: 12, psoCount: 3, isConfirmed: false });
   }
 
-  const reg26 = await prisma.regulation.findUnique({ where: { code: '26' } });
-  if (!reg26) {
+  const activeReg = await prisma.regulation.findFirst({ where: { active: true } }) || await prisma.regulation.findFirst();
+  if (!activeReg) {
     return NextResponse.json({ poStatements: [], psoStatements: [], poCount: 12, psoCount: 3, isConfirmed: false });
   }
 
-  const [poStatements, psoStatements, poConfig, psoConfig] = await Promise.all([
+  const [poStatements, psoStatements, peoStatements, poConfig, psoConfig] = await Promise.all([
     prisma.programOutcomeStatement.findMany({
-      where: { departmentId, regulationId: reg26.id },
+      where: { departmentId, regulationId: activeReg.id },
       orderBy: { poKey: 'asc' },
     }),
     prisma.programSpecificOutcomeStatement.findMany({
-      where: { departmentId, regulationId: reg26.id },
+      where: { departmentId, regulationId: activeReg.id },
       orderBy: { psoKey: 'asc' },
     }),
+    prisma.programEducationalObjectiveStatement.findMany({
+      where: { departmentId, regulationId: activeReg.id },
+      orderBy: { peoKey: 'asc' },
+    }),
     prisma.pOConfiguration.findUnique({
-      where: { departmentId_regulationId: { departmentId, regulationId: reg26.id } },
+      where: { departmentId_regulationId: { departmentId, regulationId: activeReg.id } },
     }),
     prisma.pSOConfiguration.findUnique({
-      where: { departmentId_regulationId: { departmentId, regulationId: reg26.id } },
+      where: { departmentId_regulationId: { departmentId, regulationId: activeReg.id } },
     }),
   ]);
 
   const poCount = poConfig ? poConfig.poCount : (poStatements.length > 0 ? poStatements.length : 12);
   const psoCount = psoConfig ? psoConfig.psoCount : (psoStatements.length > 0 ? psoStatements.length : 3);
-  const isConfirmed = !!(poConfig || psoConfig || poStatements.length > 0 || psoStatements.length > 0);
+  const isConfirmed = !!(poConfig || psoConfig || poStatements.length > 0 || psoStatements.length > 0 || peoStatements.length > 0);
 
   return NextResponse.json({
     poStatements,
     psoStatements,
+    peoStatements,
     poCount,
     psoCount,
     isConfirmed,
@@ -64,9 +69,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Department ID is required.' }, { status: 400 });
   }
 
-  const reg26 = await prisma.regulation.findUnique({ where: { code: '26' } });
-  if (!reg26) {
-    return NextResponse.json({ error: 'Regulation 26 not found.' }, { status: 404 });
+  const activeReg = await prisma.regulation.findFirst({ where: { active: true } }) || await prisma.regulation.findFirst();
+  if (!activeReg) {
+    return NextResponse.json({ error: 'No active regulation configured.' }, { status: 404 });
   }
 
   // Handle Structure Confirmation (Setting PO/PSO counts)
@@ -76,14 +81,14 @@ export async function POST(req: Request) {
 
     await Promise.all([
       prisma.pOConfiguration.upsert({
-        where: { departmentId_regulationId: { departmentId, regulationId: reg26.id } },
+        where: { departmentId_regulationId: { departmentId, regulationId: activeReg.id } },
         update: { poCount },
-        create: { departmentId, regulationId: reg26.id, poCount },
+        create: { departmentId, regulationId: activeReg.id, poCount },
       }),
       prisma.pSOConfiguration.upsert({
-        where: { departmentId_regulationId: { departmentId, regulationId: reg26.id } },
+        where: { departmentId_regulationId: { departmentId, regulationId: activeReg.id } },
         update: { psoCount },
-        create: { departmentId, regulationId: reg26.id, psoCount },
+        create: { departmentId, regulationId: activeReg.id, psoCount },
       }),
     ]);
 
@@ -101,19 +106,19 @@ export async function POST(req: Request) {
 
   // Handle Batch Save All Statements (Requirement: One single Save All button)
   if (body.batchSave) {
-    const { poStatements = {}, psoStatements = {}, poCount = 12, psoCount = 3 } = body;
+    const { poStatements = {}, psoStatements = {}, peoStatements = {}, poCount = 12, psoCount = 3 } = body;
 
     // Ensure PO and PSO Configurations exist & set counts
     await Promise.all([
       prisma.pOConfiguration.upsert({
-        where: { departmentId_regulationId: { departmentId, regulationId: reg26.id } },
+        where: { departmentId_regulationId: { departmentId, regulationId: activeReg.id } },
         update: { poCount: Number(poCount) },
-        create: { departmentId, regulationId: reg26.id, poCount: Number(poCount) },
+        create: { departmentId, regulationId: activeReg.id, poCount: Number(poCount) },
       }),
       prisma.pSOConfiguration.upsert({
-        where: { departmentId_regulationId: { departmentId, regulationId: reg26.id } },
+        where: { departmentId_regulationId: { departmentId, regulationId: activeReg.id } },
         update: { psoCount: Number(psoCount) },
-        create: { departmentId, regulationId: reg26.id, psoCount: Number(psoCount) },
+        create: { departmentId, regulationId: activeReg.id, psoCount: Number(psoCount) },
       }),
     ]);
 
@@ -123,14 +128,14 @@ export async function POST(req: Request) {
         where: {
           departmentId_regulationId_poKey: {
             departmentId,
-            regulationId: reg26.id,
+            regulationId: activeReg.id,
             poKey: key,
           },
         },
         update: { statement: String(stmtText) },
         create: {
           departmentId,
-          regulationId: reg26.id,
+          regulationId: activeReg.id,
           poKey: key,
           statement: String(stmtText),
         },
@@ -143,32 +148,52 @@ export async function POST(req: Request) {
         where: {
           departmentId_regulationId_psoKey: {
             departmentId,
-            regulationId: reg26.id,
+            regulationId: activeReg.id,
             psoKey: key,
           },
         },
         update: { statement: String(stmtText) },
         create: {
           departmentId,
-          regulationId: reg26.id,
+          regulationId: activeReg.id,
           psoKey: key,
           statement: String(stmtText),
         },
       })
     );
 
-    await Promise.all([...poOps, ...psoOps]);
+    // Upsert PEO Statements
+    const peoOps = Object.entries(peoStatements).map(([key, stmtText]) =>
+      prisma.programEducationalObjectiveStatement.upsert({
+        where: {
+          departmentId_regulationId_peoKey: {
+            departmentId,
+            regulationId: activeReg.id,
+            peoKey: key,
+          },
+        },
+        update: { statement: String(stmtText) },
+        create: {
+          departmentId,
+          regulationId: activeReg.id,
+          peoKey: key,
+          statement: String(stmtText),
+        },
+      })
+    );
+
+    await Promise.all([...poOps, ...psoOps, ...peoOps]);
 
     await logAudit({
       userId: session.userId,
       userRole: session.role,
-      action: 'BATCH_SAVE_PO_PSO_STATEMENTS',
+      action: 'BATCH_SAVE_PO_PSO_PEO_STATEMENTS',
       entity: 'Department',
       entityId: departmentId,
-      details: { poCount, psoCount, poSaved: Object.keys(poStatements).length, psoSaved: Object.keys(psoStatements).length },
+      details: { poCount, psoCount, peoSaved: Object.keys(peoStatements).length },
     });
 
-    return NextResponse.json({ success: true, message: 'All PO & PSO statements saved successfully.' });
+    return NextResponse.json({ success: true, message: 'All PO, PSO & PEO statements saved successfully.' });
   }
 
   // Fallback single statement save
@@ -177,19 +202,38 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Key and Statement text are required.' }, { status: 400 });
   }
 
-  if (type === 'PSO') {
+  if (type === 'PEO') {
+    const updated = await prisma.programEducationalObjectiveStatement.upsert({
+      where: {
+        departmentId_regulationId_peoKey: {
+          departmentId,
+          regulationId: activeReg.id,
+          peoKey: key,
+        },
+      },
+      update: { statement },
+      create: {
+        departmentId,
+        regulationId: activeReg.id,
+        peoKey: key,
+        statement,
+      },
+    });
+
+    return NextResponse.json({ success: true, statement: updated });
+  } else if (type === 'PSO') {
     const updated = await prisma.programSpecificOutcomeStatement.upsert({
       where: {
         departmentId_regulationId_psoKey: {
           departmentId,
-          regulationId: reg26.id,
+          regulationId: activeReg.id,
           psoKey: key,
         },
       },
       update: { statement },
       create: {
         departmentId,
-        regulationId: reg26.id,
+        regulationId: activeReg.id,
         psoKey: key,
         statement,
       },
@@ -201,14 +245,14 @@ export async function POST(req: Request) {
       where: {
         departmentId_regulationId_poKey: {
           departmentId,
-          regulationId: reg26.id,
+          regulationId: activeReg.id,
           poKey: key,
         },
       },
       update: { statement },
       create: {
         departmentId,
-        regulationId: reg26.id,
+        regulationId: activeReg.id,
         poKey: key,
         statement,
       },

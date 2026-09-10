@@ -5,7 +5,8 @@ import { AppShell } from '@/components/layout/AppShell';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { SubjectFormModal } from '@/components/curriculum/SubjectFormModal';
 import { SyllabusPDFGenerator } from '@/components/pdf/SyllabusPDFGenerator';
-import { formatIST } from '@/lib/time';
+import { DepartmentCurriculumPDFGenerator } from '@/components/pdf/DepartmentCurriculumPDFGenerator';
+import { formatIST, formatStageDeadlineRange } from '@/lib/time';
 import {
   BookOpen,
   Users,
@@ -51,6 +52,13 @@ export default function HoDDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // 4 Academic Stages & Department Curriculum Bundle States
+  const [stages, setStages] = useState<any[]>([]);
+  const [bundle, setBundle] = useState<any>(null);
+  const [canSubmitBundle, setCanSubmitBundle] = useState<boolean>(false);
+  const [showBundleModal, setShowBundleModal] = useState<boolean>(false);
+  const [submittingBundle, setSubmittingBundle] = useState<boolean>(false);
+
   // Filter States for Progress / Approved
   const [searchQuery, setSearchQuery] = useState('');
   const [filterFaculty, setFilterFaculty] = useState('ALL');
@@ -69,6 +77,7 @@ export default function HoDDashboard() {
 
   const [poStatements, setPoStatements] = useState<Record<string, string>>({});
   const [psoStatements, setPsoStatements] = useState<Record<string, string>>({});
+  const [peoStatements, setPeoStatements] = useState<Record<string, string>>({});
   const [poCount, setPoCount] = useState<number>(12);
   const [psoCount, setPsoCount] = useState<number>(3);
   const [isStructureConfirmed, setIsStructureConfirmed] = useState<boolean>(false);
@@ -89,6 +98,28 @@ export default function HoDDashboard() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [subjectToDelete, setSubjectToDelete] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Live 1-second countdown ticker for active stage deadline
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatRemainingTime = (deadlineDateStr: string | null | undefined) => {
+    if (!deadlineDateStr) return 'No Deadline Configured';
+    const target = new Date(deadlineDateStr).getTime();
+    const diff = target - now;
+    if (diff <= 0) return 'Deadline Expired';
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    return `${days} Days ${hours} hours ${minutes} Minutes ${seconds} secs`;
+  };
 
   const handleAssignFaculty = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,9 +193,11 @@ export default function HoDDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [resSubj, resRegs] = await Promise.all([
+      const [resSubj, resRegs, resStages, resBundle] = await Promise.all([
         fetch('/api/hod/subjects'),
         fetch('/api/master-admin/regulations'),
+        fetch('/api/dean/stage'),
+        fetch('/api/hod/curriculum/bundle'),
       ]);
 
       if (resSubj.ok) {
@@ -177,6 +210,17 @@ export default function HoDDashboard() {
         const data = await resRegs.json();
         setSubjectTypes(data.subjectTypes || []);
         setSubjectCategories(data.subjectCategories || []);
+      }
+
+      if (resStages.ok) {
+        const data = await resStages.json();
+        setStages(data.stages || []);
+      }
+
+      if (resBundle.ok) {
+        const data = await resBundle.json();
+        setBundle(data.bundle);
+        setCanSubmitBundle(data.canSubmit);
       }
 
       fetchPOPSOStatements();
@@ -194,10 +238,13 @@ export default function HoDDashboard() {
         const data = await res.json();
         const poMap: Record<string, string> = {};
         const psoMap: Record<string, string> = {};
+        const peoMap: Record<string, string> = {};
         (data.poStatements || []).forEach((s: any) => { poMap[s.poKey] = s.statement; });
         (data.psoStatements || []).forEach((s: any) => { psoMap[s.psoKey] = s.statement; });
+        (data.peoStatements || []).forEach((s: any) => { peoMap[s.peoKey] = s.statement; });
         setPoStatements(poMap);
         setPsoStatements(psoMap);
+        if (Object.keys(peoMap).length > 0) setPeoStatements(peoMap);
         if (data.poCount) setPoCount(data.poCount);
         if (data.psoCount) setPsoCount(data.psoCount);
         if (data.isConfirmed) setIsStructureConfirmed(true);
@@ -229,7 +276,7 @@ export default function HoDDashboard() {
   };
 
   const handleSaveAllPOPSO = async () => {
-    if (!confirm('Are you sure you want to save all PO & PSO statements?')) {
+    if (!confirm('Are you sure you want to save all PO, PSO & PEO statements?')) {
       return;
     }
     setSaveSuccessMsg('');
@@ -241,17 +288,38 @@ export default function HoDDashboard() {
           batchSave: true,
           poStatements,
           psoStatements,
+          peoStatements,
           poCount,
           psoCount,
         }),
       });
       if (res.ok) {
-        setSaveSuccessMsg('All PO & PSO statements saved successfully!');
-        alert('✓ All PO & PSO statements saved successfully!');
+        setSaveSuccessMsg('All PO, PSO & PEO statements saved successfully!');
+        alert('✓ All PO, PSO & PEO statements saved successfully!');
         setTimeout(() => setSaveSuccessMsg(''), 6000);
       }
     } catch (err) {
       console.error('Failed to save all statements');
+    }
+  };
+
+  const handleSubmitBundleToDean = async () => {
+    if (!confirm('Are you sure you want to merge all approved subject syllabi and submit the Department Curriculum Bundle to the Dean for final approval?')) return;
+    setSubmittingBundle(true);
+    try {
+      const res = await fetch('/api/hod/curriculum/bundle', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to submit Department Bundle.');
+        return;
+      }
+      alert('✓ Department Curriculum Bundle successfully submitted to Academic Dean!');
+      setShowBundleModal(false);
+      fetchData();
+    } catch (err) {
+      console.error('Failed to submit bundle');
+    } finally {
+      setSubmittingBundle(false);
     }
   };
 
@@ -293,12 +361,11 @@ export default function HoDDashboard() {
     }
   };
 
-  // Requirement: Check if PO/PSO statements are configured
-  const hasConfiguredPOPSO = Object.keys(poStatements).length > 0;
+  const hasConfiguredPOPSO = Object.keys(poStatements).length > 0 && Object.keys(psoStatements).length > 0;
 
   const handleOpenAddSubject = () => {
     if (!hasConfiguredPOPSO) {
-      alert('Action Required: Please configure Department PO & PSO Statements first before creating subjects.');
+      alert('⚠️ Action Required: Program Outcomes (POs) and Program Specific Outcomes (PSOs) must be created and saved before adding subjects.');
       setActiveTab('po_pso');
       return;
     }
@@ -347,7 +414,7 @@ export default function HoDDashboard() {
       if (action === 'RETURN') {
         alert('✓ Syllabus successfully returned to faculty for correction.');
       } else {
-        alert('✓ Syllabus successfully approved and forwarded to Academic Dean.');
+        alert('✓ Syllabus successfully approved and added to Department Curriculum Book.');
       }
 
       setShowReviewModal(false);
@@ -445,32 +512,94 @@ export default function HoDDashboard() {
                 </p>
               </div>
 
-              <div className="mt-4 md:mt-0 flex items-center space-x-3">
-                {!isCurriculumFinalized && (
-                  <button
-                    onClick={handleFinalizeCurriculum}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
-                  >
-                    <Lock className="w-4 h-4 mr-1.5" /> Finalize Curriculum
-                  </button>
-                )}
-                <button
-                  onClick={() => setActiveTab('po_pso')}
-                  className="px-4 py-2 bg-purple-100 hover:bg-purple-200 text-brand-900 font-bold text-xs rounded-xl border border-purple-300 flex items-center shadow-xs"
-                >
-                  <Sparkles className="w-4 h-4 mr-1.5 text-brand-700" /> PO & PSO Statements
-                </button>
-                <button
-                  onClick={() => setActiveTab('extension')}
-                  className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-brand-700 font-bold text-xs rounded-xl border border-purple-200 flex items-center"
-                >
-                  <ShieldAlert className="w-4 h-4 mr-1.5" /> Request Extension
-                </button>
+            </div>
+
+            {/* 4-STAGE ACADEMIC WORKFLOW TIMELINE CARD (HORIZONTAL PROGRESS BAR) */}
+            <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b pb-4">
+                <div>
+                  <h3 className="text-base font-black text-slate-900 flex items-center">
+                    <Clock className="w-5 h-5 text-brand-600 mr-2" />
+                    Academic Stage Workflow Progress
+                  </h3>
+                  <p className="text-xs text-desc mt-0.5">Dean-configured 4-Stage governance lifecycle for Regulation 26.</p>
+                </div>
+                {stages.length > 0 && (() => {
+                  const activeStage = stages.find((s) => s.status === 'ACTIVE') || stages[0];
+                  if (!activeStage) return null;
+
+                  return (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="px-4 py-2 rounded-2xl bg-red-50 border border-red-200 text-red-600 text-xs font-black flex items-center shadow-xs">
+                        <Clock className="w-4 h-4 mr-2 text-red-600 animate-pulse" />
+                        <span>
+                          Remaining time: {formatRemainingTime(activeStage.deadline)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* HORIZONTAL STEPPER / PROGRESS BAR */}
+              <div className="relative px-2 py-2">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 relative z-10">
+                  {stages.map((stg, idx) => {
+                    const isCurrent = stg.status === 'ACTIVE';
+                    const isDone = stg.status === 'COMPLETED';
+
+                    return (
+                      <div
+                        key={stg.id || idx}
+                        className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+                          isCurrent
+                            ? 'bg-purple-50 border-brand-500 shadow-md ring-2 ring-brand-500/30'
+                            : isDone
+                            ? 'bg-emerald-50/70 border-emerald-300'
+                            : 'bg-slate-50/60 border-slate-200 opacity-75'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shadow-xs ${
+                              isDone
+                                ? 'bg-emerald-600 text-white'
+                                : isCurrent
+                                ? 'bg-brand-600 text-white ring-4 ring-purple-200 animate-pulse'
+                                : 'bg-white border-2 border-slate-300 text-slate-500'
+                            }`}>
+                              {isDone ? <CheckCircle2 className="w-4 h-4" /> : idx + 1}
+                            </div>
+                            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${
+                              isCurrent
+                                ? 'bg-brand-600 text-white'
+                                : isDone
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : 'bg-slate-200 text-slate-600'
+                            }`}>
+                              {isCurrent ? 'In Progress' : isDone ? 'Completed' : 'Upcoming'}
+                            </span>
+                          </div>
+
+                          <h4 className="text-xs font-black text-slate-900 mt-1">{stg.name}</h4>
+                        </div>
+
+                        {/* HIGHLIGHTED STAGE DEADLINE FORMAT (From / To format) */}
+                        <div className={`mt-4 pt-2.5 border-t text-[11px] font-semibold space-y-0.5 ${
+                          isCurrent ? 'border-purple-200 text-brand-900' : 'border-slate-200 text-slate-600'
+                        }`}>
+                          <p>From: <strong>{stg.startDate ? formatIST(stg.startDate) : 'N/A'}</strong></p>
+                          <p>To: <strong>{stg.deadline ? formatIST(stg.deadline) : 'N/A'}</strong></p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
-            {/* Consolidated KPI Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {/* Consolidated KPI Cards (Exact 4 Required Counts) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
                 <p className="text-xs font-bold text-slate-500">Total Subjects</p>
                 <p className="text-2xl font-black text-slate-900">{totalDepartmentSubjects}</p>
@@ -480,71 +609,33 @@ export default function HoDDashboard() {
               </div>
 
               <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
-                <p className="text-xs font-bold text-slate-500">Faculty Assigned</p>
-                <p className="text-2xl font-black text-indigo-600">{assignedCount}</p>
-                <button onClick={() => setActiveTab('assignments')} className="text-[11px] font-bold text-brand-600 hover:underline flex items-center mt-1">
-                  View Assignments <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </button>
-              </div>
-
-              <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
-                <p className="text-xs font-bold text-slate-500">Syllabus Submitted</p>
-                <p className="text-2xl font-black text-blue-600">{submittedCount}</p>
-                <button onClick={() => setActiveTab('review')} className="text-[11px] font-bold text-brand-600 hover:underline flex items-center mt-1">
-                  Review Syllabi <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </button>
-              </div>
-
-              <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
-                <p className="text-xs font-bold text-slate-500">Awaiting Dean Approval</p>
-                <p className="text-2xl font-black text-amber-600">{awaitingDeanCount}</p>
+                <p className="text-xs font-bold text-slate-500">Syllabus In Progress / Returned</p>
+                <p className="text-2xl font-black text-amber-600">
+                  {subjects.filter((s) => s.syllabusStatus === 'IN_PROGRESS' || s.syllabusStatus === 'NOT_STARTED' || (s.syllabusStatus || '').includes('RETURNED')).length}
+                </p>
                 <span className="text-[11px] font-bold text-desc flex items-center mt-1">
-                  Forwarded to Dean
+                  Faculty Draft / Revisions
                 </span>
               </div>
 
               <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
-                <p className="text-xs font-bold text-slate-500">Dean Approved</p>
-                <p className="text-2xl font-black text-emerald-600">{approvedCount}</p>
+                <p className="text-xs font-bold text-slate-500">Syllabus Waiting for Approval</p>
+                <p className="text-2xl font-black text-blue-600">
+                  {subjects.filter((s) => s.syllabusStatus === 'SUBMITTED' || s.syllabusStatus === 'RESUBMITTED').length}
+                </p>
+                <button onClick={() => setActiveTab('review')} className="text-[11px] font-bold text-brand-600 hover:underline flex items-center mt-1">
+                  Review Submissions <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                </button>
+              </div>
+
+              <div className="bg-white p-5 rounded-2xl border border-purple-100 shadow-sm space-y-1">
+                <p className="text-xs font-bold text-slate-500">Syllabus Approved</p>
+                <p className="text-2xl font-black text-emerald-600">
+                  {subjects.filter((s) => s.syllabusStatus === 'HOD_APPROVED' || s.syllabusStatus === 'APPROVED').length}
+                </p>
                 <button onClick={() => setActiveTab('approved')} className="text-[11px] font-bold text-brand-600 hover:underline flex items-center mt-1">
                   View Approved <ArrowRight className="w-3.5 h-3.5 ml-1" />
                 </button>
-              </div>
-            </div>
-
-            {/* Pending Actions Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-              {/* Pending Actions Summary */}
-              <div className="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm space-y-4">
-                <h3 className="text-base font-bold text-slate-900">Pending Actions</h3>
-
-                <div className="space-y-3 text-xs">
-                  {totalDepartmentSubjects - assignedCount > 0 && (
-                    <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-between">
-                      <span className="font-bold text-amber-900">{totalDepartmentSubjects - assignedCount} Subject(s) awaiting Faculty Assignment</span>
-                      <button onClick={() => setActiveTab('curriculum')} className="px-3 py-1 bg-amber-600 text-white font-bold text-xs rounded-xl">
-                        Assign →
-                      </button>
-                    </div>
-                  )}
-
-                  {pendingReviewSubjects.length > 0 && (
-                    <div className="p-3.5 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-between">
-                      <span className="font-bold text-brand-900">{pendingReviewSubjects.length} Syllabi awaiting HoD Review</span>
-                      <button onClick={() => setActiveTab('review')} className="px-3 py-1 bg-brand-600 text-white font-bold text-xs rounded-xl">
-                        Review →
-                      </button>
-                    </div>
-                  )}
-
-                  {totalDepartmentSubjects - assignedCount === 0 && pendingReviewSubjects.length === 0 && (
-                    <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold flex items-center">
-                      <CheckCircle2 className="w-5 h-5 mr-2 text-emerald-600" />
-                      All subjects are assigned and reviewed.
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
 
@@ -592,7 +683,7 @@ export default function HoDDashboard() {
                 onClick={handleOpenAddSubject}
                 className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
               >
-                <Plus className="w-4 h-4 mr-1.5" /> Add Subject to Sem {activeSemester}
+                <Plus className="w-4 h-4 mr-1.5" /> Add Subject
               </button>
             </div>
 
@@ -613,30 +704,13 @@ export default function HoDDashboard() {
               </div>
             )}
 
-            {/* Bulk Action Bar & Semester Tabs */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
-              <div className="flex items-center space-x-2 overflow-x-auto">
-                {semesterNumbers.map((sem) => (
-                  <button
-                    key={sem}
-                    onClick={() => {
-                      setActiveSemester(sem);
-                      setSelectedSubjectIds([]);
-                    }}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                      activeSemester === sem ? 'bg-brand-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    Semester {sem}
-                  </button>
-                ))}
-              </div>
-
-              {selectedSubjectIds.length > 0 && (
-                <div className="flex items-center space-x-2 bg-purple-50 p-1.5 rounded-2xl border border-purple-200">
-                  <span className="text-xs font-bold text-brand-800 px-2">
-                    {selectedSubjectIds.length} Selected
-                  </span>
+            {/* Bulk Action Bar */}
+            {selectedSubjectIds.length > 0 && (
+              <div className="flex items-center space-x-2 bg-purple-50 p-2 rounded-2xl border border-purple-200 justify-between">
+                <span className="text-xs font-bold text-brand-800 px-2">
+                  {selectedSubjectIds.length} Subject(s) Selected
+                </span>
+                <div className="flex items-center space-x-2">
                   <button
                     onClick={() => {
                       setTargetSubjectForAssign(null);
@@ -654,8 +728,8 @@ export default function HoDDashboard() {
                     <Trash2 className="w-3.5 h-3.5 mr-1" /> Bulk Delete
                   </button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Subject Table */}
             <div className="overflow-x-auto">
@@ -665,16 +739,17 @@ export default function HoDDashboard() {
                     <th className="p-3 w-8">
                       <input
                         type="checkbox"
-                        checked={activeSemSubjects.length > 0 && activeSemSubjects.every((s) => selectedSubjectIds.includes(s.id))}
+                        checked={subjects.length > 0 && subjects.every((s) => selectedSubjectIds.includes(s.id))}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setSelectedSubjectIds(activeSemSubjects.map((s) => s.id));
+                            setSelectedSubjectIds(subjects.map((s) => s.id));
                           } else {
                             setSelectedSubjectIds([]);
                           }
                         }}
                       />
                     </th>
+                    <th className="p-3">Sem</th>
                     <th className="p-3">Subject Code</th>
                     <th className="p-3">Subject Name</th>
                     <th className="p-3">Type</th>
@@ -686,14 +761,14 @@ export default function HoDDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {activeSemSubjects.length === 0 ? (
+                  {subjects.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="p-8 text-center text-desc text-xs">
-                        No subjects formed yet for Semester {activeSemester}.
+                      <td colSpan={10} className="p-8 text-center text-desc text-xs">
+                        No subjects created yet in this department. Click "Add Subject" to begin.
                       </td>
                     </tr>
                   ) : (
-                    activeSemSubjects.map((subj) => {
+                    subjects.map((subj) => {
                       const isUnassigned = !subj.assignedFacultyId && subj.status !== 'ASSIGNED';
                       const isSelected = selectedSubjectIds.includes(subj.id);
 
@@ -712,6 +787,7 @@ export default function HoDDashboard() {
                               }}
                             />
                           </td>
+                          <td className="p-3 font-bold text-slate-700">Sem {subj.semester}</td>
                           <td className="p-3 font-mono font-bold text-brand-700">{subj.subjectCode}</td>
                           <td className="p-3 font-bold text-slate-900">{subj.subjectName}</td>
                           <td className="p-3 text-slate-600">{subj.subjectType?.name}</td>
@@ -901,14 +977,14 @@ export default function HoDDashboard() {
             <div>
               <h3 className="text-base font-bold text-slate-900 flex items-center">
                 <Clock className="w-4 h-4 mr-1.5 text-brand-600" />
-                Approval Pending Syllabi (Awaiting Dean Final Approval)
+                HoD Approved Syllabi (Department Curriculum Book Ready)
               </h3>
-              <p className="text-xs text-desc">Syllabi approved by HoD and currently forwarded to the Academic Dean for final institutional approval.</p>
+              <p className="text-xs text-desc">Syllabi approved by HoD. These will be submitted to the Academic Dean together in the Department Curriculum Book.</p>
             </div>
 
             {subjects.filter((s) => s.syllabusStatus === 'HOD_APPROVED').length === 0 ? (
               <p className="text-xs text-desc py-8 text-center bg-purple-50/20 rounded-2xl">
-                No department syllabi currently pending Dean approval.
+                No department syllabi currently approved by HoD.
               </p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -917,8 +993,8 @@ export default function HoDDashboard() {
                   .map((subj) => (
                     <div key={subj.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 space-y-3 flex items-center justify-between">
                       <div>
-                        <span className="text-[10px] font-bold text-blue-800 uppercase bg-blue-100 px-2 py-0.5 rounded border border-blue-300">
-                          Forwarded to Dean | {subj.subjectCode}
+                        <span className="text-[10px] font-bold text-indigo-800 uppercase bg-indigo-100 px-2 py-0.5 rounded border border-indigo-300">
+                          Curriculum Book Ready | {subj.subjectCode}
                         </span>
                         <h4 className="text-xs font-bold text-slate-900 mt-1">{subj.subjectName}</h4>
                         <p className="text-[11px] text-desc">Faculty: {subj.assignedFaculty?.name}</p>
@@ -1039,76 +1115,8 @@ export default function HoDDashboard() {
                 </div>
               )}
 
-              {/* Step 1: Count Configuration */}
-              <div className="p-5 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-extrabold text-brand-900 uppercase tracking-wider">
-                    Step 1: Set Number of POs & PSOs
-                  </h4>
-                  <span className="text-[11px] font-semibold text-slate-500 italic">
-                    HoD can adjust counts at any time before or after subject assignment.
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end text-xs">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Number of POs (Program Outcomes)</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="20"
-                      disabled={isStructureConfirmed}
-                      value={poCount}
-                      onChange={(e) => setPoCount(parseInt(e.target.value) || 12)}
-                      className="w-full p-2.5 border rounded-xl font-bold text-slate-900 bg-white disabled:bg-slate-100 disabled:text-slate-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">Number of PSOs (Program Specific Outcomes)</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="10"
-                      disabled={isStructureConfirmed}
-                      value={psoCount}
-                      onChange={(e) => setPsoCount(parseInt(e.target.value) || 3)}
-                      className="w-full p-2.5 border rounded-xl font-bold text-slate-900 bg-white disabled:bg-slate-100 disabled:text-slate-500"
-                    />
-                  </div>
-
-                  <div>
-                    {!isStructureConfirmed ? (
-                      <button
-                        type="button"
-                        onClick={handleConfirmStructure}
-                        className="w-full py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center space-x-1.5"
-                      >
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span>Confirm PO & PSO Counts</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (confirm('Are you sure you want to unlock PO & PSO counts to edit them?')) {
-                            setIsStructureConfirmed(false);
-                          }
-                        }}
-                        className="w-full py-2.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold rounded-xl border border-amber-300 transition-all flex items-center justify-center space-x-1.5"
-                      >
-                        <Edit3 className="w-4 h-4 text-amber-700" />
-                        <span>Unlock & Edit Counts</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Step 2: Dynamic PO & PSO Statement Textareas */}
-            {isStructureConfirmed && (
-              <div className="bg-white rounded-3xl border border-purple-100 p-6 md:p-8 shadow-sm space-y-8">
+            {/* Dynamic PO & PSO Statement Textareas */}
+            <div className="bg-white rounded-3xl border border-purple-100 p-6 md:p-8 shadow-sm space-y-8">
                 {/* PO Section */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between border-b pb-2">
@@ -1170,11 +1178,136 @@ export default function HoDDashboard() {
                     className="px-8 py-3 bg-brand-600 hover:bg-brand-700 text-white font-extrabold text-xs rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center space-x-2 shrink-0"
                   >
                     <Save className="w-4 h-4" />
-                    <span>Save All Statements</span>
+                    <span>Save All PO & PSO Statements</span>
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: DEPARTMENT CURRICULUM BOOK DEDICATED PAGE */}
+        {activeTab === 'department_book' && (
+          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+              <div>
+                <span className="text-[10px] font-black uppercase text-brand-700 bg-purple-100 px-2.5 py-1 rounded-md">
+                  Merged Official Document
+                </span>
+                <h2 className="text-xl font-black text-slate-900 tracking-tight mt-1">
+                  Department Curriculum & Syllabus Book
+                </h2>
+                <p className="text-xs text-desc mt-0.5">
+                  Consolidated PDF compilation of POs, PSOs, Scheme of Instruction table, and all approved subject syllabi for {department?.programmeName}.
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                {bundle?.status === 'APPROVED' ? (
+                  <span className="px-5 py-2 bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold text-xs rounded-xl flex items-center">
+                    <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-600" /> Dean Approved
+                  </span>
+                ) : bundle?.status === 'SUBMITTED' ? (
+                  <span className="px-5 py-2 bg-amber-100 border border-amber-300 text-amber-900 font-bold text-xs rounded-xl flex items-center">
+                    <Clock className="w-4 h-4 mr-1.5 text-amber-600" /> Submitted to Dean
+                  </span>
+                ) : (
+                  <button
+                    onClick={handleSubmitBundleToDean}
+                    disabled={!canSubmitBundle || submittingBundle}
+                    className={`px-5 py-2 font-bold text-xs rounded-xl shadow-md transition-all flex items-center space-x-1.5 ${
+                      canSubmitBundle && !submittingBundle
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
+                        : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                    }`}
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>{submittingBundle ? 'Submitting...' : 'Submit Bundle to Academic Dean'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {bundle?.status === 'RETURNED_FOR_CORRECTION' && (
+              <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-800 space-y-1">
+                <span className="font-bold text-red-900 flex items-center">
+                  <ShieldAlert className="w-4 h-4 mr-1.5 text-red-600" /> Returned by Dean for Correction:
+                </span>
+                <p className="italic">"{bundle.correctionReason}"</p>
+              </div>
             )}
+
+            {!canSubmitBundle && bundle?.status !== 'SUBMITTED' && bundle?.status !== 'APPROVED' && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+                * All created department subjects must reach <strong>HOD Approved</strong> status before you can submit the Department Bundle to the Dean.
+              </div>
+            )}
+
+            <DepartmentCurriculumPDFGenerator
+              department={department}
+              poStatements={Object.entries(poStatements).map(([key, stmt]) => ({ poKey: key, statement: stmt }))}
+              psoStatements={Object.entries(psoStatements).map(([key, stmt]) => ({ psoKey: key, statement: stmt }))}
+              subjects={subjects}
+              documentTitle={`${department?.shortName || 'Department'} Curriculum & Syllabus Book`}
+            />
+          </div>
+        )}
+
+        {/* Modal: Department Curriculum Book PDF Viewer & Submitter */}
+        {showBundleModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 overflow-y-auto">
+            <div className="bg-white rounded-3xl max-w-5xl w-full p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b pb-3">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Merged Department Curriculum & Syllabus Book Inspection
+                  </h3>
+                  <p className="text-xs text-desc">
+                    Consolidated view of all PEOs, POs, PSOs, and semester subject syllabi created for {department?.programmeName}.
+                  </p>
+                </div>
+                <button onClick={() => setShowBundleModal(false)} className="text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <DepartmentCurriculumPDFGenerator
+                department={department}
+                peoStatements={Object.entries(peoStatements).map(([key, stmt]) => ({ peoKey: key, statement: stmt }))}
+                poStatements={Object.entries(poStatements).map(([key, stmt]) => ({ poKey: key, statement: stmt }))}
+                psoStatements={Object.entries(psoStatements).map(([key, stmt]) => ({ psoKey: key, statement: stmt }))}
+                subjects={subjects}
+                documentTitle={`${department?.shortName || 'Department'} Curriculum & Syllabus Book`}
+              />
+
+              <div className="pt-4 border-t flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span className="text-xs text-desc font-semibold">
+                  Status: <strong>{bundle?.status || 'DRAFT'}</strong> ({subjects.filter(s => s.syllabusStatus === 'HOD_APPROVED' || s.syllabusStatus === 'APPROVED').length} / {subjects.length} Subjects Approved by HoD)
+                </span>
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => setShowBundleModal(false)}
+                    className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
+                  >
+                    Close Preview
+                  </button>
+                  {bundle?.status !== 'APPROVED' && bundle?.status !== 'SUBMITTED' && (
+                    <button
+                      onClick={handleSubmitBundleToDean}
+                      disabled={!canSubmitBundle || submittingBundle}
+                      className={`px-6 py-2.5 font-bold text-xs rounded-xl shadow-md flex items-center space-x-1.5 ${
+                        canSubmitBundle && !submittingBundle
+                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                          : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                      }`}
+                    >
+                      <Send className="w-4 h-4" />
+                      <span>{submittingBundle ? 'Submitting Bundle...' : 'Submit Bundle to Academic Dean'}</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

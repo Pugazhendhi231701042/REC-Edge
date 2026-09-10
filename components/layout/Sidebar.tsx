@@ -56,6 +56,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       title: 'REVIEWS & APPROVALS',
       items: [
+        { id: 'bundles', label: 'Department Bundles', icon: <BookOpen className="w-4 h-4" /> },
         { id: 'approved', label: 'Approved Syllabi Directory', icon: <BookOpen className="w-4 h-4" /> },
         { id: 'reviews', label: 'Pending Dean Reviews', icon: <FileCheck className="w-4 h-4" /> },
         { id: 'extensions', label: 'Extension Requests', icon: <ShieldAlert className="w-4 h-4" /> },
@@ -124,6 +125,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: 'CURRICULUM & FACULTY',
       items: [
         { id: 'curriculum', label: 'Department Curriculum', icon: <Building2 className="w-4 h-4" /> },
+        { id: 'po_pso', label: 'PO & PSO Statements', icon: <BookOpen className="w-4 h-4" /> },
+        { id: 'department_book', label: 'Department Curriculum Book', icon: <BookOpen className="w-4 h-4" /> },
         { id: 'assignments', label: 'Faculty Assignments', icon: <Users className="w-4 h-4" /> },
       ],
     },
@@ -133,12 +136,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'review', label: 'Submissions Review', icon: <FileCheck className="w-4 h-4" /> },
         { id: 'approval_pending', label: 'Approval Pending', icon: <Clock className="w-4 h-4" /> },
         { id: 'approved', label: 'Approved Syllabi', icon: <CheckCircle2 className="w-4 h-4" /> },
-      ],
-    },
-    {
-      title: 'REQUESTS',
-      items: [
-        { id: 'extension', label: 'Extension Request', icon: <ShieldAlert className="w-4 h-4" /> },
       ],
     },
   ];

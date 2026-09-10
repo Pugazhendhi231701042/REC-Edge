@@ -14,6 +14,17 @@ interface SubjectFormModalProps {
   editingSubject?: any;
 }
 
+const VERTICAL_OPTIONS = [
+  'Vertical A',
+  'Vertical B',
+  'Vertical C',
+  'Vertical D',
+  'Vertical E',
+  'Vertical F',
+  'Vertical G',
+  'Vertical H',
+];
+
 export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
   isOpen,
   onClose,
@@ -25,9 +36,13 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
   subjectCategories,
   editingSubject,
 }) => {
+  const [selectedSemester, setSelectedSemester] = useState(semester || 1);
+  const [selectedVertical, setSelectedVertical] = useState('Vertical A');
   const [subjectName, setSubjectName] = useState('');
   const [subjectTypeId, setSubjectTypeId] = useState('');
   const [subjectCategoryId, setSubjectCategoryId] = useState('');
+  const [coursePrefix, setCoursePrefix] = useState(departmentCode || 'CS');
+  const [customPrefixesList, setCustomPrefixesList] = useState<string[]>([]);
   const [lecture, setLecture] = useState(3);
   const [tutorial, setTutorial] = useState(0);
   const [practical, setPractical] = useState(0);
@@ -64,6 +79,15 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
           setTWeight(data.config.tWeight ?? 1.0);
           setPWeight(data.config.pWeight ?? 0.5);
           setCalculationMethod(data.config.calculationMethod || 'WEIGHTED');
+          if (data.config.customPrefixes) {
+            const list = data.config.customPrefixes
+              .split(',')
+              .map((s: string) => s.trim().toUpperCase())
+              .filter(Boolean);
+            if (list.length > 0) {
+              setCustomPrefixesList(list);
+            }
+          }
         }
       }
     } catch (err) {
@@ -71,7 +95,12 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
     }
   };
 
+  const availablePrefixes = customPrefixesList.length > 0
+    ? Array.from(new Set([...customPrefixesList, (departmentCode || 'CS').toUpperCase()]))
+    : Array.from(new Set(['GE', 'PH', 'HS', 'MC', (departmentCode || 'CS').toUpperCase(), 'EC', 'EE', 'ME', 'CE', 'AI', 'CB', 'IT']));
+
   useEffect(() => {
+    setSelectedSemester(editingSubject ? editingSubject.semester : (semester || 1));
     if (editingSubject) {
       setSubjectName(editingSubject.subjectName || '');
       setSubjectTypeId(editingSubject.subjectTypeId || '');
@@ -79,16 +108,23 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
       setLecture(editingSubject.lecture ?? 3);
       setTutorial(editingSubject.tutorial ?? 0);
       setPractical(editingSubject.practical ?? 0);
+      if (editingSubject.vertical) {
+        setSelectedVertical(editingSubject.vertical);
+      }
+      const codePrefix = editingSubject.subjectCode ? editingSubject.subjectCode.substring(0, 2) : departmentCode;
+      setCoursePrefix(codePrefix);
     } else {
       setSubjectName('');
       setSubjectTypeId(subjectTypes[0]?.id || '');
-      setSubjectCategoryId(subjectCategories[0]?.id || '');
+      setSubjectCategoryId(''); // Default to - Select Subject Category -
+      setCoursePrefix(departmentCode || 'CS');
+      setSelectedVertical('Vertical A');
       setLecture(3);
       setTutorial(0);
       setPractical(0);
     }
     setError('');
-  }, [editingSubject, isOpen, subjectTypes, subjectCategories]);
+  }, [editingSubject, isOpen, subjectTypes, subjectCategories, semester, departmentCode]);
 
   if (!isOpen) return null;
 
@@ -97,17 +133,30 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
   const selectedType = subjectTypes.find((t) => t.id === subjectTypeId);
   const typeCode = selectedType ? selectedType.code : 1;
 
+  const selectedCategory = subjectCategories.find((c) => c.id === subjectCategoryId);
+  const isElectiveCategory = selectedCategory && selectedCategory.code !== 'PC';
+
   // LTPC Validation Rule for Non-Theory Courses (P >= 1)
   const isNonTheory = selectedType
     ? selectedType.templateType !== 'THEORY' || selectedType.name.toLowerCase() !== 'theory'
     : false;
   const isInvalidNonTheoryPractical = isNonTheory && practical < 1;
 
+  // Vertical digit calculation (1 to 8)
+  const verticalDigit = Math.max(1, VERTICAL_OPTIONS.indexOf(selectedVertical) + 1);
+
   // Live preview subject code
-  const codePreview = formatSubjectCode(departmentCode, regulationCode, semester, typeCode, editingSubject ? 1 : 1);
+  const semOrVertDigit = isElectiveCategory ? verticalDigit : selectedSemester;
+  const activePrefix = isElectiveCategory ? coursePrefix : (departmentCode || 'CS');
+  const codePreview = formatSubjectCode(activePrefix, regulationCode, semOrVertDigit, typeCode, editingSubject ? 1 : 1);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!subjectCategoryId) {
+      setError('Please select a Subject Category.');
+      return;
+    }
 
     if (!creditResult.valid) {
       setError(creditResult.warning || 'Invalid credit combination.');
@@ -123,13 +172,15 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: editingSubject?.id,
-          semester,
+          semester: Number(isElectiveCategory ? verticalDigit : selectedSemester),
+          vertical: isElectiveCategory ? selectedVertical : null,
           subjectTypeId,
           subjectCategoryId,
           subjectName,
           lecture,
           tutorial,
           practical,
+          customPrefix: isElectiveCategory ? coursePrefix : departmentCode,
         }),
       });
 
@@ -153,7 +204,7 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
         <div className="flex items-center justify-between pb-4 border-b border-purple-100">
           <div>
             <h3 className="text-lg font-bold text-slate-900">
-              {editingSubject ? 'Edit Subject Details' : `Add New Subject — Semester ${semester}`}
+              {editingSubject ? 'Edit Subject Details' : isElectiveCategory ? `Add New Elective Subject — ${selectedVertical}` : `Add New Subject — Semester ${selectedSemester}`}
             </h3>
             <p className="text-xs text-desc">Regulation {regulationCode} | Department Code: {departmentCode}</p>
           </div>
@@ -185,29 +236,18 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Subject Type *</label>
-              <select
-                value={subjectTypeId}
-                onChange={(e) => setSubjectTypeId(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600"
-              >
-                {subjectTypes.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">Subject Category *</label>
               <select
+                required
                 value={subjectCategoryId}
                 onChange={(e) => setSubjectCategoryId(e.target.value)}
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600"
               >
+                <option value="" disabled>
+                  - Select Category -
+                </option>
                 {subjectCategories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.code} — {c.name}
@@ -215,7 +255,91 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
                 ))}
               </select>
             </div>
+
+            {isElectiveCategory ? (
+              <div>
+                <label className="block text-xs font-semibold text-amber-900 mb-1">Vertical Group *</label>
+                <select
+                  value={selectedVertical}
+                  onChange={(e) => setSelectedVertical(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-amber-300 rounded-xl font-bold bg-amber-50 text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600"
+                >
+                  {VERTICAL_OPTIONS.map((v, i) => (
+                    <option key={v} value={v}>
+                      {v} (Digit {i + 1})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Semester *</label>
+                <select
+                  value={selectedSemester}
+                  onChange={(e) => setSelectedSemester(parseInt(e.target.value) || 1)}
+                  className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl font-bold bg-purple-50 text-brand-900 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600"
+                >
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
+                    <option key={s} value={s}>
+                      Sem {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">Subject Type *</label>
+            <select
+              value={subjectTypeId}
+              onChange={(e) => setSubjectTypeId(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600"
+            >
+              {subjectTypes.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Elective Course Prefix Radio Selection */}
+          {isElectiveCategory && (
+            <div className="bg-amber-50/80 p-3.5 rounded-2xl border border-amber-200/80 space-y-2 animate-in fade-in zoom-in-95">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-900">
+                  Course Code Prefix (Offering Dept / Domain)
+                </span>
+                <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
+                  Elective Course
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-600">Select department/subject prefix for subject code generation:</p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {availablePrefixes.map((pfx) => (
+                  <label
+                    key={pfx}
+                    className={`cursor-pointer px-3 py-1 rounded-xl text-xs font-mono font-bold border transition-all flex items-center space-x-1.5 ${
+                      coursePrefix === pfx
+                        ? 'bg-brand-600 text-white border-brand-700 shadow-xs ring-2 ring-brand-300'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="coursePrefix"
+                      value={pfx}
+                      checked={coursePrefix === pfx}
+                      onChange={(e) => setCoursePrefix(e.target.value)}
+                      className="sr-only"
+                    />
+                    <span>{pfx}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* LTPC Credit Calculator Section */}
           <div className="bg-purple-50/70 p-4 rounded-2xl border border-purple-100/80">

@@ -17,6 +17,7 @@ async function main() {
   await prisma.syllabusUnit.deleteMany();
   await prisma.objective.deleteMany();
   await prisma.syllabusSubmission.deleteMany();
+  await prisma.departmentCurriculumBundle.deleteMany();
   await prisma.subject.deleteMany();
   await prisma.extensionRequest.deleteMany();
   await prisma.academicStage.deleteMany();
@@ -24,6 +25,9 @@ async function main() {
   await prisma.auditLog.deleteMany();
   await prisma.pOConfiguration.deleteMany();
   await prisma.pSOConfiguration.deleteMany();
+  await prisma.programOutcomeStatement.deleteMany();
+  await prisma.programSpecificOutcomeStatement.deleteMany();
+  await prisma.programEducationalObjectiveStatement.deleteMany();
   
   // Unlink department references before deleting users and departments
   await prisma.user.updateMany({ data: { departmentId: null } });
@@ -221,13 +225,14 @@ async function main() {
     data: { departmentId: cseDept.id, regulationId: reg26.id, psoCount: 3 },
   });
 
-  // 8. Academic Stages
-  // Stage 1: Curriculum & Syllabus Formation (ACTIVE)
+  // 8. Academic Stages (4 Official Stages)
+  // Stage 1: Curriculum and Syllabus Creation
   await prisma.academicStage.create({
     data: {
-      id: 'stage-curriculum-formation',
-      name: 'Curriculum & Syllabus Formation',
-      description: 'Centralized formation and approval of curriculum structure and detailed syllabus under Regulation 26.',
+      id: 'stage-1-creation',
+      order: 1,
+      name: 'Curriculum and Syllabus Creation',
+      description: 'HoD defines POs, PSOs, PEOs, creates subject structures, and assigns faculties.',
       status: 'ACTIVE',
       startDate: new Date('2026-08-15T00:00:00Z'),
       deadline: new Date('2026-09-30T23:59:59Z'),
@@ -236,120 +241,46 @@ async function main() {
     },
   });
 
-  // Stage 2: DAC Meeting (INACTIVE / Not Scheduled)
+  // Stage 2: Curriculum and Syllabus Formation
   await prisma.academicStage.create({
     data: {
-      id: 'stage-dac-meeting',
-      name: 'DAC Meeting',
-      description: 'Department Academic Advisory Committee review and recommendation meeting.',
+      id: 'stage-2-formation',
+      order: 2,
+      name: 'Curriculum and Syllabus Formation',
+      description: 'Faculties prepare syllabi, HoD reviews & approves, and Dean approves merged Department Curriculum Bundle.',
       status: 'INACTIVE',
-      deadline: null,
-      venue: null,
+      startDate: new Date('2026-09-01T00:00:00Z'),
+      deadline: new Date('2026-10-15T23:59:59Z'),
+      initiatedById: dean.id,
+      initiatedAt: new Date('2026-09-01T09:00:00Z'),
     },
   });
 
-  // Stage 3: BoS Meeting (INACTIVE / Not Scheduled)
+  // Stage 3: Departmental Advisory Committee (DAC) Meeting
   await prisma.academicStage.create({
     data: {
-      id: 'stage-bos-meeting',
-      name: 'BoS Meeting',
-      description: 'Board of Studies formal approval of curriculum, course contents, and scheme of evaluation.',
+      id: 'stage-3-dac-meeting',
+      order: 3,
+      name: 'Departmental Advisory Committee (DAC) Meeting',
+      description: 'Department Academic Advisory Committee review, feedback, and recommendation meeting.',
       status: 'INACTIVE',
-      deadline: null,
-      venue: null,
+      startDate: new Date('2026-10-16T00:00:00Z'),
+      deadline: new Date('2026-10-31T23:59:59Z'),
     },
   });
 
-  // 9. Sample Approved Subject assigned to Dr. Alan Turing
-  const subj1 = await prisma.subject.create({
+  // Stage 4: Board of Studies (BoS) Meeting
+  await prisma.academicStage.create({
     data: {
-      departmentId: cseDept.id,
-      regulationId: reg26.id,
-      academicYearId: ay2026.id,
-      semester: 4,
-      subjectTypeId: subjectTypesMap['Theory'],
-      subjectCategoryId: categoriesMap['PC'],
-      subjectName: 'Data Structures and Algorithms',
-      subjectCode: 'CS26411',
-      lecture: 3,
-      tutorial: 0,
-      practical: 0,
-      credits: 3.0,
-      status: 'ASSIGNED',
-      assignedFacultyId: facultyUser.id,
-      syllabusStatus: 'APPROVED',
-      createdById: masterAdmin.id,
+      id: 'stage-4-bos-meeting',
+      order: 4,
+      name: 'Board of Studies (BoS) Meeting',
+      description: 'Board of Studies formal presentation and final institutional approval of curriculum & syllabus.',
+      status: 'INACTIVE',
+      startDate: new Date('2026-11-01T00:00:00Z'),
+      deadline: new Date('2026-11-15T23:59:59Z'),
     },
   });
-
-  const syllabus1 = await prisma.syllabusSubmission.create({
-    data: {
-      subjectId: subj1.id,
-      facultyId: facultyUser.id,
-      unitContactHours: 9,
-      theoryContactHours: 45,
-      totalContactHours: 45,
-      approvedAt: new Date('2026-08-18T14:30:00Z'),
-      approvedById: hodUser.id,
-      objectives: {
-        create: [
-          { order: 1, description: 'To understand linear and non-linear data structures.' },
-          { order: 2, description: 'To analyze algorithm complexity and performance.' },
-          { order: 3, description: 'To implement graph and tree algorithms efficiently.' },
-        ],
-      },
-      syllabusUnits: {
-        create: [
-          { unitNumber: 1, unitName: 'Linear Data Structures', content: 'Arrays - Linked Lists - Stacks - Queues and Applications' },
-          { unitNumber: 2, unitName: 'Trees & Hierarchical Structures', content: 'Binary Trees - AVL Trees - B-Trees - Heaps' },
-          { unitNumber: 3, unitName: 'Graphs & Algorithms', content: 'Representations - BFS - DFS - Shortest Path - MST' },
-          { unitNumber: 4, unitName: 'Sorting & Searching', content: 'Bubble - Merge - Quick - Heap sort - Hashing techniques' },
-          { unitNumber: 5, unitName: 'Algorithm Analysis & Complexity', content: 'Asymptotic notations - Divide & Conquer - Dynamic Programming' },
-        ],
-      },
-      courseOutcomes: {
-        create: [
-          { coNumber: 1, description: 'Design and implement linear data structures for real-world scenarios.' },
-          { coNumber: 2, description: 'Construct tree data structures and optimize search operations.' },
-          { coNumber: 3, description: 'Apply graph traversal algorithms to solve connectivity problems.' },
-          { coNumber: 4, description: 'Evaluate time and space complexity of sorting algorithms.' },
-          { coNumber: 5, description: 'Select appropriate hashing and algorithmic techniques.' },
-        ],
-      },
-      textbooks: {
-        create: [
-          { order: 1, title: 'Data Structures and Algorithm Analysis in C++', authors: 'Mark Allen Weiss', edition: '4th Edition', publisher: 'Pearson', year: '2014' },
-        ],
-      },
-      references: {
-        create: [
-          { order: 1, title: 'Introduction to Algorithms', authors: 'Cormen, Leiserson, Rivest, Stein', edition: '3rd Edition', publisher: 'MIT Press', year: '2009' },
-        ],
-      },
-    },
-  });
-
-  // Seed sample SDG mappings
-  const sampleSDGMappings = [
-    { coNumber: 1, sdgNumber: 4, topic: 'Arrays' },
-    { coNumber: 1, sdgNumber: 4, topic: 'Linked Lists' },
-    { coNumber: 1, sdgNumber: 9, topic: 'Stacks' },
-    { coNumber: 2, sdgNumber: 9, topic: 'Binary Trees' },
-    { coNumber: 3, sdgNumber: 11, topic: 'Shortest Path' },
-    { coNumber: 4, sdgNumber: 9, topic: 'Quick' },
-    { coNumber: 5, sdgNumber: 9, topic: 'Dynamic Programming' },
-  ];
-
-  for (const m of sampleSDGMappings) {
-    await prisma.syllabusSDGMapping.create({
-      data: {
-        syllabusId: syllabus1.id,
-        coNumber: m.coNumber,
-        sdgNumber: m.sdgNumber,
-        topic: m.topic,
-      },
-    });
-  }
 
   console.log('Successfully truncated all tables and seeded minimal 4-user database!');
   console.log('MasterAdmin: 231701042@rajalakshmi.edu.in (ADM01)');

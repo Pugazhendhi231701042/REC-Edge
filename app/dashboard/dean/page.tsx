@@ -5,6 +5,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { StatCard } from '@/components/common/StatCard';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { SyllabusPDFGenerator } from '@/components/pdf/SyllabusPDFGenerator';
+import { DepartmentCurriculumPDFGenerator } from '@/components/pdf/DepartmentCurriculumPDFGenerator';
 import { DepartmentDetailView } from '@/components/dean/DepartmentDetailView';
 import { formatIST } from '@/lib/time';
 import {
@@ -31,6 +32,7 @@ import {
   MapPin,
   Lock,
   Edit3,
+  BookOpen,
 } from 'lucide-react';
 
 export default function DeanDashboard() {
@@ -38,11 +40,21 @@ export default function DeanDashboard() {
   const [overview, setOverview] = useState<any>(null);
   const [stages, setStages] = useState<any[]>([]);
   const [extensionRequests, setExtensionRequests] = useState<any[]>([]);
+  const [bundles, setBundles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   // Selected Department for Detail Page
   const [selectedDeptSummary, setSelectedDeptSummary] = useState<any>(null);
+
+  // Department Bundle Review Modal State
+  const [selectedBundle, setSelectedBundle] = useState<any>(null);
+  const [showBundleReturnModal, setShowBundleReturnModal] = useState(false);
+  const [bundleReturnReason, setBundleReturnReason] = useState('');
+
+  // Bulk 4-Stage Deadlines Manager Modal
+  const [showBulkStageModal, setShowBulkStageModal] = useState(false);
+  const [bulkStageDates, setBulkStageDates] = useState<any[]>([]);
 
   // Stage Initiation / Edit Deadline Modal State
   const [showInitiateModal, setShowInitiateModal] = useState(false);
@@ -68,10 +80,11 @@ export default function DeanDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [resOverview, resStages, resExt] = await Promise.all([
+      const [resOverview, resStages, resExt, resBundles] = await Promise.all([
         fetch('/api/dean/overview'),
         fetch('/api/dean/stage'),
         fetch('/api/dean/extensions'),
+        fetch('/api/dean/bundle-review'),
       ]);
 
       if (resOverview.ok) {
@@ -86,10 +99,97 @@ export default function DeanDashboard() {
         const data = await resExt.json();
         setExtensionRequests(data.requests || []);
       }
+      if (resBundles.ok) {
+        const data = await resBundles.json();
+        setBundles(data.bundles || []);
+      }
     } catch (err: any) {
       setError('Failed to load Dean dashboard metrics.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenBulkStagesModal = () => {
+    setBulkStageDates(
+      stages.map((s) => ({
+        id: s.id,
+        order: s.order,
+        name: s.name,
+        startDate: s.startDate ? new Date(s.startDate).toISOString().slice(0, 16) : '',
+        deadline: s.deadline ? new Date(s.deadline).toISOString().slice(0, 16) : '',
+        status: s.status,
+      }))
+    );
+    setShowBulkStageModal(true);
+  };
+
+  const handleSaveBulkStageDeadlines = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingStage(true);
+    try {
+      const res = await fetch('/api/dean/stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'BULK_UPDATE_STAGES',
+          stages: bulkStageDates,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to save stage deadlines.');
+        return;
+      }
+      alert('✓ Stage Deadlines configured successfully for all 4 stages!');
+      setShowBulkStageModal(false);
+      fetchData();
+    } catch (err) {
+      console.error('Failed bulk stage update');
+    } finally {
+      setSubmittingStage(false);
+    }
+  };
+
+  const handleDeanApproveBundle = async (bundleId: string) => {
+    if (!confirm('Are you sure you want to approve this Department Curriculum Bundle? This will officially approve all subject syllabi for this department.')) return;
+    try {
+      const res = await fetch('/api/dean/bundle-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bundleId, action: 'APPROVE' }),
+      });
+      if (res.ok) {
+        alert('✓ Department Curriculum Bundle Approved Successfully!');
+        setSelectedBundle(null);
+        fetchData();
+      }
+    } catch (err) {
+      console.error('Failed to approve bundle');
+    }
+  };
+
+  const handleDeanReturnBundle = async () => {
+    if (!selectedBundle || !bundleReturnReason.trim()) return;
+    try {
+      const res = await fetch('/api/dean/bundle-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bundleId: selectedBundle.id,
+          action: 'RETURN',
+          correctionReason: bundleReturnReason.trim(),
+        }),
+      });
+      if (res.ok) {
+        alert('Department Curriculum Bundle returned to HoD with correction notes.');
+        setShowBundleReturnModal(false);
+        setSelectedBundle(null);
+        setBundleReturnReason('');
+        fetchData();
+      }
+    } catch (err) {
+      console.error('Failed to return bundle');
     }
   };
 
@@ -219,9 +319,6 @@ export default function DeanDashboard() {
         {stages.map((stg, idx) => {
           const isCompleted = stg.status === 'COMPLETED';
           const isActive = stg.status === 'ACTIVE';
-          const isInactive = stg.status === 'INACTIVE';
-          const isMeeting = stg.name.includes('DAC') || stg.name.includes('BoS');
-          const isMeetingLocked = isMeeting && !isCurriculumCompleted;
 
           return (
             <div key={stg.id} className="relative flex items-start space-x-4">
@@ -254,71 +351,20 @@ export default function DeanDashboard() {
                   <div>
                     <div className="flex items-center space-x-2">
                       <h4 className="text-sm font-extrabold text-slate-900">{stg.name}</h4>
-                      {isMeeting && isInactive ? (
-                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                          Not Scheduled
-                        </span>
-                      ) : (
-                        <StatusBadge status={stg.status} />
-                      )}
+                      <StatusBadge status={stg.status} />
                     </div>
                     {stg.description && <p className="text-xs text-desc mt-0.5">{stg.description}</p>}
                   </div>
-
-                  <div className="flex items-center space-x-2 shrink-0 self-start md:self-auto">
-                    {/* Update Deadline Option for Active Stages */}
-                    {!isInactive && (
-                      <button
-                        onClick={() => handleOpenInitiate(stg)}
-                        className="px-3 py-1.5 bg-purple-100 hover:bg-purple-200 text-brand-800 font-bold text-xs rounded-xl border border-purple-200 flex items-center shadow-2xs"
-                        title="Update Stage Deadline & Venue"
-                      >
-                        <Edit3 className="w-3.5 h-3.5 mr-1 text-brand-600" /> Update Deadline
-                      </button>
-                    )}
-
-                    {isInactive && (
-                      isMeetingLocked ? (
-                        <span className="px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-800 font-bold text-[11px] rounded-xl flex items-center">
-                          <Lock className="w-3.5 h-3.5 mr-1" /> Complete Curriculum First
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => handleOpenInitiate(stg)}
-                          className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs"
-                        >
-                          {isMeeting ? 'Schedule Meeting →' : 'Initiate Stage →'}
-                        </button>
-                      )
-                    )}
-                  </div>
                 </div>
 
-                {/* Deadline / Scheduled Info & Venue */}
+                {/* Scheduled Info */}
                 <div className="mt-3 pt-2.5 border-t border-purple-100/60 flex flex-wrap items-center justify-between text-xs text-slate-700 gap-2">
-                  {isMeeting ? (
-                    <>
-                      <div className="flex items-center space-x-1.5 font-medium">
-                        <Calendar className="w-4 h-4 text-brand-600 shrink-0" />
-                        <span>
-                          Scheduled on: <strong>{stg.deadline ? formatIST(stg.deadline) : 'Not Scheduled'}</strong>
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-1.5 font-medium">
-                        <MapPin className="w-4 h-4 text-purple-600 shrink-0" />
-                        <span>
-                          Venue: <strong>{stg.venue || 'Not Specified'}</strong>
-                        </span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex items-center space-x-1.5 font-medium">
-                      <Clock className="w-4 h-4 text-brand-600 shrink-0" />
-                      <span>
-                        Deadline: <strong>{stg.deadline ? formatIST(stg.deadline) : 'Not Initiated'}</strong>
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex items-center space-x-1.5 font-medium">
+                    <Clock className="w-4 h-4 text-brand-600 shrink-0" />
+                    <span>
+                      From: <strong>{stg.startDate ? formatIST(stg.startDate) : 'Not Configured'}</strong> &nbsp;|&nbsp; To: <strong>{stg.deadline ? formatIST(stg.deadline) : 'Not Configured'}</strong>
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -353,12 +399,21 @@ export default function DeanDashboard() {
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">Institutional Command Center</h1>
                     <p className="text-xs text-desc mt-1">Dean / SuperAdmin Executive Governance — Regulation 26</p>
                   </div>
-                  {activeStage && (
-                    <div className="mt-3 md:mt-0 px-3.5 py-1.5 rounded-xl bg-purple-50 text-brand-800 border border-purple-200 text-xs font-bold flex items-center space-x-2">
-                      <Clock className="w-4 h-4 text-brand-600 animate-pulse" />
-                      <span>Active Stage: <strong>{activeStage.name}</strong> (Deadline: {activeStage.deadline ? formatIST(activeStage.deadline) : 'N/A'})</span>
-                    </div>
-                  )}
+                  <div className="mt-3 md:mt-0 flex items-center space-x-3">
+                    <button
+                      onClick={handleOpenBulkStagesModal}
+                      className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center space-x-1.5"
+                    >
+                      <Clock className="w-4 h-4" />
+                      <span>Configure Stage Deadlines</span>
+                    </button>
+                    {activeStage && (
+                      <div className="px-3.5 py-1.5 rounded-xl bg-purple-50 text-brand-800 border border-purple-200 text-xs font-bold flex items-center space-x-2">
+                        <Clock className="w-4 h-4 text-brand-600 animate-pulse" />
+                        <span>Active Stage: <strong>{activeStage.name}</strong></span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* KPIs (Extension Requests Card Removed from Overview as requested) */}
@@ -455,11 +510,20 @@ export default function DeanDashboard() {
             {/* TAB 2: ACADEMIC STAGES DEDICATED PAGE */}
             {activeTab === 'stages' && (
               <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 flex items-center">
-                    <Layers className="w-4 h-4 mr-2 text-brand-600" /> Academic Stage Governance
-                  </h3>
-                  <p className="text-xs text-desc">Initiate and monitor Curriculum, DAC, and BoS meeting workflows.</p>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b pb-4">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 flex items-center">
+                      <Layers className="w-4 h-4 mr-2 text-brand-600" /> Academic Stage Governance
+                    </h3>
+                    <p className="text-xs text-desc">Configure start dates and end deadlines for all 4 academic stages.</p>
+                  </div>
+                  <button
+                    onClick={handleOpenBulkStagesModal}
+                    className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center space-x-1.5"
+                  >
+                    <Clock className="w-4 h-4" />
+                    <span>Configure Deadlines</span>
+                  </button>
                 </div>
 
                 {renderVerticalStageProgress()}
@@ -726,6 +790,58 @@ export default function DeanDashboard() {
                 </div>
               </div>
             )}
+
+            {/* TAB 8: DEPARTMENT CURRICULUM BUNDLES DEDICATED PAGE */}
+            {activeTab === 'bundles' && (
+              <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Department Curriculum Bundles Governance</h3>
+                  <p className="text-xs text-desc">Review and approve consolidated Department Curriculum Books (POs, PSOs, PEOs & all syllabi) submitted by HoDs.</p>
+                </div>
+
+                {bundles.length === 0 ? (
+                  <div className="p-8 text-center bg-purple-50/30 rounded-2xl border border-purple-100 text-xs font-bold text-slate-600">
+                    No Department Curriculum Bundles submitted yet.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {bundles.map((bundle: any) => (
+                      <div key={bundle.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-mono text-xs font-bold text-brand-700 uppercase bg-purple-100 px-2 py-0.5 rounded">
+                              {bundle.department?.shortName}
+                            </span>
+                            <h4 className="text-sm font-bold text-slate-900 mt-1">{bundle.department?.programmeName}</h4>
+                          </div>
+                          <StatusBadge status={bundle.status} />
+                        </div>
+
+                        <div className="p-3 bg-white rounded-xl border border-purple-100 text-xs text-slate-700 space-y-1">
+                          <p><strong>HoD:</strong> {bundle.department?.users?.find((u: any) => u.role === 'HOD')?.name || 'HoD'}</p>
+                          <p><strong>Submitted On:</strong> {bundle.submissionDate ? formatIST(bundle.submissionDate) : 'N/A'}</p>
+                          <p><strong>Total Subjects:</strong> {bundle.subjects?.length || 0}</p>
+                          {bundle.correctionReason && (
+                            <p className="text-amber-700 font-semibold mt-1">
+                              <strong>Correction Note:</strong> "{bundle.correctionReason}"
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="flex justify-end pt-1">
+                          <button
+                            onClick={() => setSelectedBundle(bundle)}
+                            className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
+                          >
+                            <BookOpen className="w-4 h-4 mr-1.5" /> Inspect & Review Bundle
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
 
@@ -850,6 +966,160 @@ export default function DeanDashboard() {
                   {submittingStage ? 'Saving...' : 'Save Stage Deadline'}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Department Curriculum Bundle Inspection Modal */}
+        {selectedBundle && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
+            <div className="bg-white rounded-3xl max-w-5xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b pb-3">
+                <div className="flex items-center space-x-3">
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Dean Review — {selectedBundle.department?.programmeName} ({selectedBundle.department?.shortName})
+                  </h3>
+                  <StatusBadge status={selectedBundle.status} />
+                </div>
+                <button onClick={() => setSelectedBundle(null)} className="text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* PDF Preview Generator */}
+              <DepartmentCurriculumPDFGenerator
+                department={selectedBundle.department}
+                peoStatements={selectedBundle.peoStatements}
+                poStatements={selectedBundle.poStatements}
+                psoStatements={selectedBundle.psoStatements}
+                subjects={selectedBundle.subjects}
+                documentTitle={`Department Curriculum Book — ${selectedBundle.department?.shortName}`}
+              />
+
+              {/* Dean Actions */}
+              {selectedBundle.status === 'SUBMITTED' && (
+                <div className="pt-4 border-t flex items-center justify-between">
+                  <span className="text-xs text-desc font-semibold">
+                    Review consolidated PEOs, POs, PSOs and subject syllabi before official institutional approval.
+                  </span>
+                  <div className="flex items-center space-x-3">
+                    <button
+                      onClick={() => setShowBundleReturnModal(true)}
+                      className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
+                    >
+                      <RotateCcw className="w-4 h-4 mr-1.5" /> Return Bundle to HoD
+                    </button>
+                    <button
+                      onClick={() => handleDeanApproveBundle(selectedBundle.id)}
+                      className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center"
+                    >
+                      <ShieldCheck className="w-4 h-4 mr-1.5" /> Approve Department Bundle
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Bundle Return Correction Reason Modal */}
+        {showBundleReturnModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+              <h3 className="text-base font-bold text-slate-900">Return Department Bundle</h3>
+              <p className="text-xs text-desc">Provide correction notes for the HoD to revise the curriculum bundle.</p>
+              <textarea
+                rows={4}
+                required
+                value={bundleReturnReason}
+                onChange={(e) => setBundleReturnReason(e.target.value)}
+                placeholder="Enter detailed correction requirements..."
+                className="w-full p-3 text-xs border rounded-xl"
+              />
+              <div className="flex justify-end space-x-2 pt-2 border-t">
+                <button onClick={() => setShowBundleReturnModal(false)} className="px-3 py-1.5 text-xs text-slate-600">Cancel</button>
+                <button onClick={handleDeanReturnBundle} disabled={!bundleReturnReason.trim()} className="px-4 py-1.5 text-xs bg-amber-600 text-white font-bold rounded-xl disabled:opacity-50">
+                  Return Bundle to HoD
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk 4-Stage Deadlines Manager Modal */}
+        {showBulkStageModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
+            <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5">
+              <div className="flex items-center justify-between border-b pb-3">
+                <div className="flex items-center space-x-2">
+                  <Clock className="w-5 h-5 text-brand-600" />
+                  <h3 className="text-base font-bold text-slate-900">Configure All 4 Academic Stage Deadlines</h3>
+                </div>
+                <button onClick={() => setShowBulkStageModal(false)} className="text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <p className="text-xs text-desc">
+                Set start dates and deadlines for all 4 official stages. If an extension is approved for any stage in the future, all subsequent stages will automatically shift forward.
+              </p>
+
+              <form onSubmit={handleSaveBulkStageDeadlines} className="space-y-4">
+                {bulkStageDates.map((stg) => (
+                  <div key={stg.id} className="p-4 rounded-2xl border border-purple-100 bg-purple-50/30 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-extrabold text-slate-900">
+                        Stage {stg.order}: {stg.name}
+                      </h4>
+                      <StatusBadge status={stg.status} />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <label className="block font-semibold mb-1 text-slate-700">Start Date</label>
+                        <input
+                          type="date"
+                          value={stg.startDate}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setBulkStageDates((prev) =>
+                              prev.map((item) => (item.id === stg.id ? { ...item, startDate: val } : item))
+                            );
+                          }}
+                          className="w-full p-2 border rounded-xl font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold mb-1 text-slate-700">Deadline Date</label>
+                        <input
+                          type="date"
+                          value={stg.deadline}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setBulkStageDates((prev) =>
+                              prev.map((item) => (item.id === stg.id ? { ...item, deadline: val } : item))
+                            );
+                          }}
+                          className="w-full p-2 border rounded-xl font-medium"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                <div className="flex justify-end space-x-3 pt-3 border-t">
+                  <button type="button" onClick={() => setShowBulkStageModal(false)} className="px-4 py-2 text-xs font-semibold text-slate-600">
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingStage}
+                    className="px-5 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md disabled:opacity-50"
+                  >
+                    {submittingStage ? 'Saving Deadlines...' : 'Save All Stage Deadlines'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

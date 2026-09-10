@@ -18,6 +18,9 @@ import {
   Globe,
   Eye,
   X,
+  FileCheck,
+  Download,
+  Pencil,
 } from 'lucide-react';
 import { COPOMappingTable } from './COPOMappingTable';
 import { SDGMappingForm, SDGGoalItem, SDGMappingItem } from './SDGMappingForm';
@@ -41,30 +44,34 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
   onSaveDraft,
   onSubmitSyllabus,
 }) => {
-  const templateType = subject.subjectType?.templateType || 'THEORY';
-  const existingSub = subject.submission;
-  const currentSyllabusStatus = subject.syllabusStatus;
-
-  // Lock status check: Faculty cannot edit if submitted, resubmitted, or approved
-  const isLocked = ['SUBMITTED', 'RESUBMITTED', 'APPROVED'].includes(currentSyllabusStatus);
-
-  const [activeStep, setActiveStep] = useState(1);
+  const [activeStep, setActiveStep] = useState<number>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [missingChecklist, setMissingChecklist] = useState<string[]>([]);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showPdfModal, setShowPdfModal] = useState(false);
-  const [submissionErrorModal, setSubmissionErrorModal] = useState<{ isOpen: boolean; title: string; reasons: string[] }>({
+  const [submissionErrorModal, setSubmissionErrorModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    reasons: string[];
+  }>({
     isOpen: false,
     title: '',
     reasons: [],
   });
 
-  // Form State
+  const existingSub = subject.submission || (subject.syllabusSubmissions && subject.syllabusSubmissions[0]);
+  const templateType = subject.subjectType?.templateType || 'THEORY';
+  const currentSyllabusStatus = subject.syllabusStatus;
+
+  // Lock status check: Faculty cannot edit if submitted, resubmitted, or approved
+  const isLocked = ['SUBMITTED', 'RESUBMITTED', 'APPROVED'].includes(currentSyllabusStatus);
+
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showPdfModal, setShowPdfModal] = useState(false);
+
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+
   const [objectives, setObjectives] = useState<string[]>(['', '', '']);
-  const [unitContactHours, setUnitContactHours] = useState<number>(9);
-  const [labContactHours, setLabContactHours] = useState<number>(30);
   const [units, setUnits] = useState<any[]>([
     { unitNumber: 1, unitName: '', content: '' },
     { unitNumber: 2, unitName: '', content: '' },
@@ -73,7 +80,11 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     { unitNumber: 5, unitName: '', content: '' },
   ]);
   const [unitTopics, setUnitTopics] = useState<Record<number, TopicItem[]>>({
-    1: [], 2: [], 3: [], 4: [], 5: [],
+    1: [],
+    2: [],
+    3: [],
+    4: [],
+    5: [],
   });
   const [experiments, setExperiments] = useState<any[]>([
     { experimentNumber: 1, title: '' },
@@ -88,18 +99,25 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     { experimentNumber: 10, title: '' },
   ]);
   const [courseOutcomes, setCourseOutcomes] = useState<any[]>([
-    { description: '', cognitiveLevel: 'K3' },
-    { description: '', cognitiveLevel: 'K3' },
-    { description: '', cognitiveLevel: 'K3' },
-    { description: '', cognitiveLevel: 'K3' },
-    { description: '', cognitiveLevel: 'K3' },
+    { description: '', cognitiveLevel: '' },
+    { description: '', cognitiveLevel: '' },
+    { description: '', cognitiveLevel: '' },
+    { description: '', cognitiveLevel: '' },
+    { description: '', cognitiveLevel: '' },
   ]);
   const [textbooks, setTextbooks] = useState<any[]>([]);
   const [newTb, setNewTb] = useState({ title: '', authors: '', edition: '', publisher: '', year: '' });
+  const [editingTbIdx, setEditingTbIdx] = useState<number | null>(null);
+  const [editTb, setEditTb] = useState({ title: '', authors: '', edition: '', publisher: '', year: '' });
+
   const [references, setReferences] = useState<any[]>([]);
   const [newRef, setNewRef] = useState({ title: '', authors: '', edition: '', publisher: '', year: '', url: '' });
+  const [editingRefIdx, setEditingRefIdx] = useState<number | null>(null);
+  const [editRef, setEditRef] = useState({ title: '', authors: '', edition: '', publisher: '', year: '', url: '' });
+
   const [coPoMappings, setCoPoMappings] = useState<Record<string, number>>({});
   const [coPoJustifications, setCoPoJustifications] = useState<Record<string, string>>({});
+  const [activeJustificationCO, setActiveJustificationCO] = useState<number>(1);
   const [sdgMappings, setSdgMappings] = useState<SDGMappingItem[]>([]);
   const [poStatements, setPoStatements] = useState<any[]>([]);
   const [psoStatements, setPsoStatements] = useState<any[]>([]);
@@ -118,41 +136,74 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
 
   useEffect(() => {
     if (existingSub) {
-      if (existingSub.unitContactHours) setUnitContactHours(existingSub.unitContactHours);
-      if (existingSub.labContactHours) setLabContactHours(existingSub.labContactHours);
-
       if (existingSub.objectives?.length > 0) {
         setObjectives(existingSub.objectives.map((o: any) => o.description));
       }
 
       if (existingSub.syllabusUnits?.length > 0) {
-        setUnits(existingSub.syllabusUnits.map((u: any) => ({
-          unitNumber: u.unitNumber,
-          unitName: u.unitName,
-          content: u.content,
-        })));
+        const loadedUnits: any[] = [];
+        const loadedTopicsMap: Record<number, TopicItem[]> = {};
+
+        existingSub.syllabusUnits.forEach((u: any) => {
+          loadedUnits.push({
+            unitNumber: u.unitNumber,
+            unitName: u.unitName || '',
+            content: u.content || '',
+          });
+          loadedTopicsMap[u.unitNumber] = parseTopicsFromContentString(u.content || '');
+        });
+
+        for (let i = 1; i <= 5; i++) {
+          if (!loadedUnits.some((u) => u.unitNumber === i)) {
+            loadedUnits.push({ unitNumber: i, unitName: '', content: '' });
+          }
+          if (!loadedTopicsMap[i]) {
+            loadedTopicsMap[i] = [];
+          }
+        }
+
+        loadedUnits.sort((a, b) => a.unitNumber - b.unitNumber);
+        setUnits(loadedUnits);
+        setUnitTopics(loadedTopicsMap);
       }
 
       if (existingSub.experiments?.length > 0) {
-        setExperiments(existingSub.experiments.map((e: any) => ({
-          experimentNumber: e.experimentNumber,
-          title: e.title,
-        })));
+        let loadedExps = existingSub.experiments.map((e: any, idx: number) => ({
+          experimentNumber: e.experimentNumber || idx + 1,
+          title: e.title || '',
+        }));
+
+        if (templateType === 'LAB' || templateType === 'PROJECT') {
+          while (loadedExps.length < 10) {
+            loadedExps.push({ experimentNumber: loadedExps.length + 1, title: '' });
+          }
+        } else if (templateType === 'LAB_ORIENTED_THEORY' || templateType === 'PROJECT_ORIENTED_THEORY') {
+          while (loadedExps.length < 7) {
+            loadedExps.push({ experimentNumber: loadedExps.length + 1, title: '' });
+          }
+        }
+        setExperiments(loadedExps);
+      } else {
+        if (templateType === 'LAB' || templateType === 'PROJECT') {
+          setExperiments(Array.from({ length: 10 }, (_, i) => ({ experimentNumber: i + 1, title: '' })));
+        } else if (templateType === 'LAB_ORIENTED_THEORY' || templateType === 'PROJECT_ORIENTED_THEORY') {
+          setExperiments(Array.from({ length: 7 }, (_, i) => ({ experimentNumber: i + 1, title: '' })));
+        }
       }
 
       if (existingSub.courseOutcomes?.length > 0) {
         const coList = [
-          { description: '', cognitiveLevel: 'K3' },
-          { description: '', cognitiveLevel: 'K3' },
-          { description: '', cognitiveLevel: 'K3' },
-          { description: '', cognitiveLevel: 'K3' },
-          { description: '', cognitiveLevel: 'K3' },
+          { description: '', cognitiveLevel: '' },
+          { description: '', cognitiveLevel: '' },
+          { description: '', cognitiveLevel: '' },
+          { description: '', cognitiveLevel: '' },
+          { description: '', cognitiveLevel: '' },
         ];
         existingSub.courseOutcomes.forEach((co: any) => {
           if (co.coNumber >= 1 && co.coNumber <= 5) {
             coList[co.coNumber - 1] = {
               description: co.description || '',
-              cognitiveLevel: co.cognitiveLevel || 'K3',
+              cognitiveLevel: co.cognitiveLevel || '',
             };
           }
         });
@@ -204,15 +255,15 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
         })));
       }
     }
+    setIsDataLoaded(true);
   }, [existingSub]);
 
-  // Derived Contact Hours Calculations
-  const theoryContactHours = 5 * (unitContactHours || 0);
-  const totalContactHours = templateType === 'THEORY'
-    ? theoryContactHours
-    : templateType === 'LAB'
-    ? labContactHours
-    : theoryContactHours + labContactHours;
+  // Derived Contact Hours Calculations: Total Contact Hours = 15 * Credits
+  const subjectCredits = subject?.credits ? Number(subject.credits) : 3;
+  const totalContactHours = subjectCredits > 0 ? Math.round(subjectCredits * 15) : 45;
+  const unitContactHours = Math.round(totalContactHours / 5);
+  const theoryContactHours = totalContactHours;
+  const labContactHours = totalContactHours;
 
   // UPDATED STEPPER SEQUENCE: SDG Mapping comes after CO/PO Justification (Step 8!)
   const steps = [
@@ -233,16 +284,27 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     theoryContactHours,
     labContactHours,
     totalContactHours,
-    objectives: objectives.filter((o) => o.trim()),
-    units,
-    experiments: experiments.filter((e) => e.title.trim()),
+    objectives: objectives.filter((o) => o && typeof o === 'string' && o.trim()),
+    units: units.map((u) => {
+      const topics = unitTopics[u.unitNumber];
+      let finalContent = u.content || '';
+      if (topics && topics.length > 0) {
+        const formatted = formatTopicsToContentString(topics);
+        if (formatted.trim()) finalContent = formatted;
+      }
+      return {
+        ...u,
+        content: finalContent,
+      };
+    }),
+    experiments: experiments.filter((e) => e && e.title && typeof e.title === 'string' && e.title.trim()),
     courseOutcomes: courseOutcomes.map((co, idx) => ({
       coNumber: idx + 1,
-      cognitiveLevel: co.cognitiveLevel || 'K3',
+      cognitiveLevel: co.cognitiveLevel || '',
       description: typeof co === 'string' ? co : (co.description || ''),
     })),
-    textbooks: textbooks.filter((t) => t.title.trim()),
-    references: references.filter((r) => r.title.trim()),
+    textbooks: textbooks.filter((t) => t && t.title && typeof t.title === 'string' && t.title.trim()),
+    references: references.filter((r) => r && r.title && typeof r.title === 'string' && r.title.trim()),
     coPoMappings: Object.entries(coPoMappings).map(([key, val]) => {
       const [coNumber, poKey] = key.split('_');
       return { coNumber: parseInt(coNumber), poKey, correlation: val };
@@ -255,13 +317,13 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
   });
 
   const [autoSaveStatus, setAutoSaveStatus] = useState<string>('');
-  const [isInitialLoad, setIsInitialLoad] = useState<boolean>(true);
+  const isFirstRun = React.useRef(true);
 
   // Auto-Save Effect (Debounced 1500ms)
   useEffect(() => {
-    if (isLocked) return;
-    if (isInitialLoad) {
-      setIsInitialLoad(false);
+    if (isLocked || !isDataLoaded) return;
+    if (isFirstRun.current) {
+      isFirstRun.current = false;
       return;
     }
 
@@ -291,24 +353,25 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     sdgMappings,
     unitContactHours,
     labContactHours,
+    isDataLoaded,
   ]);
 
   const getStepStatus = (stepId: number): 'COMPLETED' | 'STARTED' | 'NOT_STARTED' => {
     switch (stepId) {
       case 1: {
-        const validObjs = objectives.filter((o) => o.trim()).length;
+        const validObjs = objectives.filter((o) => o && typeof o === 'string' && o.trim()).length;
         if (validObjs >= 3) return 'COMPLETED';
         if (validObjs > 0) return 'STARTED';
         return 'NOT_STARTED';
       }
       case 2: {
-        if (templateType === 'LAB') {
-          const validExps = experiments.filter((e) => e.title && e.title.trim()).length;
+        if (templateType === 'LAB' || templateType === 'PROJECT') {
+          const validExps = experiments.filter((e) => e && e.title && typeof e.title === 'string' && e.title.trim()).length;
           if (validExps >= 10) return 'COMPLETED';
           if (validExps > 0) return 'STARTED';
           return 'NOT_STARTED';
         } else {
-          const filledUnits = units.filter((u) => u.content && u.content.trim()).length;
+          const filledUnits = units.filter((u) => u && u.content && typeof u.content === 'string' && u.content.trim()).length;
           if (filledUnits >= 5) return 'COMPLETED';
           if (filledUnits > 0) return 'STARTED';
           return 'NOT_STARTED';
@@ -316,17 +379,17 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
       }
       case 3: {
         const validCOs = courseOutcomes.filter((co) =>
-          typeof co === 'string' ? co.trim() : co?.description?.trim()
+          co && (typeof co === 'string' ? co.trim() : (typeof co?.description === 'string' ? co.description.trim() : ''))
         ).length;
         if (validCOs >= 5) return 'COMPLETED';
         if (validCOs > 0) return 'STARTED';
         return 'NOT_STARTED';
       }
       case 4:
-        if (textbooks.filter((t) => t.title && t.title.trim()).length >= 1) return 'COMPLETED';
+        if (textbooks.filter((t) => t && t.title && typeof t.title === 'string' && t.title.trim()).length >= 1) return 'COMPLETED';
         return 'NOT_STARTED';
       case 5:
-        if (references.filter((r) => r.title && r.title.trim()).length >= 1) return 'COMPLETED';
+        if (references.filter((r) => r && r.title && typeof r.title === 'string' && r.title.trim()).length >= 1) return 'COMPLETED';
         return 'NOT_STARTED';
       case 6:
         if (Object.keys(coPoMappings).length > 0) return 'COMPLETED';
@@ -349,42 +412,55 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     let firstMissingStep = 9;
 
     // Step 1: Objectives (3 - 5)
-    const validObjectives = objectives.filter((o) => o.trim());
+    const validObjectives = objectives.filter((o) => o && typeof o === 'string' && o.trim());
     if (validObjectives.length < 3 || validObjectives.length > 5) {
       missing.push('⚠ Course Objectives must have between 3 and 5 non-empty entries.');
       if (firstMissingStep > 1) firstMissingStep = 1;
     }
 
     // Step 2: Units / Experiments
-    if (templateType === 'THEORY' || templateType === 'THEORY_LAB') {
-      const incompleteUnits = units.filter((u) => !u.unitName.trim() || !u.content.trim());
+    if (templateType === 'THEORY' || templateType === 'LAB_ORIENTED_THEORY' || templateType === 'PROJECT_ORIENTED_THEORY') {
+      const incompleteUnits = units.filter((u) => !u || !u.unitName || typeof u.unitName !== 'string' || !u.unitName.trim() || !u.content || typeof u.content !== 'string' || !u.content.trim());
       if (incompleteUnits.length > 0) {
         missing.push('⚠ All 5 Syllabus Units must have non-empty titles and topic descriptions.');
         if (firstMissingStep > 2) firstMissingStep = 2;
       }
     }
-    if (templateType === 'LAB' || templateType === 'THEORY_LAB' || templateType === 'LAB_ORIENTED_THEORY') {
-      const validExps = experiments.filter((e) => e.title.trim());
+    if (templateType === 'LAB' || templateType === 'PROJECT') {
+      const validExps = experiments.filter((e) => e && e.title && typeof e.title === 'string' && e.title.trim());
       if (validExps.length < 10) {
-        missing.push('⚠ Minimum 10 Laboratory Experiments are required for Lab courses.');
+        missing.push('⚠ Exactly 10 Laboratory Experiments are required for Lab/Project courses.');
+        if (firstMissingStep > 2) firstMissingStep = 2;
+      }
+    } else if (templateType === 'LAB_ORIENTED_THEORY' || templateType === 'PROJECT_ORIENTED_THEORY') {
+      const validExps = experiments.filter((e) => e && e.title && typeof e.title === 'string' && e.title.trim());
+      if (validExps.length < 7) {
+        missing.push('⚠ Minimum 7 Laboratory Experiments are required for Lab-Oriented Theory courses.');
         if (firstMissingStep > 2) firstMissingStep = 2;
       }
     }
 
-    // Step 3: Course Outcomes (5 mandatory COs)
+    // Step 3: Course Outcomes (5 mandatory COs & Cognitive Levels)
     const validCOs = courseOutcomes.filter((co) =>
-      typeof co === 'string' ? co.trim() : co?.description?.trim()
+      co && (typeof co === 'string' ? co.trim() : (typeof co?.description === 'string' ? co.description.trim() : ''))
     );
     if (validCOs.length < 5) {
       missing.push('⚠ Exactly 5 Course Outcomes (CO1..CO5) are mandatory with descriptions.');
       if (firstMissingStep > 3) firstMissingStep = 3;
     }
+    const unselectedCogLevels = courseOutcomes.filter((co) => !co?.cognitiveLevel || !co.cognitiveLevel.trim());
+    if (unselectedCogLevels.length > 0) {
+      missing.push('⚠ Please select a Cognitive Level (K1-K6) for all 5 Course Outcomes.');
+      if (firstMissingStep > 3) firstMissingStep = 3;
+    }
 
-    // Step 4: Textbooks
-    const validTextbooks = textbooks.filter((t) => t.title.trim());
-    if (validTextbooks.length === 0) {
-      missing.push('⚠ At least 1 Textbook entry (Title & Authors) is mandatory.');
-      if (firstMissingStep > 4) firstMissingStep = 4;
+    // Step 4: Textbooks (Not mandatory for LAB or PROJECT courses)
+    if (templateType !== 'LAB' && templateType !== 'PROJECT') {
+      const validTextbooks = textbooks.filter((t) => t.title.trim());
+      if (validTextbooks.length === 0) {
+        missing.push('⚠ At least 1 Textbook entry (Title & Authors) is mandatory.');
+        if (firstMissingStep > 4) firstMissingStep = 4;
+      }
     }
 
     // Step 6: CO/PO Mapping
@@ -395,9 +471,19 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     }
 
     // Step 8: SDG Mapping
-    if (sdgMappings.length === 0) {
-      missing.push('⚠ At least 1 SDG Goal topic mapping is required.');
-      if (firstMissingStep > 8) firstMissingStep = 8;
+    if (templateType === 'LAB') {
+      if (sdgMappings.length === 0) {
+        missing.push('⚠ At least 1 SDG Goal experiment mapping is required.');
+        if (firstMissingStep > 8) firstMissingStep = 8;
+      }
+    } else {
+      for (let coNum = 1; coNum <= 5; coNum++) {
+        const coSDGs = sdgMappings.filter((m) => Number(m.coNumber) === coNum);
+        if (coSDGs.length === 0) {
+          missing.push(`⚠ CO${coNum} — Please select at least one SDG and topic.`);
+          if (firstMissingStep > 8) firstMissingStep = 8;
+        }
+      }
     }
 
     return {
@@ -489,6 +575,91 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
     }
   });
 
+  const handleFillTemplateData = () => {
+    if (isLocked) return;
+
+    if (!confirm('Populate syllabus template with sample data across all 9 steps? This will fill standard curriculum content for testing.')) {
+      return;
+    }
+
+    setObjectives([
+      'To understand fundamental algorithmic concepts, data structure representations, and time/space complexity analysis.',
+      'To implement and manipulate linear data structures including stacks, queues, and linked lists in software applications.',
+      'To master non-linear data structures such as trees, heaps, and graph algorithms for complex data modeling.',
+      'To evaluate searching, sorting, and hashing techniques for optimizing algorithmic performance in real-world systems.'
+    ]);
+
+    setUnits([
+      { unitNumber: 1, unitName: 'Linear Data Structures & Stacks', content: 'Abstract Data Types (ADTs) — Array Implementation — Singly Linked Lists — Doubly Linked Lists — Circular Linked Lists — Applications of Linked Lists — Stack ADT — Array and Linked List Implementation of Stacks — Infix to Postfix Conversion — Postfix Expression Evaluation — Recursion Stack Analysis.' },
+      { unitNumber: 2, unitName: 'Queues & Deques', content: 'Queue ADT — Array and Linked List Implementation of Queues — Circular Queue — Priority Queue — Double-Ended Queue (Deque) — Applications of Queues in Operating System Scheduling — Breadth-First Search (BFS) Buffer Queue Management.' },
+      { unitNumber: 3, unitName: 'Non-Linear Structures: Trees & Heaps', content: 'Tree Terminologies — Binary Tree Representation and Traversals (Preorder, Inorder, Postorder) — Expression Trees — Binary Search Trees (BST) Insertion, Deletion, Searching — AVL Balanced Trees — Rotations — Priority Queues and Binary Heaps — Max Heap and Min Heap Construction — Heap Sort.' },
+      { unitNumber: 4, unitName: 'Graph Algorithms & Shortest Paths', content: 'Graph Representation: Adjacency Matrix and Adjacency List — Graph Traversals: Depth First Search (DFS) and Breadth First Search (BFS) — Minimum Spanning Trees: Prim’s Algorithm and Kruskal’s Algorithm — Shortest Path Algorithms: Dijkstra’s Algorithm and Floyd-Warshall Algorithm — Topological Sorting.' },
+      { unitNumber: 5, unitName: 'Hashing, Searching & Sorting Techniques', content: 'Hashing Concepts — Hash Functions — Hash Collision Resolution Techniques: Separate Chaining, Open Addressing (Linear Probing, Quadratic Probing, Double Hashing) — Rehashing — Searching: Linear Search, Binary Search — Sorting: Bubble Sort, Insertion Sort, Quick Sort, Merge Sort — Analysis of Sorting Complexities.' }
+    ]);
+
+    setExperiments([
+      { experimentNumber: 1, title: 'Array implementation of Stack and Queue ADTs' },
+      { experimentNumber: 2, title: 'Implementation of Singly and Doubly Linked Lists' },
+      { experimentNumber: 3, title: 'Evaluation of Postfix expressions using Stack' },
+      { experimentNumber: 4, title: 'Circular Queue implementation using Array' },
+      { experimentNumber: 5, title: 'Binary Search Tree operations: Insertion, Deletion, and Traversals' },
+      { experimentNumber: 6, title: 'Implementation of AVL Tree rotations and balancing' },
+      { experimentNumber: 7, title: 'Implementation of Priority Queue using Binary Heap' },
+      { experimentNumber: 8, title: 'Graph Traversals using Breadth First Search (BFS) and Depth First Search (DFS)' },
+      { experimentNumber: 9, title: 'Minimum Spanning Tree construction using Prim’s Algorithm' },
+      { experimentNumber: 10, title: 'Implementation of Open Addressing Hashing with collision handling' }
+    ]);
+
+    setCourseOutcomes([
+      { description: 'Understand and apply linear data structures to solve computational problems.', cognitiveLevel: 'K2' },
+      { description: 'Design and implement stack and queue data structures for real-time applications.', cognitiveLevel: 'K3' },
+      { description: 'Construct and manipulate non-linear tree structures and binary search trees.', cognitiveLevel: 'K4' },
+      { description: 'Analyze graph traversal techniques and compute optimal shortest paths.', cognitiveLevel: 'K4' },
+      { description: 'Evaluate hashing and sorting techniques for efficient data retrieval.', cognitiveLevel: 'K5' }
+    ]);
+
+    setTextbooks([
+      { title: 'Data Structures and Algorithm Analysis in C', authors: 'Mark Allen Weiss', edition: '2nd Edition', publisher: 'Pearson Education', year: '2016' },
+      { title: 'Fundamentals of Data Structures in C', authors: 'Ellis Horowitz, Sartaj Sahni, Susan Anderson-Freed', edition: '2nd Edition', publisher: 'Universities Press', year: '2018' }
+    ]);
+
+    setReferences([
+      { title: 'Introduction to Algorithms', authors: 'Thomas H. Cormen, Charles E. Leiserson, Ronald L. Rivest, Clifford Stein', edition: '3rd Edition', publisher: 'MIT Press / PHI', year: '2015', url: 'https://mitpress.mit.edu/books/introduction-algorithms' },
+      { title: 'Data Structures and Algorithms', authors: 'Alfred V. Aho, John E. Hopcroft, Jeffrey D. Ullman', edition: '1st Edition', publisher: 'Pearson Education', year: '2014', url: 'https://pearson.com' }
+    ]);
+
+    const mapObj: Record<string, number> = {};
+    for (let c = 1; c <= 5; c++) {
+      for (let p = 1; p <= 12; p++) {
+        const key = `${c}_PO${p}`;
+        mapObj[key] = (c + p) % 3 === 0 ? 3 : (c + p) % 2 === 0 ? 2 : 1;
+      }
+      for (let s = 1; s <= 3; s++) {
+        const key = `${c}_PSO${s}`;
+        mapObj[key] = s === 1 ? 3 : 2;
+      }
+    }
+    setCoPoMappings(mapObj);
+
+    const justObj: Record<string, string> = {};
+    Object.entries(mapObj).forEach(([k, val]) => {
+      const [c, p] = k.split('_');
+      justObj[k] = `CO${c} strongly aligns with ${p} by applying structured algorithmic logic and engineering principles.`;
+    });
+    setCoPoJustifications(justObj);
+
+    setSdgMappings([
+      { coNumber: 1, sdgNumber: 4, topic: 'Fundamental algorithmic thinking promotes quality technical education.' },
+      { coNumber: 2, sdgNumber: 9, topic: 'Data structure optimization supports scalable industry software infrastructure.' },
+      { coNumber: 3, sdgNumber: 9, topic: 'Efficient tree algorithms enable complex computational innovation.' },
+      { coNumber: 4, sdgNumber: 9, topic: 'Graph optimization algorithms enhance network routing efficiency.' },
+      { coNumber: 5, sdgNumber: 4, topic: 'Advanced searching and sorting skills empower lifelong learning.' }
+    ]);
+
+    setAutoSaveStatus('Template data auto-filled!');
+    setTimeout(() => setAutoSaveStatus(''), 3000);
+  };
+
   return (
     <div className="space-y-6 select-none">
       {/* Edit Lock Banner if Submitted */}
@@ -527,6 +698,17 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
         </div>
 
         <div className="flex items-center space-x-3">
+          {!isLocked && (
+            <button
+              type="button"
+              onClick={handleFillTemplateData}
+              className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black text-xs rounded-xl shadow-sm flex items-center transition-all"
+              title="Auto-fill sample syllabus template data across all 9 steps for testing"
+            >
+              <Sparkles className="w-4 h-4 mr-1.5 text-yellow-200 animate-pulse" />
+              Use Template
+            </button>
+          )}
           {autoSaveStatus && (
             <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200 animate-pulse">
               ✓ {autoSaveStatus}
@@ -680,7 +862,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
           <div className="space-y-6">
             <h3 className="text-sm font-bold uppercase text-brand-700">Step 2: Course Syllabus Content</h3>
 
-            {(templateType === 'THEORY' || templateType === 'LAB_ORIENTED_THEORY') && (
+            {(templateType === 'THEORY' || templateType === 'LAB_ORIENTED_THEORY' || templateType === 'PROJECT_ORIENTED_THEORY') && (
               <div className="space-y-4">
                 <div className="p-3 bg-purple-50 rounded-xl text-xs font-semibold text-brand-900">
                   Unit Contact Hours: <strong className="text-brand-700 font-bold">{unitContactHours} Hours/Unit</strong> (Total 5 Theory Units = {theoryContactHours} Hours)
@@ -725,12 +907,23 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
               </div>
             )}
 
-            {(templateType === 'LAB' || templateType === 'LAB_ORIENTED_THEORY') && (
+            {(templateType === 'LAB' || templateType === 'PROJECT' || templateType === 'LAB_ORIENTED_THEORY' || templateType === 'PROJECT_ORIENTED_THEORY') && (
               <div className="space-y-4 pt-4 border-t">
-                <h4 className="text-xs font-bold text-slate-900 uppercase">Laboratory Experiments</h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-slate-900 uppercase">
+                    Laboratory / Practical Experiments
+                    {templateType === 'LAB' || templateType === 'PROJECT'
+                      ? ' (Exactly 10 Experiments Required)'
+                      : ' (Minimum 7, Maximum 10 Experiments Required)'}
+                  </h4>
+                  <span className="text-xs font-bold text-brand-700 bg-purple-100 px-2.5 py-0.5 rounded-full border border-purple-200">
+                    {experiments.length} Experiments
+                  </span>
+                </div>
+
                 {experiments.map((exp, idx) => (
                   <div key={idx} className="flex items-center space-x-2">
-                    <span className="text-xs font-bold text-slate-500 w-8">Exp #{exp.experimentNumber}</span>
+                    <span className="text-xs font-bold text-slate-500 w-16 shrink-0">Exp #{idx + 1}</span>
                     <input
                       type="text"
                       disabled={isLocked}
@@ -740,11 +933,39 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                         newExps[idx].title = e.target.value;
                         setExperiments(newExps);
                       }}
-                      placeholder="Experiment Title..."
-                      className="flex-1 px-3 py-2 text-xs border rounded-xl"
+                      placeholder={`Experiment ${idx + 1} Title...`}
+                      className="flex-1 px-3 py-2 text-xs border rounded-xl font-medium bg-white focus:ring-brand-500"
                     />
+                    {!isLocked && (templateType === 'LAB_ORIENTED_THEORY' || templateType === 'PROJECT_ORIENTED_THEORY') && experiments.length > 7 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = experiments.filter((_, i) => i !== idx).map((e, i) => ({ ...e, experimentNumber: i + 1 }));
+                          setExperiments(updated);
+                        }}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                        title="Remove Experiment"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 ))}
+
+                {!isLocked && (templateType === 'LAB_ORIENTED_THEORY' || templateType === 'PROJECT_ORIENTED_THEORY') && experiments.length < 10 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExperiments([
+                        ...experiments,
+                        { experimentNumber: experiments.length + 1, title: '' },
+                      ]);
+                    }}
+                    className="px-4 py-2 text-xs font-bold text-brand-700 bg-purple-50 hover:bg-purple-100 rounded-xl flex items-center shadow-xs border border-purple-200"
+                  >
+                    <Plus className="w-4 h-4 mr-1.5" /> Add Experiment (up to 10 max)
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -769,14 +990,19 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                     <span className="text-[11px] font-semibold text-slate-600">Cognitive Level:</span>
                     <select
                       disabled={isLocked}
-                      value={co.cognitiveLevel || 'K3'}
+                      value={co.cognitiveLevel || ''}
                       onChange={(e) => {
                         const newCOs = [...courseOutcomes];
                         newCOs[idx].cognitiveLevel = e.target.value;
                         setCourseOutcomes(newCOs);
                       }}
-                      className="text-xs font-bold text-brand-800 bg-purple-100 border border-purple-300 rounded-xl px-2.5 py-1 focus:ring-brand-500"
+                      className={`text-xs font-bold rounded-xl px-2.5 py-1 focus:ring-brand-500 ${
+                        !co.cognitiveLevel
+                          ? 'text-rose-700 bg-rose-50 border border-rose-300'
+                          : 'text-brand-800 bg-purple-100 border border-purple-300'
+                      }`}
                     >
+                      <option value="">Select Cognitive Level *</option>
                       <option value="K1">K1 - Remember</option>
                       <option value="K2">K2 - Understand</option>
                       <option value="K3">K3 - Apply</option>
@@ -796,7 +1022,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                     setCourseOutcomes(newCOs);
                   }}
                   placeholder={`Upon completion of this unit, students will be able to...`}
-                  className="w-full px-3 py-2 text-xs border rounded-xl focus:ring-brand-500"
+                  className="w-full px-3 py-2 text-xs border rounded-xl focus:ring-brand-500 bg-white"
                 />
               </div>
             ))}
@@ -885,26 +1111,111 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                 </div>
               ) : (
                 textbooks.map((tb, idx) => (
-                  <div key={idx} className="p-4 border rounded-2xl bg-white space-y-2 flex items-center justify-between hover:border-purple-200 transition-all shadow-2xs">
-                    <div className="space-y-1">
-                      <span className="font-mono text-[10px] font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
-                        [{idx + 1}]
-                      </span>
-                      <p className="text-xs font-bold text-slate-900">"{tb.title}"</p>
-                      <p className="text-[11px] text-desc">
-                        {tb.authors ? `Authors: ${tb.authors}` : ''} {tb.edition ? `| ${tb.edition}` : ''} {tb.publisher ? `| ${tb.publisher}` : ''} {tb.year ? `(${tb.year})` : ''}
-                      </p>
-                    </div>
+                  <div key={idx} className="p-4 border rounded-2xl bg-white space-y-3 hover:border-purple-200 transition-all shadow-2xs">
+                    {editingTbIdx === idx ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between border-b pb-2">
+                          <span className="font-bold text-brand-700 text-xs">Edit Textbook #{idx + 1}</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            value={editTb.title}
+                            onChange={(e) => setEditTb({ ...editTb, title: e.target.value })}
+                            placeholder="Book Title *"
+                            className="px-3 py-1.5 text-xs border rounded-xl font-bold bg-white focus:ring-brand-500"
+                          />
+                          <input
+                            type="text"
+                            value={editTb.authors}
+                            onChange={(e) => setEditTb({ ...editTb, authors: e.target.value })}
+                            placeholder="Authors *"
+                            className="px-3 py-1.5 text-xs border rounded-xl bg-white focus:ring-brand-500"
+                          />
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <input
+                            type="text"
+                            value={editTb.edition}
+                            onChange={(e) => setEditTb({ ...editTb, edition: e.target.value })}
+                            placeholder="Edition"
+                            className="px-3 py-1.5 text-xs border rounded-xl bg-white focus:ring-brand-500"
+                          />
+                          <input
+                            type="text"
+                            value={editTb.publisher}
+                            onChange={(e) => setEditTb({ ...editTb, publisher: e.target.value })}
+                            placeholder="Publisher"
+                            className="px-3 py-1.5 text-xs border rounded-xl bg-white focus:ring-brand-500"
+                          />
+                          <input
+                            type="text"
+                            value={editTb.year}
+                            onChange={(e) => setEditTb({ ...editTb, year: e.target.value })}
+                            placeholder="Year"
+                            className="px-3 py-1.5 text-xs border rounded-xl bg-white focus:ring-brand-500"
+                          />
+                        </div>
+                        <div className="flex justify-end space-x-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setEditingTbIdx(null)}
+                            className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!editTb.title.trim()}
+                            onClick={() => {
+                              if (!editTb.title.trim()) return;
+                              const updated = [...textbooks];
+                              updated[idx] = { ...editTb };
+                              setTextbooks(updated);
+                              setEditingTbIdx(null);
+                            }}
+                            className="px-4 py-1.5 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl"
+                          >
+                            Save Changes
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <span className="font-mono text-[10px] font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
+                            [{idx + 1}]
+                          </span>
+                          <p className="text-xs font-bold text-slate-900">"{tb.title}"</p>
+                          <p className="text-[11px] text-desc">
+                            {tb.authors ? `Authors: ${tb.authors}` : ''} {tb.edition ? `| ${tb.edition}` : ''} {tb.publisher ? `| ${tb.publisher}` : ''} {tb.year ? `(${tb.year})` : ''}
+                          </p>
+                        </div>
 
-                    {!isLocked && (
-                      <button
-                        type="button"
-                        onClick={() => setTextbooks(textbooks.filter((_, i) => i !== idx))}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-xl"
-                        title="Remove Textbook"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                        {!isLocked && (
+                          <div className="flex items-center space-x-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingTbIdx(idx);
+                                setEditTb({ ...tb });
+                              }}
+                              className="p-2 text-brand-600 hover:bg-purple-50 rounded-xl"
+                              title="Edit Textbook"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setTextbooks(textbooks.filter((_, i) => i !== idx))}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded-xl"
+                              title="Remove Textbook"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 ))
@@ -995,26 +1306,111 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                 </div>
               ) : (
                 references.map((ref, idx) => (
-                  <div key={idx} className="p-4 border rounded-2xl bg-white space-y-2 flex items-center justify-between hover:border-purple-200 transition-all shadow-2xs">
-                    <div className="space-y-1">
-                      <span className="font-mono text-[10px] font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
-                        [{idx + 1}]
-                      </span>
-                      <p className="text-xs font-bold text-slate-900">"{ref.title}"</p>
-                      <p className="text-[11px] text-desc">
-                        {ref.authors ? `Authors: ${ref.authors}` : ''} {ref.publisher ? `| ${ref.publisher}` : ''} {ref.url ? `| Link: ${ref.url}` : ''}
-                      </p>
-                    </div>
+                  <div key={idx} className="p-4 border rounded-2xl bg-white space-y-3 hover:border-purple-200 transition-all shadow-2xs">
+                    {editingRefIdx === idx ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between border-b pb-2">
+                          <span className="font-bold text-brand-700 text-xs">Edit Reference #{idx + 1}</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            value={editRef.title}
+                            onChange={(e) => setEditRef({ ...editRef, title: e.target.value })}
+                            placeholder="Reference Title *"
+                            className="px-3 py-1.5 text-xs border rounded-xl font-bold bg-white focus:ring-brand-500"
+                          />
+                          <input
+                            type="text"
+                            value={editRef.authors}
+                            onChange={(e) => setEditRef({ ...editRef, authors: e.target.value })}
+                            placeholder="Authors"
+                            className="px-3 py-1.5 text-xs border rounded-xl bg-white focus:ring-brand-500"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                          <input
+                            type="text"
+                            value={editRef.edition}
+                            onChange={(e) => setEditRef({ ...editRef, edition: e.target.value })}
+                            placeholder="Edition"
+                            className="px-3 py-1.5 text-xs border rounded-xl bg-white focus:ring-brand-500"
+                          />
+                          <input
+                            type="text"
+                            value={editRef.publisher}
+                            onChange={(e) => setEditRef({ ...editRef, publisher: e.target.value })}
+                            placeholder="Publisher"
+                            className="px-3 py-1.5 text-xs border rounded-xl bg-white focus:ring-brand-500"
+                          />
+                          <input
+                            type="text"
+                            value={editRef.url}
+                            onChange={(e) => setEditRef({ ...editRef, url: e.target.value })}
+                            placeholder="Web Link URL"
+                            className="px-3 py-1.5 text-xs border rounded-xl bg-white focus:ring-brand-500"
+                          />
+                        </div>
+                        <div className="flex justify-end space-x-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setEditingRefIdx(null)}
+                            className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!editRef.title.trim()}
+                            onClick={() => {
+                              if (!editRef.title.trim()) return;
+                              const updated = [...references];
+                              updated[idx] = { ...editRef };
+                              setReferences(updated);
+                              setEditingRefIdx(null);
+                            }}
+                            className="px-4 py-1.5 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl"
+                          >
+                            Save Changes
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <span className="font-mono text-[10px] font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
+                            [{idx + 1}]
+                          </span>
+                          <p className="text-xs font-bold text-slate-900">"{ref.title}"</p>
+                          <p className="text-[11px] text-desc">
+                            {ref.authors ? `Authors: ${ref.authors}` : ''} {ref.publisher ? `| ${ref.publisher}` : ''} {ref.url ? `| Link: ${ref.url}` : ''}
+                          </p>
+                        </div>
 
-                    {!isLocked && (
-                      <button
-                        type="button"
-                        onClick={() => setReferences(references.filter((_, i) => i !== idx))}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-xl"
-                        title="Remove Reference"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                        {!isLocked && (
+                          <div className="flex items-center space-x-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingRefIdx(idx);
+                                setEditRef({ ...ref });
+                              }}
+                              className="p-2 text-brand-600 hover:bg-purple-50 rounded-xl"
+                              title="Edit Reference"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setReferences(references.filter((_, i) => i !== idx))}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded-xl"
+                              title="Remove Reference"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 ))
@@ -1040,49 +1436,98 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
           </div>
         )}
 
-        {/* STEP 7: CO/PO JUSTIFICATION WITH STATEMENT DISPLAY */}
+        {/* STEP 7: CO/PO JUSTIFICATION WITH TABBED VIEW */}
         {activeStep === 7 && (
-          <div className="space-y-4">
-            <h3 className="text-sm font-bold uppercase text-brand-700">Step 7: CO / PO Justification</h3>
-            <p className="text-xs text-desc">Provide mandatory justification text for every non-zero correlated CO-PO mapping cell based on actual PO/PSO statements.</p>
+          <div className="space-y-5">
+            <div>
+              <h3 className="text-sm font-bold uppercase text-brand-700">Step 7: CO / PO Justification</h3>
+              <p className="text-xs text-desc mt-0.5">Select each Course Outcome tab below and provide mandatory justification text for mapped PO/PSO correlations.</p>
+            </div>
 
-            {correlatedPairs.length === 0 ? (
-              <p className="text-xs text-desc py-4 text-center">No non-zero CO-PO correlations mapped in Step 6 yet.</p>
-            ) : (
-              correlatedPairs.map((pair) => {
-                const key = `${pair.coNumber}_${pair.poKey}`;
-                const stmtObj = pair.poKey.startsWith('PSO')
-                  ? psoStatements.find((s) => s.psoKey === pair.poKey)
-                  : poStatements.find((s) => s.poKey === pair.poKey);
-                const stmtText = stmtObj?.statement;
+            {/* CO Tab Bar */}
+            <div className="flex items-center space-x-2 border-b pb-3 overflow-x-auto">
+              {[1, 2, 3, 4, 5].map((coNum) => {
+                const coPairs = correlatedPairs.filter((p) => p.coNumber === coNum);
+                const isJustified = coPairs.length > 0 && coPairs.every((p) => (coPoJustifications[`${p.coNumber}_${p.poKey}`] || '').trim().length > 0);
 
                 return (
-                  <div key={key} className="p-4 border rounded-2xl bg-slate-50/70 space-y-2">
-                    <div className="flex justify-between items-start">
-                      <label className="block text-xs font-bold text-brand-700">
-                        Justification for CO{pair.coNumber} → {pair.poKey} (Correlation: {pair.correlation}) *
-                      </label>
-                    </div>
+                  <button
+                    key={coNum}
+                    type="button"
+                    onClick={() => setActiveJustificationCO(coNum)}
+                    className={`px-4 py-2 rounded-xl font-bold transition-all flex items-center space-x-2 text-xs ${
+                      activeJustificationCO === coNum
+                        ? 'bg-brand-600 text-white shadow-sm'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    <span>CO{coNum}</span>
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] ${
+                      activeJustificationCO === coNum
+                        ? 'bg-brand-700 text-white'
+                        : coPairs.length === 0
+                        ? 'bg-slate-200 text-slate-600'
+                        : isJustified
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}>
+                      {coPairs.length} Mapped
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
-                    {stmtText && (
-                      <div className="p-2.5 bg-amber-50/60 rounded-xl border border-amber-200/60 text-xs text-amber-900">
-                        <strong className="font-bold text-amber-950">{pair.poKey} Statement: </strong>
-                        {stmtText}
-                      </div>
-                    )}
+            {/* Active CO Tab Justification Cards */}
+            {(() => {
+              const activePairs = correlatedPairs.filter((p) => p.coNumber === activeJustificationCO);
 
-                    <textarea
-                      rows={2}
-                      disabled={isLocked}
-                      value={coPoJustifications[key] || ''}
-                      onChange={(e) => handleJustificationChange(pair.coNumber, pair.poKey, e.target.value)}
-                      placeholder={`Explain how CO${pair.coNumber} addresses ${pair.poKey}...`}
-                      className="w-full px-3 py-2 text-xs border rounded-xl focus:ring-brand-500 bg-white"
-                    />
+              if (activePairs.length === 0) {
+                return (
+                  <div className="p-6 border border-dashed rounded-2xl text-center text-desc text-xs bg-slate-50">
+                    No non-zero PO/PSO correlations mapped for CO{activeJustificationCO} in Step 6.
                   </div>
                 );
-              })
-            )}
+              }
+
+              return (
+                <div className="space-y-4">
+                  {activePairs.map((pair) => {
+                    const key = `${pair.coNumber}_${pair.poKey}`;
+                    const stmtObj = pair.poKey.startsWith('PSO')
+                      ? psoStatements.find((s) => s.psoKey === pair.poKey)
+                      : poStatements.find((s) => s.poKey === pair.poKey);
+                    const stmtText = stmtObj?.statement;
+
+                    return (
+                      <div key={key} className="p-4 border rounded-2xl bg-slate-50/70 space-y-2">
+                        <div className="flex justify-between items-start">
+                          <label className="block text-xs font-bold text-brand-700">
+                            Justification for CO{pair.coNumber} → {pair.poKey} (Correlation Level: {pair.correlation}) *
+                          </label>
+                        </div>
+
+                        {stmtText && (
+                          <div className="p-2.5 bg-amber-50/60 rounded-xl border border-amber-200/60 text-xs text-amber-900">
+                            <strong className="font-bold text-amber-950">{pair.poKey} Statement: </strong>
+                            {stmtText}
+                          </div>
+                        )}
+
+                        <textarea
+                          rows={2}
+                          disabled={isLocked}
+                          value={coPoJustifications[key] || ''}
+                          onChange={(e) => handleJustificationChange(pair.coNumber, pair.poKey, e.target.value)}
+                          placeholder={`Explain how CO${pair.coNumber} addresses ${pair.poKey}...`}
+                          className="w-full px-3 py-2 text-xs border rounded-xl focus:ring-brand-500 bg-white font-sans"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -1098,12 +1543,13 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
             </p>
             <SDGMappingForm
               units={units}
+              unitTopics={unitTopics}
               experiments={experiments}
               sdgGoals={sdgGoals}
               sdgMappings={sdgMappings}
               onChange={setSdgMappings}
               disabled={isLocked}
-              isLabCourse={templateType === 'LAB'}
+              isLabCourse={templateType === 'LAB' || templateType === 'PROJECT'}
             />
           </div>
         )}
@@ -1166,8 +1612,8 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                   </button>
                 </div>
                 <div className="space-y-1.5 text-[11px]">
-                  <p>Course Objectives: <strong className="text-slate-900">{objectives.filter((o) => o.trim()).length} / 5 Defined</strong></p>
-                  <p>Course Outcomes: <strong className="text-slate-900">{courseOutcomes.filter((c) => (typeof c === 'string' ? c.trim() : c?.description?.trim())).length} / 5 Mandatory COs</strong></p>
+                  <p>Course Objectives: <strong className="text-slate-900">{objectives.filter((o) => o && typeof o === 'string' && o.trim()).length} / 5 Defined</strong></p>
+                  <p>Course Outcomes: <strong className="text-slate-900">{courseOutcomes.filter((c) => (typeof c === 'string' ? c.trim() : (typeof c?.description === 'string' ? c.description.trim() : ''))).length} / 5 Mandatory COs</strong></p>
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {courseOutcomes.map((co, idx) => (
                       <span key={idx} className="px-2 py-0.5 rounded bg-purple-100 text-brand-800 text-[10px] font-bold">
@@ -1191,12 +1637,12 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                 </div>
                 <div className="space-y-1.5 text-[11px]">
                   {templateType === 'LAB' ? (
-                    <p>Laboratory Experiments: <strong className="text-slate-900">{experiments.filter((e) => e.title.trim()).length} / 10 Completed</strong></p>
+                    <p>Laboratory Experiments: <strong className="text-slate-900">{experiments.filter((e) => e && e.title && typeof e.title === 'string' && e.title.trim()).length} / 10 Completed</strong></p>
                   ) : (
                     <>
-                      <p>Syllabus Units: <strong className="text-slate-900">{units.filter((u) => u.content.trim()).length} / 5 Completed</strong></p>
-                      {experiments.filter((e) => e.title.trim()).length > 0 && (
-                        <p>Laboratory Experiments: <strong className="text-slate-900">{experiments.filter((e) => e.title.trim()).length} Experiments Listed</strong></p>
+                      <p>Syllabus Units: <strong className="text-slate-900">{units.filter((u) => u && u.content && typeof u.content === 'string' && u.content.trim()).length} / 5 Completed</strong></p>
+                      {experiments.filter((e) => e && e.title && typeof e.title === 'string' && e.title.trim()).length > 0 && (
+                        <p>Laboratory Experiments: <strong className="text-slate-900">{experiments.filter((e) => e && e.title && typeof e.title === 'string' && e.title.trim()).length} Experiments Listed</strong></p>
                       )}
                     </>
                   )}
@@ -1321,7 +1767,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
 
       {/* PDF Preview Modal for Faculty when locked/submitted */}
       {showPdfModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-4xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b pb-3">
               <div>
@@ -1379,6 +1825,64 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
                 className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-md"
               >
                 Got It, Let Me Fix This
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Submission Success Pop-up Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="relative bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 text-center border-2 border-emerald-400">
+            <button
+              type="button"
+              onClick={() => setShowSuccessModal(false)}
+              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+              <CheckCircle2 className="w-10 h-10" />
+            </div>
+
+            <div>
+              <h3 className="text-xl font-extrabold text-slate-900">
+                You Successfully Submitted to HoD!
+              </h3>
+              <p className="text-xs text-desc mt-1">
+                Syllabus for <strong className="text-slate-800">{subject.subjectCode} — {subject.subjectName}</strong> has been submitted to the Head of Department for review.
+              </p>
+            </div>
+
+            <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 text-xs text-emerald-900 space-y-1.5 text-left">
+              <p className="font-bold flex items-center text-emerald-800 border-b border-emerald-200 pb-1">
+                <FileCheck className="w-4 h-4 mr-1.5 shrink-0" /> Submission Summary:
+              </p>
+              <p>• <strong>Status:</strong> Locked for HoD Review</p>
+              <p>• <strong>Total Contact Hours:</strong> {totalContactHours} Hours</p>
+              <p>• <strong>Assigned Faculty:</strong> {subject.assignedFaculty?.name || 'Faculty Member'} ({subject.assignedFaculty?.userCode || 'CSF01'})</p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+              <button
+                onClick={() => setShowPdfModal(true)}
+                className="w-full sm:w-auto px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-extrabold text-xs rounded-2xl shadow-md flex items-center justify-center space-x-2 transition-all"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download Acknowledgement PDF</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  window.location.reload();
+                }}
+                className="w-full sm:w-auto px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl transition-all"
+              >
+                Return to Dashboard
               </button>
             </div>
           </div>

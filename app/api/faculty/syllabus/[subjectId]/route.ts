@@ -127,6 +127,7 @@ export async function POST(
     }
 
     // Template specific checks
+    // Template specific checks
     if (templateType === 'THEORY') {
       if (!unitContactHours || Number(unitContactHours) <= 0) {
         missing.push('⚠ Contact Hours for each unit must be specified (> 0).');
@@ -134,22 +135,24 @@ export async function POST(
       if (!units || units.length < 5 || units.some((u: any) => !u.unitName?.trim() || !u.content?.trim())) {
         missing.push('⚠ Theory syllabus requires all 5 units to be fully completed.');
       }
-    } else if (templateType === 'LAB') {
+    } else if (templateType === 'LAB' || templateType === 'PROJECT') {
       if (!totalContactHours || Number(totalContactHours) <= 0) {
         missing.push('⚠ Total Contact Hours must be specified (> 0).');
       }
-      if (!experiments || experiments.length < 10 || experiments.some((e: any) => !e.title?.trim())) {
-        missing.push('⚠ Lab syllabus requires at least 10 experiments to be listed.');
+      const validExps = experiments ? experiments.filter((e: any) => e.title?.trim()) : [];
+      if (validExps.length < 10) {
+        missing.push('⚠ Lab / Project syllabus requires exactly 10 experiments to be listed.');
       }
-    } else if (templateType === 'LAB_ORIENTED_THEORY') {
+    } else if (templateType === 'LAB_ORIENTED_THEORY' || templateType === 'PROJECT_ORIENTED_THEORY') {
       if (!unitContactHours || Number(unitContactHours) <= 0) {
         missing.push('⚠ Theory Unit Contact Hours must be specified.');
       }
       if (!units || units.length < 5 || units.some((u: any) => !u.unitName?.trim() || !u.content?.trim())) {
         missing.push('⚠ Theory component requires all 5 units to be completed.');
       }
-      if (!experiments || experiments.length < 7 || experiments.some((e: any) => !e.title?.trim())) {
-        missing.push('⚠ Lab component requires at least 7 experiments to be listed.');
+      const validExps = experiments ? experiments.filter((e: any) => e.title?.trim()) : [];
+      if (validExps.length < 7) {
+        missing.push('⚠ Practical component requires at least 7 experiments to be listed.');
       }
       if (!labContactHours || Number(labContactHours) <= 0) {
         missing.push('⚠ Lab Contact Hours must be specified.');
@@ -161,13 +164,13 @@ export async function POST(
       missing.push('⚠ Exactly 5 Course Outcomes (CO1..CO5) are mandatory.');
     }
 
-    // Textbooks check (Not mandatory for LAB courses)
-    if (templateType !== 'LAB' && (!textbooks || textbooks.length === 0 || textbooks.some((t: any) => !t.title?.trim() || !t.authors?.trim()))) {
+    // Textbooks check (Not mandatory for LAB or PROJECT courses)
+    if (templateType !== 'LAB' && templateType !== 'PROJECT' && (!textbooks || textbooks.length === 0 || textbooks.some((t: any) => !t.title?.trim() || !t.authors?.trim()))) {
       missing.push('⚠ At least 1 complete Textbook entry (Title, Author) is required.');
     }
 
-    // References check (Not mandatory for LAB courses)
-    if (templateType !== 'LAB' && (!references || references.length === 0 || references.some((r: any) => !r.title?.trim()))) {
+    // References check (Not mandatory for LAB or PROJECT courses)
+    if (templateType !== 'LAB' && templateType !== 'PROJECT' && (!references || references.length === 0 || references.some((r: any) => !r.title?.trim()))) {
       missing.push('⚠ At least 1 Reference entry is required.');
     }
 
@@ -193,11 +196,17 @@ export async function POST(
       }
     }
 
-    // SDG Mapping Validation: Every CO (CO1..CO5) MUST have at least 1 SDG and at least 1 topic mapped! (User Requirement)
-    for (let coNum = 1; coNum <= 5; coNum++) {
-      const coSDGs = sdgMappings ? sdgMappings.filter((m: any) => Number(m.coNumber) === coNum) : [];
-      if (coSDGs.length === 0) {
-        missing.push(`⚠ CO${coNum} — Please select at least one SDG and topic.`);
+    // SDG Mapping Validation
+    if (templateType === 'LAB' || templateType === 'PROJECT') {
+      if (!sdgMappings || sdgMappings.length === 0) {
+        missing.push('⚠ Please select at least one SDG Goal mapped with an experiment.');
+      }
+    } else {
+      for (let coNum = 1; coNum <= 5; coNum++) {
+        const coSDGs = sdgMappings ? sdgMappings.filter((m: any) => Number(m.coNumber) === coNum) : [];
+        if (coSDGs.length === 0) {
+          missing.push(`⚠ CO${coNum} — Please select at least one SDG and topic.`);
+        }
       }
     }
 

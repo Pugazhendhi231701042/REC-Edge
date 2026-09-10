@@ -23,3 +23,9 @@ export function formatIST(date: Date | string | null | undefined, includeTime = 
   const formatted = new Intl.DateTimeFormat('en-IN', options).format(d);
   return includeTime ? `${formatted} IST` : formatted;
 }
+
+export function formatStageDeadlineRange(startDate: Date | string | null | undefined, deadline: Date | string | null | undefined): string {
+  const startStr = startDate ? formatIST(startDate, true) : 'Not Specified';
+  const endStr = deadline ? formatIST(deadline, true) : 'Not Specified';
+  return `${startStr} – ${endStr}`;
+}

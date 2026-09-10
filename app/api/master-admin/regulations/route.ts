@@ -30,7 +30,78 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 403 });
   }
 
-  const { action, code, name, displayName, regId, subjectTypeId, typeCode, typeName } = await req.json();
+  const body = await req.json();
+  const { action, code, name, displayName, regId, subjectTypeId, typeCode, typeName, catId, catCode, catName, catDescription } = body;
+
+  if (action === 'CREATE_SUBJECT_CATEGORY') {
+    if (!catCode || !catName) {
+      return NextResponse.json({ error: 'Category Code and Name are required.' }, { status: 400 });
+    }
+
+    const createdCat = await prisma.subjectCategory.create({
+      data: {
+        code: catCode.trim().toUpperCase(),
+        name: catName.trim(),
+        description: catDescription ? catDescription.trim() : null,
+      },
+    });
+
+    await logAudit({
+      userId: session.userId,
+      userRole: session.role,
+      action: 'CREATE_SUBJECT_CATEGORY',
+      entity: 'SubjectCategory',
+      entityId: createdCat.id,
+    });
+
+    return NextResponse.json({ success: true, subjectCategory: createdCat });
+  }
+
+  if (action === 'EDIT_SUBJECT_CATEGORY') {
+    if (!catId || !catCode || !catName) {
+      return NextResponse.json({ error: 'Category ID, Code, and Name are required.' }, { status: 400 });
+    }
+
+    const updatedCat = await prisma.subjectCategory.update({
+      where: { id: catId },
+      data: {
+        code: catCode.trim().toUpperCase(),
+        name: catName.trim(),
+        description: catDescription ? catDescription.trim() : null,
+      },
+    });
+
+    await logAudit({
+      userId: session.userId,
+      userRole: session.role,
+      action: 'UPDATE_SUBJECT_CATEGORY',
+      entity: 'SubjectCategory',
+      entityId: catId,
+    });
+
+    return NextResponse.json({ success: true, subjectCategory: updatedCat });
+  }
+
+  if (action === 'DELETE_SUBJECT_CATEGORY') {
+    if (!catId) return NextResponse.json({ error: 'Category ID required.' }, { status: 400 });
+
+    const subjectCount = await prisma.subject.count({ where: { subjectCategoryId: catId } });
+    if (subjectCount > 0) {
+      return NextResponse.json({ error: `Cannot delete category because ${subjectCount} subject(s) are assigned to it.` }, { status: 400 });
+    }
+
+    await prisma.subjectCategory.delete({ where: { id: catId } });
+
+    await logAudit({
+      userId: session.userId,
+      userRole: session.role,
+      action: 'DELETE_SUBJECT_CATEGORY',
+      entity: 'SubjectCategory',
+      entityId: catId,
+    });
+
+    return NextResponse.json({ success: true, message: 'Subject category deleted successfully.' });
+  }
 
   if (action === 'EDIT_SUBJECT_TYPE') {
     if (!subjectTypeId || !typeCode || !typeName) {
@@ -99,4 +170,60 @@ export async function POST(req: Request) {
   });
 
   return NextResponse.json({ success: true, regulation: created });
+}
+
+export async function DELETE(req: Request) {
+  const session = await getCurrentUser();
+  if (!session || session.role !== 'MASTERADMIN') {
+    return NextResponse.json({ error: 'Unauthorized. MasterAdmin role required.' }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get('id');
+
+  if (!id) {
+    return NextResponse.json({ error: 'Regulation ID is required.' }, { status: 400 });
+  }
+
+  const regulation = await prisma.regulation.findUnique({
+    where: { id },
+  });
+
+  if (!regulation) {
+    return NextResponse.json({ error: 'Regulation not found.' }, { status: 404 });
+  }
+
+  if (regulation.active) {
+    return NextResponse.json({ error: 'Cannot delete the active regulation. Please set another regulation as active first.' }, { status: 400 });
+  }
+
+  const subjectCount = await prisma.subject.count({
+    where: { regulationId: id },
+  });
+
+  if (subjectCount > 0) {
+    return NextResponse.json(
+      { error: `Cannot delete regulation '${regulation.displayName}' because ${subjectCount} subject(s) are associated with it.` },
+      { status: 400 }
+    );
+  }
+
+  await prisma.pOConfiguration.deleteMany({ where: { regulationId: id } });
+  await prisma.pSOConfiguration.deleteMany({ where: { regulationId: id } });
+  await prisma.programOutcomeStatement.deleteMany({ where: { regulationId: id } });
+  await prisma.programSpecificOutcomeStatement.deleteMany({ where: { regulationId: id } });
+  await prisma.programEducationalObjectiveStatement.deleteMany({ where: { regulationId: id } });
+
+  await prisma.regulation.delete({ where: { id } });
+
+  await logAudit({
+    userId: session.userId,
+    userRole: session.role,
+    action: 'DELETE_REGULATION',
+    entity: 'Regulation',
+    entityId: id,
+    details: { code: regulation.code, displayName: regulation.displayName },
+  });
+
+  return NextResponse.json({ success: true, message: `Regulation '${regulation.displayName}' deleted successfully.` });
 }

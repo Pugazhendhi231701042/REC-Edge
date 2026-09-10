@@ -64,7 +64,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Active regulation or academic year not configured.' }, { status: 400 });
   }
 
-  const { id, semester, subjectTypeId, subjectCategoryId, subjectName, lecture, tutorial, practical } = await req.json();
+  const { id, semester, vertical, subjectTypeId, subjectCategoryId, subjectName, lecture, tutorial, practical, customPrefix } = await req.json();
+
+  // Prerequisite validation: POs & PSOs must be created before adding new subject
+  if (!id) {
+    const poStmtCount = await prisma.programOutcomeStatement.count({
+      where: { departmentId: dept.id, regulationId: activeReg.id },
+    });
+    const psoStmtCount = await prisma.programSpecificOutcomeStatement.count({
+      where: { departmentId: dept.id, regulationId: activeReg.id },
+    });
+
+    if (poStmtCount === 0 || psoStmtCount === 0) {
+      return NextResponse.json(
+        { error: 'Program Outcomes (POs) and Program Specific Outcomes (PSOs) must be created and saved before adding subjects.' },
+        { status: 400 }
+      );
+    }
+  }
 
   if (!subjectName || !subjectTypeId || !subjectCategoryId || !semester) {
     return NextResponse.json({ error: 'All subject fields are required.' }, { status: 400 });
@@ -130,13 +147,16 @@ export async function POST(req: Request) {
     });
 
     const sequenceNumber = existingTypeCount + 1;
-    subjectCode = formatSubjectCode(dept.departmentCode, activeReg.code, Number(semester), subjectType.code, sequenceNumber);
+    const prefixCode = customPrefix ? String(customPrefix).trim().toUpperCase() : dept.departmentCode;
+    subjectCode = formatSubjectCode(prefixCode, activeReg.code, Number(semester), subjectType.code, sequenceNumber);
   }
 
   if (id) {
     const updated = await prisma.subject.update({
       where: { id },
       data: {
+        semester: Number(semester),
+        vertical: vertical ? String(vertical) : null,
         subjectName: subjectName.trim(),
         subjectTypeId,
         subjectCategoryId,
@@ -165,6 +185,7 @@ export async function POST(req: Request) {
       regulationId: activeReg.id,
       academicYearId: activeYear.id,
       semester: Number(semester),
+      vertical: vertical ? String(vertical) : null,
       subjectTypeId,
       subjectCategoryId,
       subjectName: subjectName.trim(),

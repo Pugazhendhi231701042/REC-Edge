@@ -30,6 +30,8 @@ model User {
   decidedExtensions   ExtensionRequest[]   @relation("ExtensionDecider")
   syllabusSubmissions SyllabusSubmission[] @relation("FacultySubmissions")
   approvedSubmissions SyllabusSubmission[] @relation("ApprovedBySubmissions")
+  submittedBundles    DepartmentCurriculumBundle[] @relation("BundleSubmittedBy")
+  approvedBundles     DepartmentCurriculumBundle[] @relation("BundleApprovedBy")
   notifications       Notification[]       @relation("UserNotifications")
   auditLogs           AuditLog[]           @relation("UserAuditLogs")
 }
@@ -54,6 +56,8 @@ model Department {
   extensionRequests ExtensionRequest[]
   programOutcomeStatements ProgramOutcomeStatement[]
   programSpecificOutcomeStatements ProgramSpecificOutcomeStatement[]
+  programEducationalObjectiveStatements ProgramEducationalObjectiveStatement[]
+  curriculumBundles DepartmentCurriculumBundle[]
 }
 
 model Regulation {
@@ -70,6 +74,8 @@ model Regulation {
   psoConfigurations PSOConfiguration[]
   programOutcomeStatements ProgramOutcomeStatement[]
   programSpecificOutcomeStatements ProgramSpecificOutcomeStatement[]
+  programEducationalObjectiveStatements ProgramEducationalObjectiveStatement[]
+  curriculumBundles DepartmentCurriculumBundle[]
 }
 
 model AcademicYear {
@@ -80,11 +86,13 @@ model AcademicYear {
   updatedAt DateTime @updatedAt
 
   subjects Subject[]
+  curriculumBundles DepartmentCurriculumBundle[]
 }
 
 model AcademicStage {
   id            String    @id @default(uuid())
-  name          String    // "Curriculum & Syllabus Formation", "DAC Meeting", "BoS Meeting"
+  order         Int       @default(1)
+  name          String    // Stage name
   description   String?
   startDate     DateTime?
   deadline      DateTime?
@@ -145,6 +153,8 @@ model CreditConfig {
   lWeight           Float    @default(1.0)
   tWeight           Float    @default(1.0)
   pWeight           Float    @default(0.5)
+  hoursPerCredit    Int      @default(15) // 15 contact hours per credit standard
+  customPrefixes    String?  @default("GE, PH, HS, MC, CS, EC, EE, ME, CE, AI, CB, IT")
   updatedAt         DateTime @updatedAt
 }
 
@@ -186,10 +196,11 @@ model Subject {
   regulationId      String
   academicYearId    String
   semester          Int
+  vertical          String?   // Vertical A, Vertical B, ..., Vertical H (for electives)
   subjectTypeId     String
   subjectCategoryId String
   subjectName       String
-  subjectCode       String // Generated CS26421
+  subjectCode       String // Generated CS26421 / GE26121
   lecture           Int // L
   tutorial          Int // T
   practical         Int // P
@@ -312,6 +323,44 @@ model ProgramSpecificOutcomeStatement {
   regulation Regulation @relation(fields: [regulationId], references: [id])
 
   @@unique([departmentId, regulationId, psoKey])
+}
+
+model ProgramEducationalObjectiveStatement {
+  id           String   @id @default(uuid())
+  departmentId String
+  regulationId String
+  peoKey       String   // PEO1, PEO2, PEO3, PEO4...
+  statement    String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  department Department @relation(fields: [departmentId], references: [id])
+  regulation Regulation @relation(fields: [regulationId], references: [id])
+
+  @@unique([departmentId, regulationId, peoKey])
+}
+
+model DepartmentCurriculumBundle {
+  id               String    @id @default(uuid())
+  departmentId     String
+  regulationId     String
+  academicYearId   String
+  status           String    @default("DRAFT") // DRAFT, SUBMITTED, APPROVED, RETURNED_FOR_CORRECTION
+  submittedAt      DateTime?
+  submittedById    String?
+  approvedAt       DateTime?
+  approvedById     String?
+  correctionReason String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  department   Department   @relation(fields: [departmentId], references: [id])
+  regulation   Regulation   @relation(fields: [regulationId], references: [id])
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  submittedBy  User?        @relation("BundleSubmittedBy", fields: [submittedById], references: [id])
+  approvedBy   User?        @relation("BundleApprovedBy", fields: [approvedById], references: [id])
+
+  @@unique([departmentId, regulationId, academicYearId])
 }
 
 model Textbook {

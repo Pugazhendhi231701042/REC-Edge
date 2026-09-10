@@ -25,6 +25,7 @@ interface SyllabusUnit {
 interface SDGMappingFormProps {
   sdgGoals?: any[];
   units: SyllabusUnit[];
+  unitTopics?: Record<number, any[]>;
   experiments?: any[];
   sdgMappings: SDGMapping[];
   onChange: (mappings: SDGMapping[]) => void;
@@ -53,32 +54,34 @@ const default17SDGs = [
 ];
 
 function parseUnitTopics(content: string): string[] {
-  if (!content) return [];
-  const lines = content.split('\n');
+  if (!content || !content.trim()) return [];
+  
   const topics: string[] = [];
+  const rawParts = content.split(/\n|\s+[–—]\s+|[;]/);
 
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
+  for (const part of rawParts) {
+    if (!part || !part.trim()) continue;
 
-    const cleaned = trimmed.replace(/^[\d+.\-–—\s├└│|\\-•*]+/, '').trim();
+    let cleaned = part.trim()
+      .replace(/^(Topic\s*\d+:?|Subtopic\s*[\d.]+:?|[\d+.\-–—\s├└│|\\-•*]+)/gi, '')
+      .trim();
+
+    if (!cleaned) {
+      cleaned = part.trim();
+    }
 
     if (cleaned.length > 0 && !topics.includes(cleaned)) {
       topics.push(cleaned);
     }
   }
 
-  if (topics.length > 0) return topics;
-
-  const parts = content.split(/[,;\n]/);
-  return parts
-    .map((p) => p.replace(/^[.\s,\-–—]+|[.\s,\-–—]+$/g, '').trim())
-    .filter((p) => p.length > 0);
+  return topics;
 }
 
 export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
   sdgGoals = [],
   units,
+  unitTopics,
   experiments = [],
   sdgMappings,
   onChange,
@@ -98,11 +101,40 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
     content: '',
   };
 
-  const currentTopics = isLabCourse
-    ? experiments && experiments.length > 0
-      ? experiments.map((exp, idx) => `Exp ${idx + 1}: ${exp.title || 'Experiment'}`)
-      : Array.from(new Set(units.flatMap((u) => parseUnitTopics(u.content))))
-    : parseUnitTopics(currentUnit.content);
+  const currentTopics: string[] = React.useMemo(() => {
+    if (isLabCourse) {
+      return experiments && experiments.length > 0
+        ? experiments.filter((exp) => exp && exp.title && exp.title.trim()).map((exp, idx) => `Exp ${exp.experimentNumber || idx + 1}: ${exp.title.trim()}`)
+        : [];
+    }
+
+    const result: string[] = [];
+    const structTopics = unitTopics ? unitTopics[activeCO] : null;
+
+    if (structTopics && Array.isArray(structTopics) && structTopics.length > 0) {
+      structTopics.forEach((t: any) => {
+        if (t.title && t.title.trim() && !result.includes(t.title.trim())) {
+          result.push(t.title.trim());
+        }
+        if (t.subtopics && Array.isArray(t.subtopics)) {
+          t.subtopics.forEach((st: any) => {
+            if (st.title && st.title.trim() && !result.includes(st.title.trim())) {
+              result.push(st.title.trim());
+            }
+          });
+        }
+      });
+    }
+
+    if (result.length === 0 && currentUnit?.content) {
+      const fallback = parseUnitTopics(currentUnit.content);
+      fallback.forEach((t) => {
+        if (!result.includes(t)) result.push(t);
+      });
+    }
+
+    return result;
+  }, [isLabCourse, experiments, unitTopics, activeCO, currentUnit]);
 
   const handleAddMapping = () => {
     if (!selectedSDG || !selectedTopic.trim() || disabled) return;
@@ -132,7 +164,19 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
 
   return (
     <div className="space-y-6 text-xs text-slate-800 font-sans">
-      {!isLabCourse && (
+      {isLabCourse ? (
+        <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-blue-900 flex items-center justify-between">
+          <div>
+            <h4 className="font-bold text-xs">Laboratory Course SDG Goal Mapping</h4>
+            <p className="text-[11px] text-blue-700 mt-0.5">
+              Select UN Sustainable Development Goals (SDG) mapped to any laboratory experiment for this course.
+            </p>
+          </div>
+          <span className="px-3 py-1 bg-blue-100 text-blue-800 font-bold rounded-xl text-xs">
+            {sdgMappings.length} Experiment Mappings
+          </span>
+        </div>
+      ) : (
         <div className="flex items-center justify-between border-b pb-3 overflow-x-auto">
           <div className="flex items-center space-x-2">
             {cos.map((coNum) => {
@@ -159,8 +203,8 @@ export const SDGMappingForm: React.FC<SDGMappingFormProps> = ({
                       {count} Mapped
                     </span>
                   ) : (
-                    <span className={`px-2 py-0.5 rounded-md text-[10px] ${activeCO === coNum ? 'bg-purple-800 text-white' : 'bg-amber-100 text-amber-900'}`}>
-                      Missing
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] ${activeCO === coNum ? 'bg-brand-700 text-white' : 'bg-red-100 text-red-800'}`}>
+                      0 Mapped
                     </span>
                   )}
                 </button>
