@@ -53,21 +53,32 @@ export function calculateCredits(
 
 /**
  * Generates Subject Code format:
- * Department Code + Regulation + Semester + Subject Type Code + Sequence Number
- * Example: CS + 26 + 4 + 2 + 1 => CS26421
+ * Prefix/Dept Code + Regulation + Semester/Vertical Letter + Subject Type Code + Sequence Number
+ * Example Professional Core: CS + 27 + 4 + 2 + 1 => CS27421
+ * Example Elective: CD + 27 + E + 3 + 1 => CD27E31
  */
 export function formatSubjectCode(
   deptCode: string,
   regCode: string,
-  semester: number,
+  semOrVerticalStr: number | string,
   typeCode: number,
   sequenceNumber: number
 ): string {
   const dCode = (deptCode || 'XX').trim().toUpperCase();
-  const rCode = (regCode || '26').trim();
-  const sem = semester || 1;
+  const rCode = (regCode || '27').trim();
+  let semOrVert = '1';
+  if (typeof semOrVerticalStr === 'string' && semOrVerticalStr.trim().length > 0) {
+    const str = semOrVerticalStr.trim();
+    if (str.toUpperCase().startsWith('VERTICAL ')) {
+      semOrVert = str.split(' ')[1].toUpperCase();
+    } else {
+      semOrVert = str.toUpperCase();
+    }
+  } else if (semOrVerticalStr !== undefined && semOrVerticalStr !== null) {
+    semOrVert = String(semOrVerticalStr).trim();
+  }
   const tCode = typeCode || 1;
   const seq = sequenceNumber || 1;
 
-  return `${dCode}${rCode}${sem}${tCode}${seq}`;
+  return `${dCode}${rCode}${semOrVert}${tCode}${seq}`;
 }

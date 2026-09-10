@@ -497,6 +497,10 @@ export default function MasterAdminDashboard() {
   const handleAddPrefix = (prefixToAdd: string) => {
     const cleanPrefix = prefixToAdd.trim().toUpperCase();
     if (!cleanPrefix) return;
+    if (cleanPrefix.length !== 2) {
+      alert('Course Code Prefix must be exactly 2 characters (e.g. CD, GE, PH).');
+      return;
+    }
     const currentList = customPrefixes.split(',').map((p) => p.trim()).filter(Boolean);
     if (currentList.includes(cleanPrefix)) {
       alert(`Prefix '${cleanPrefix}' already exists.`);
@@ -1485,9 +1489,10 @@ export default function MasterAdminDashboard() {
               <div className="flex items-center space-x-2 pt-2 border-t border-purple-100 max-w-sm">
                 <input
                   type="text"
+                  maxLength={2}
                   value={newPrefixInput}
-                  onChange={(e) => setNewPrefixInput(e.target.value)}
-                  placeholder="e.g. AD or BM"
+                  onChange={(e) => setNewPrefixInput(e.target.value.toUpperCase())}
+                  placeholder="e.g. CD or GE"
                   className="flex-1 px-3 py-1.5 text-xs font-mono border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 uppercase"
                 />
                 <button

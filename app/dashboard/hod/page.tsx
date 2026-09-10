@@ -186,6 +186,8 @@ export default function HoDDashboard() {
     }
   };
 
+  const [activeRegulation, setActiveRegulation] = useState<any>(null);
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -204,6 +206,9 @@ export default function HoDDashboard() {
         const data = await resSubj.json();
         setSubjects(data.subjects || []);
         setDepartment(data.department);
+        if (data.activeRegulation) {
+          setActiveRegulation(data.activeRegulation);
+        }
       }
 
       if (resRegs.ok) {
@@ -1337,6 +1342,7 @@ export default function HoDDashboard() {
             onClose={() => setShowSubjectModal(false)}
             onSuccess={fetchData}
             departmentCode={department?.departmentCode || 'CS'}
+            regulationCode={activeRegulation?.code || '27'}
             semester={activeSemester}
             subjectTypes={subjectTypes}
             subjectCategories={subjectCategories}

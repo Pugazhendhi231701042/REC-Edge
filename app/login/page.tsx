@@ -58,8 +58,8 @@ export default function LoginPage() {
 
             <div>
               <h1 className="text-3xl lg:text-4xl font-black tracking-wider text-white">REC EDGE</h1>
-              <p className="text-sm font-extrabold text-amber-400 uppercase tracking-widest mt-1">
-                REGULATION 26
+              <p className="text-xs font-extrabold text-amber-400 uppercase tracking-widest mt-1">
+                CURRICULUM & SYLLABUS SYSTEM
               </p>
             </div>
 
@@ -85,7 +85,7 @@ export default function LoginPage() {
         <div className="p-8 lg:p-12 bg-white flex flex-col justify-center">
           <div className="mb-8">
             <h3 className="text-2xl font-bold text-slate-900">Welcome Back!</h3>
-            <p className="text-xs font-medium text-desc mt-1">Sign in to continue to Regulation 26</p>
+            <p className="text-xs font-medium text-desc mt-1">Sign in to continue to Curriculum Portal</p>
           </div>
 
           {error && (

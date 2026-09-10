@@ -41,7 +41,7 @@ export async function GET() {
     orderBy: [{ semester: 'asc' }, { subjectCode: 'asc' }],
   });
 
-  return NextResponse.json({ department, subjects });
+  return NextResponse.json({ department, subjects, activeRegulation: activeReg });
 }
 
 export async function POST(req: Request) {
@@ -148,7 +148,8 @@ export async function POST(req: Request) {
 
     const sequenceNumber = existingTypeCount + 1;
     const prefixCode = customPrefix ? String(customPrefix).trim().toUpperCase() : dept.departmentCode;
-    subjectCode = formatSubjectCode(prefixCode, activeReg.code, Number(semester), subjectType.code, sequenceNumber);
+    const semOrVertStr = vertical ? String(vertical).trim() : Number(semester);
+    subjectCode = formatSubjectCode(prefixCode, activeReg.code, semOrVertStr, subjectType.code, sequenceNumber);
   }
 
   if (id) {

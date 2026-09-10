@@ -397,7 +397,7 @@ export default function DeanDashboard() {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b pb-4">
                   <div>
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">Institutional Command Center</h1>
-                    <p className="text-xs text-desc mt-1">Dean / SuperAdmin Executive Governance — Regulation 26</p>
+                    <p className="text-xs text-desc mt-1">Dean / SuperAdmin Executive Governance — Curriculum Portal</p>
                   </div>
                   <div className="mt-3 md:mt-0 flex items-center space-x-3">
                     <button

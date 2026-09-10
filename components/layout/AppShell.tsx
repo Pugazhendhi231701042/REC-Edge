@@ -50,9 +50,24 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTab, onTabCh
   const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
+  const [activeRegName, setActiveRegName] = useState<string>('Regulation 27');
+
   useEffect(() => {
     fetchSession();
+    fetchActiveRegulation();
   }, []);
+
+  const fetchActiveRegulation = async () => {
+    try {
+      const res = await fetch('/api/master-admin/settings');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.settings?.activeRegulation) {
+          setActiveRegName(data.settings.activeRegulation);
+        }
+      }
+    } catch (err) {}
+  };
 
   // Click Outside Listener for Notif & Profile Dropdowns
   useEffect(() => {
@@ -187,7 +202,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTab, onTabCh
           />
           <div>
             <h3 className="text-xs font-bold text-slate-900 tracking-wide">Curriculum & Syllabus Management System</h3>
-            <p className="text-[11px] text-desc font-medium mt-0.5">Loading Regulation 26 Workspace...</p>
+            <p className="text-[11px] text-desc font-medium mt-0.5">Loading {activeRegName} Workspace...</p>
           </div>
         </div>
       </div>
@@ -202,6 +217,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTab, onTabCh
         userName={user?.name}
         userEmail={user?.email}
         departmentName={user?.department}
+        activeRegulationName={activeRegName}
         onLogout={handleLogout}
         activeTab={activeTab}
         onTabChange={onTabChange}
@@ -216,7 +232,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTab, onTabCh
               Curriculum & Syllabus Management System
             </h2>
             <span className="hidden sm:inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 text-brand-800 border border-purple-200">
-              Regulation 26
+              {activeRegName}
             </span>
           </div>
 

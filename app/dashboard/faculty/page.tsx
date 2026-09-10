@@ -156,7 +156,7 @@ export default function FacultyDashboard() {
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b pb-4">
                   <div>
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">Faculty Syllabus Workspace</h1>
-                    <p className="text-xs text-desc mt-1">Curriculum & Syllabus Formation — Regulation 26</p>
+                    <p className="text-xs text-desc mt-1">Curriculum & Syllabus Formation — Curriculum Portal</p>
                   </div>
 
                   <div className="mt-3 md:mt-0 flex items-center space-x-3 bg-purple-50 p-3 rounded-2xl border border-purple-200">
@@ -240,7 +240,7 @@ export default function FacultyDashboard() {
 
                   {subjects.length === 0 ? (
                     <div className="p-8 text-center bg-white rounded-3xl border border-purple-100 text-xs text-desc">
-                      You currently have no assigned subjects for Regulation 26.
+                      You currently have no assigned subjects for this regulation.
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

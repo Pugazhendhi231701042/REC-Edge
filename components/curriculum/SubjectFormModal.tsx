@@ -30,7 +30,7 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
   onClose,
   onSuccess,
   departmentCode,
-  regulationCode = '26',
+  regulationCode = '27',
   semester,
   subjectTypes,
   subjectCategories,
@@ -86,6 +86,9 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
               .filter(Boolean);
             if (list.length > 0) {
               setCustomPrefixesList(list);
+              if (!editingSubject) {
+                setCoursePrefix(list[0]);
+              }
             }
           }
         }
@@ -96,8 +99,8 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
   };
 
   const availablePrefixes = customPrefixesList.length > 0
-    ? Array.from(new Set([...customPrefixesList, (departmentCode || 'CS').toUpperCase()]))
-    : Array.from(new Set(['GE', 'PH', 'HS', 'MC', (departmentCode || 'CS').toUpperCase(), 'EC', 'EE', 'ME', 'CE', 'AI', 'CB', 'IT']));
+    ? customPrefixesList
+    : ['GE', 'PH', 'HS', 'MC', 'CD', 'AI', 'CB', 'EC', 'EE', 'ME', 'CE', 'IT'];
 
   useEffect(() => {
     setSelectedSemester(editingSubject ? editingSubject.semester : (semester || 1));
@@ -117,7 +120,7 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
       setSubjectName('');
       setSubjectTypeId(subjectTypes[0]?.id || '');
       setSubjectCategoryId(''); // Default to - Select Subject Category -
-      setCoursePrefix(departmentCode || 'CS');
+      setCoursePrefix(availablePrefixes[0] || departmentCode || 'CS');
       setSelectedVertical('Vertical A');
       setLecture(3);
       setTutorial(0);
@@ -142,13 +145,15 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
     : false;
   const isInvalidNonTheoryPractical = isNonTheory && practical < 1;
 
-  // Vertical digit calculation (1 to 8)
-  const verticalDigit = Math.max(1, VERTICAL_OPTIONS.indexOf(selectedVertical) + 1);
+  // Extract vertical letter (e.g. "Vertical E" -> "E")
+  const verticalLetter = selectedVertical.toUpperCase().startsWith('VERTICAL ')
+    ? selectedVertical.split(' ')[1]
+    : selectedVertical;
 
-  // Live preview subject code
-  const semOrVertDigit = isElectiveCategory ? verticalDigit : selectedSemester;
+  // Live preview subject code (e.g. CD27E31 for electives, CS27421 for PC)
+  const semOrVertStr = isElectiveCategory ? verticalLetter : selectedSemester;
   const activePrefix = isElectiveCategory ? coursePrefix : (departmentCode || 'CS');
-  const codePreview = formatSubjectCode(activePrefix, regulationCode, semOrVertDigit, typeCode, editingSubject ? 1 : 1);
+  const codePreview = formatSubjectCode(activePrefix, regulationCode, semOrVertStr, typeCode, editingSubject ? 1 : 1);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,7 +177,7 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: editingSubject?.id,
-          semester: Number(isElectiveCategory ? verticalDigit : selectedSemester),
+          semester: Number(selectedSemester),
           vertical: isElectiveCategory ? selectedVertical : null,
           subjectTypeId,
           subjectCategoryId,

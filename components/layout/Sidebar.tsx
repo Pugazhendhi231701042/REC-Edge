@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Building2,
@@ -24,6 +25,7 @@ interface SidebarProps {
   userName?: string;
   userEmail?: string;
   departmentName?: string;
+  activeRegulationName?: string;
   onLogout?: () => void;
   activeTab?: string;
   onTabChange?: (tab: string) => void;
@@ -34,10 +36,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   userName,
   userEmail,
   departmentName,
+  activeRegulationName = 'Regulation 27',
   onLogout,
   activeTab = 'overview',
   onTabChange,
 }) => {
+  const router = useRouter();
   const getDeanSections = () => [
     {
       title: 'OVERVIEW',
@@ -159,14 +163,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
-  let sections = getFacultySections();
-  if (userRole === 'SUPERADMIN') sections = getDeanSections();
-  else if (userRole === 'MASTERADMIN') sections = getMasterAdminSections();
-  else if (userRole === 'HOD') sections = getHoDSections();
+  const getSidebarSections = (role: string) => {
+    if (role === 'SUPERADMIN') return getDeanSections();
+    if (role === 'MASTERADMIN') return getMasterAdminSections();
+    if (role === 'HOD') return getHoDSections();
+    return getFacultySections();
+  };
+
+  const sections = getSidebarSections(userRole || '');
+
+  const handleNavClick = (section: any) => {
+    if (section.externalPath) {
+      router.push(section.externalPath);
+    } else if (onTabChange) {
+      onTabChange(section.id);
+    }
+  };
 
   return (
-    <aside className="w-64 bg-white border-r border-purple-100 flex flex-col h-screen sticky top-0 z-30 select-none">
-      {/* Branding Header */}
+    <aside className="w-64 bg-white border-r border-purple-100 flex flex-col shrink-0 select-none shadow-xs">
+      {/* Sidebar Header (REC Edge Logo & Regulation) */}
       <div className="p-5 border-b border-purple-100 flex items-center space-x-3">
         <img
           src="/assets/logo.svg"
@@ -178,13 +194,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <h2 className="font-extrabold text-sm text-slate-900 tracking-tight leading-none">
             REC <span className="text-brand-600">EDGE</span>
           </h2>
-          <p className="text-[10px] font-bold text-desc mt-1">Regulation 26</p>
+          <p className="text-[10px] font-bold text-desc mt-1">{activeRegulationName}</p>
         </div>
       </div>
 
       {/* Navigation Links */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
-        {sectionGroups(sections, activeTab, onTabChange)}
+        {sectionGroups(sections, activeTab, handleNavClick)}
       </div>
 
       {/* Sidebar Bottom Footer (ACY 2026-2027) */}
