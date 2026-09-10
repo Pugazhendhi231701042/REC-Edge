@@ -4,11 +4,26 @@ import { prisma } from '@/lib/db';
 import { logAudit } from '@/lib/audit';
 
 export async function GET() {
-  const config = await prisma.creditConfig.upsert({
+  let config = await prisma.creditConfig.upsert({
     where: { id: 'default-credit-config' },
     update: {},
-    create: { id: 'default-credit-config', calculationMethod: 'SUM', lWeight: 1.0, tWeight: 1.0, pWeight: 0.5, hoursPerCredit: 15 },
+    create: { 
+      id: 'default-credit-config', 
+      calculationMethod: 'SUM', 
+      lWeight: 1.0, 
+      tWeight: 1.0, 
+      pWeight: 0.5, 
+      hoursPerCredit: 15,
+      customPrefixes: "GE, PH, HS, MC, CS, EC, EE, ME, CE, AI, CB, IT",
+    },
   });
+
+  if (!config.customPrefixes) {
+    config = await prisma.creditConfig.update({
+      where: { id: 'default-credit-config' },
+      data: { customPrefixes: "GE, PH, HS, MC, CS, EC, EE, ME, CE, AI, CB, IT" },
+    });
+  }
 
   return NextResponse.json({ config });
 }
