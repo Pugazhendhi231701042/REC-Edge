@@ -39,44 +39,69 @@
 
 /* Dedicated Multi-Page Print View Rules: Ensures entire document prints without screen clipping */
 @media print {
-  html, body, div, main, article, section {
+  html, body, main, article, section {
+    background: white !important;
     overflow: visible !important;
     height: auto !important;
     max-height: none !important;
   }
 
+  /* Hide all default body elements when printing */
   body * {
     visibility: hidden;
   }
-  
-  #printable-syllabus, #printable-syllabus * {
-    visibility: visible;
+
+  /* Make printable containers and ALL their descendants visible */
+  .printable-area, .printable-area *,
+  [id^="printable-"], [id^="printable-"] *,
+  #printable-syllabus, #printable-syllabus *,
+  #printable-department-curriculum, #printable-department-curriculum * {
+    visibility: visible !important;
   }
-  
-  #printable-syllabus {
-    position: absolute !important;
+
+  /* Position printable elements in standard flow so browsers paginate multi-page documents */
+  .printable-area,
+  [id^="printable-"],
+  #printable-syllabus,
+  #printable-department-curriculum {
+    position: relative !important;
     left: 0 !important;
     top: 0 !important;
     width: 100% !important;
     height: auto !important;
     margin: 0 !important;
-    padding: 15mm !important;
+    padding: 5mm !important;
     border: none !important;
     box-shadow: none !important;
     background: white !important;
     overflow: visible !important;
+    display: block !important;
   }
 
-  aside, header, nav, button, .print\:hidden {
+  /* Hide non-printable UI elements */
+  aside, header, nav, button, .print\:hidden, [class*="print:hidden"] {
     display: none !important;
+    visibility: hidden !important;
   }
 
-  .page-break-inside-avoid {
+  /* Page break rules for clean multi-page publication */
+  .page-break-after-always, .page-break-after {
+    break-after: page !important;
+    page-break-after: always !important;
+  }
+
+  .page-break-before-always, .page-break-before {
+    break-before: page !important;
+    page-break-before: always !important;
+  }
+
+  .page-break-inside-avoid, tr, table, img, blockquote, .break-inside-avoid {
+    break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
 
   @page {
     size: A4 portrait;
-    margin: 10mm;
+    margin: 8mm;
   }
 }

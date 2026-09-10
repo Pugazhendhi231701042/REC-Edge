@@ -64,7 +64,7 @@ export const DepartmentCurriculumPDFGenerator: React.FC<DepartmentCurriculumPDFG
       </div>
 
       {/* Printable Department Curriculum Book */}
-      <div id="printable-department-curriculum" className="bg-white p-8 md:p-12 rounded-3xl border border-slate-200 shadow-lg text-slate-900 print:shadow-none print:border-none print:p-0 space-y-8">
+      <div id="printable-department-curriculum" className="printable-area bg-white p-8 md:p-12 rounded-3xl border border-slate-200 shadow-lg text-slate-900 print:shadow-none print:border-none print:p-0 space-y-8">
         
         {/* Cover Page */}
         <div className="text-center border-b-4 border-brand-800 pb-8 pt-4 page-break-after-always">

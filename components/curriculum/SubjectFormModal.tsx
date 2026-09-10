@@ -189,7 +189,14 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
         }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (e) {
+        throw new Error(text || `Server returned status ${res.status}`);
+      }
+
       if (!res.ok) {
         throw new Error(data.error || 'Failed to save subject.');
       }

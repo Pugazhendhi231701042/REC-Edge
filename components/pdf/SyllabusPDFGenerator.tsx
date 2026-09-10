@@ -115,7 +115,7 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
       </div>
 
       {/* Dedicated Printable Institutional PDF Layout - CurriculumCreator Publication Style */}
-      <div id="printable-syllabus" className="relative bg-white p-6 md:p-10 rounded-3xl border border-slate-200 shadow-lg text-slate-900 print:shadow-none print:border-none print:p-0 overflow-hidden">
+      <div id="printable-syllabus" className="printable-area relative bg-white p-6 md:p-10 rounded-3xl border border-slate-200 shadow-lg text-slate-900 print:shadow-none print:border-none print:p-0 overflow-hidden">
         {/* Diagonal Watermark Overlay */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.05] select-none">
           <span className="text-5xl md:text-7xl font-black uppercase text-slate-900 tracking-widest -rotate-45 text-center leading-relaxed">
