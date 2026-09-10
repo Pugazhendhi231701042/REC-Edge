@@ -88,7 +88,7 @@ export const DepartmentCurriculumPDFGenerator: React.FC<DepartmentCurriculumPDFG
         </div>
 
         {/* 1. Program Outcomes (POs) & Program Specific Outcomes (PSOs) */}
-        <div className="space-y-6 page-break-inside-avoid">
+        <div className="space-y-6">
           <h2 className="text-sm font-black uppercase text-brand-800 border-b-2 border-slate-900 pb-1 flex items-center">
             <Award className="w-4 h-4 mr-2 text-brand-600 print:hidden" />
             1. Program Outcomes (POs) & Program Specific Outcomes (PSOs)
@@ -130,7 +130,7 @@ export const DepartmentCurriculumPDFGenerator: React.FC<DepartmentCurriculumPDFG
         </div>
 
         {/* 2. Course Structure Overview by Semester */}
-        <div className="space-y-4 page-break-inside-avoid">
+        <div className="space-y-4">
           <h2 className="text-sm font-black uppercase text-brand-800 border-b-2 border-slate-900 pb-1 flex items-center">
             <Layers className="w-4 h-4 mr-2 text-brand-600 print:hidden" />
             2. Curriculum Scheme of Instruction

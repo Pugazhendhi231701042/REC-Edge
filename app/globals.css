@@ -95,9 +95,14 @@
     page-break-before: always !important;
   }
 
-  .page-break-inside-avoid, tr, table, img, blockquote, .break-inside-avoid {
+  tr, img, blockquote, .page-break-inside-avoid, .break-inside-avoid {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
+  }
+
+  table {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
   }
 
   @page {
