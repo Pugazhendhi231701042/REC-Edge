@@ -172,11 +172,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const sections = getSidebarSections(userRole || '');
 
-  const handleNavClick = (section: any) => {
-    if (section.externalPath) {
-      router.push(section.externalPath);
+  const handleNavClick = (item: any) => {
+    if (item.externalPath) {
+      router.push(item.externalPath);
     } else if (onTabChange) {
-      onTabChange(section.id);
+      onTabChange(item.id);
     }
   };
 
@@ -212,7 +212,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   );
 };
 
-function sectionGroups(sections: any[], activeTab?: string, onTabChange?: (tab: string) => void) {
+function sectionGroups(sections: any[], activeTab?: string, onTabClick?: (item: any) => void) {
   return sections.map((section, sIdx) => (
     <div key={sIdx} className="space-y-1">
       <p className="px-3 text-[10px] uppercase font-black text-slate-400 tracking-wider">
@@ -223,7 +223,7 @@ function sectionGroups(sections: any[], activeTab?: string, onTabChange?: (tab: 
         return (
           <button
             key={item.id}
-            onClick={() => onTabChange && onTabChange(item.id)}
+            onClick={() => onTabClick && onTabClick(item)}
             className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-2xl text-xs font-bold transition-all ${
               isActive
                 ? 'bg-purple-100/80 text-brand-800 shadow-xs ring-1 ring-purple-200'
