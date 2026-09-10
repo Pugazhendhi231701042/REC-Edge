@@ -578,9 +578,13 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
   const handleFillTemplateData = () => {
     if (isLocked) return;
 
-    if (!confirm('Populate syllabus template with sample data across all 9 steps? This will fill standard curriculum content for testing.')) {
-      return;
-    }
+    const sampleUnits = [
+      { unitNumber: 1, unitName: 'Linear Data Structures & Stacks', content: 'Abstract Data Types (ADTs) — Array Implementation — Singly Linked Lists — Doubly Linked Lists — Circular Linked Lists — Applications of Linked Lists — Stack ADT — Array and Linked List Implementation of Stacks — Infix to Postfix Conversion — Postfix Expression Evaluation — Recursion Stack Analysis.' },
+      { unitNumber: 2, unitName: 'Queues & Deques', content: 'Queue ADT — Array and Linked List Implementation of Queues — Circular Queue — Priority Queue — Double-Ended Queue (Deque) — Applications of Queues in Operating System Scheduling — Breadth-First Search (BFS) Buffer Queue Management.' },
+      { unitNumber: 3, unitName: 'Non-Linear Structures: Trees & Heaps', content: 'Tree Terminologies — Binary Tree Representation and Traversals (Preorder, Inorder, Postorder) — Expression Trees — Binary Search Trees (BST) Insertion, Deletion, Searching — AVL Balanced Trees — Rotations — Priority Queues and Binary Heaps — Max Heap and Min Heap Construction — Heap Sort.' },
+      { unitNumber: 4, unitName: 'Graph Algorithms & Shortest Paths', content: 'Graph Representation: Adjacency Matrix and Adjacency List — Graph Traversals: Depth First Search (DFS) and Breadth First Search (BFS) — Minimum Spanning Trees: Prim’s Algorithm and Kruskal’s Algorithm — Shortest Path Algorithms: Dijkstra’s Algorithm and Floyd-Warshall Algorithm — Topological Sorting.' },
+      { unitNumber: 5, unitName: 'Hashing, Searching & Sorting Techniques', content: 'Hashing Concepts — Hash Functions — Hash Collision Resolution Techniques: Separate Chaining, Open Addressing (Linear Probing, Quadratic Probing, Double Hashing) — Rehashing — Searching: Linear Search, Binary Search — Sorting: Bubble Sort, Insertion Sort, Quick Sort, Merge Sort — Analysis of Sorting Complexities.' }
+    ];
 
     setObjectives([
       'To understand fundamental algorithmic concepts, data structure representations, and time/space complexity analysis.',
@@ -589,13 +593,13 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
       'To evaluate searching, sorting, and hashing techniques for optimizing algorithmic performance in real-world systems.'
     ]);
 
-    setUnits([
-      { unitNumber: 1, unitName: 'Linear Data Structures & Stacks', content: 'Abstract Data Types (ADTs) — Array Implementation — Singly Linked Lists — Doubly Linked Lists — Circular Linked Lists — Applications of Linked Lists — Stack ADT — Array and Linked List Implementation of Stacks — Infix to Postfix Conversion — Postfix Expression Evaluation — Recursion Stack Analysis.' },
-      { unitNumber: 2, unitName: 'Queues & Deques', content: 'Queue ADT — Array and Linked List Implementation of Queues — Circular Queue — Priority Queue — Double-Ended Queue (Deque) — Applications of Queues in Operating System Scheduling — Breadth-First Search (BFS) Buffer Queue Management.' },
-      { unitNumber: 3, unitName: 'Non-Linear Structures: Trees & Heaps', content: 'Tree Terminologies — Binary Tree Representation and Traversals (Preorder, Inorder, Postorder) — Expression Trees — Binary Search Trees (BST) Insertion, Deletion, Searching — AVL Balanced Trees — Rotations — Priority Queues and Binary Heaps — Max Heap and Min Heap Construction — Heap Sort.' },
-      { unitNumber: 4, unitName: 'Graph Algorithms & Shortest Paths', content: 'Graph Representation: Adjacency Matrix and Adjacency List — Graph Traversals: Depth First Search (DFS) and Breadth First Search (BFS) — Minimum Spanning Trees: Prim’s Algorithm and Kruskal’s Algorithm — Shortest Path Algorithms: Dijkstra’s Algorithm and Floyd-Warshall Algorithm — Topological Sorting.' },
-      { unitNumber: 5, unitName: 'Hashing, Searching & Sorting Techniques', content: 'Hashing Concepts — Hash Functions — Hash Collision Resolution Techniques: Separate Chaining, Open Addressing (Linear Probing, Quadratic Probing, Double Hashing) — Rehashing — Searching: Linear Search, Binary Search — Sorting: Bubble Sort, Insertion Sort, Quick Sort, Merge Sort — Analysis of Sorting Complexities.' }
-    ]);
+    setUnits(sampleUnits);
+
+    const loadedTopicsMap: Record<number, TopicItem[]> = {};
+    sampleUnits.forEach((u) => {
+      loadedTopicsMap[u.unitNumber] = parseTopicsFromContentString(u.content);
+    });
+    setUnitTopics(loadedTopicsMap);
 
     setExperiments([
       { experimentNumber: 1, title: 'Array implementation of Stack and Queue ADTs' },
@@ -658,6 +662,264 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
 
     setAutoSaveStatus('Template data auto-filled!');
     setTimeout(() => setAutoSaveStatus(''), 3000);
+  };
+
+  const applyCoursePreset = (courseType: 'DS' | 'OS' | 'DBMS' | 'CN' | 'SE') => {
+    let title = 'Data Structures';
+    let objs: string[] = [];
+    let courseUnits: any[] = [];
+    let exps: any[] = [];
+    let cos: any[] = [];
+    let tbs: any[] = [];
+    let refs: any[] = [];
+
+    if (courseType === 'DS') {
+      title = 'Data Structures';
+      objs = [
+        'To understand fundamental algorithmic concepts, data structure representations, and time/space complexity analysis.',
+        'To implement and manipulate linear data structures including stacks, queues, and linked lists in software applications.',
+        'To master non-linear data structures such as trees, heaps, and graph algorithms for complex data modeling.',
+        'To evaluate searching, sorting, and hashing techniques for optimizing algorithmic performance in real-world systems.'
+      ];
+      courseUnits = [
+        { unitNumber: 1, unitName: 'Linear Data Structures & Stacks', content: 'Abstract Data Types (ADTs) — Array Implementation — Singly Linked Lists — Doubly Linked Lists — Circular Linked Lists — Applications of Linked Lists — Stack ADT — Array and Linked List Implementation of Stacks — Infix to Postfix Conversion — Postfix Expression Evaluation — Recursion Stack Analysis.' },
+        { unitNumber: 2, unitName: 'Queues & Deques', content: 'Queue ADT — Array and Linked List Implementation of Queues — Circular Queue — Priority Queue — Double-Ended Queue (Deque) — Applications of Queues in Operating System Scheduling — Breadth-First Search (BFS) Buffer Queue Management.' },
+        { unitNumber: 3, unitName: 'Non-Linear Structures: Trees & Heaps', content: 'Tree Terminologies — Binary Tree Representation and Traversals (Preorder, Inorder, Postorder) — Expression Trees — Binary Search Trees (BST) Insertion, Deletion, Searching — AVL Balanced Trees — Rotations — Priority Queues and Binary Heaps — Max Heap and Min Heap Construction — Heap Sort.' },
+        { unitNumber: 4, unitName: 'Graph Algorithms & Shortest Paths', content: 'Graph Representation: Adjacency Matrix and Adjacency List — Graph Traversals: Depth First Search (DFS) and Breadth First Search (BFS) — Minimum Spanning Trees: Prim’s Algorithm and Kruskal’s Algorithm — Shortest Path Algorithms: Dijkstra’s Algorithm and Floyd-Warshall Algorithm — Topological Sorting.' },
+        { unitNumber: 5, unitName: 'Hashing, Searching & Sorting Techniques', content: 'Hashing Concepts — Hash Functions — Hash Collision Resolution Techniques: Separate Chaining, Open Addressing (Linear Probing, Quadratic Probing, Double Hashing) — Rehashing — Searching: Linear Search, Binary Search — Sorting: Bubble Sort, Insertion Sort, Quick Sort, Merge Sort — Analysis of Sorting Complexities.' }
+      ];
+      exps = [
+        { experimentNumber: 1, title: 'Array implementation of Stack and Queue ADTs' },
+        { experimentNumber: 2, title: 'Implementation of Singly and Doubly Linked Lists' },
+        { experimentNumber: 3, title: 'Evaluation of Postfix expressions using Stack' },
+        { experimentNumber: 4, title: 'Circular Queue implementation using Array' },
+        { experimentNumber: 5, title: 'Binary Search Tree operations: Insertion, Deletion, and Traversals' },
+        { experimentNumber: 6, title: 'Implementation of AVL Tree rotations and balancing' },
+        { experimentNumber: 7, title: 'Implementation of Priority Queue using Binary Heap' },
+        { experimentNumber: 8, title: 'Graph Traversals using Breadth First Search (BFS) and Depth First Search (DFS)' },
+        { experimentNumber: 9, title: 'Minimum Spanning Tree construction using Prim’s Algorithm' },
+        { experimentNumber: 10, title: 'Implementation of Open Addressing Hashing with collision handling' }
+      ];
+      cos = [
+        { description: 'Understand and apply linear data structures to solve computational problems.', cognitiveLevel: 'K2' },
+        { description: 'Design and implement stack and queue data structures for real-time applications.', cognitiveLevel: 'K3' },
+        { description: 'Construct and manipulate non-linear tree structures and binary search trees.', cognitiveLevel: 'K4' },
+        { description: 'Analyze graph traversal techniques and compute optimal shortest paths.', cognitiveLevel: 'K4' },
+        { description: 'Evaluate hashing and sorting techniques for efficient data retrieval.', cognitiveLevel: 'K5' }
+      ];
+      tbs = [
+        { title: 'Data Structures and Algorithm Analysis in C', authors: 'Mark Allen Weiss', edition: '2nd Edition', publisher: 'Pearson Education', year: '2016' },
+        { title: 'Fundamentals of Data Structures in C', authors: 'Ellis Horowitz, Sartaj Sahni, Susan Anderson-Freed', edition: '2nd Edition', publisher: 'Universities Press', year: '2018' }
+      ];
+      refs = [
+        { title: 'Introduction to Algorithms', authors: 'Thomas H. Cormen, Charles E. Leiserson, Ronald L. Rivest, Clifford Stein', edition: '3rd Edition', publisher: 'MIT Press / PHI', year: '2015', url: 'https://mitpress.mit.edu/books/introduction-algorithms' }
+      ];
+    } else if (courseType === 'OS') {
+      title = 'Operating Systems';
+      objs = [
+        'To understand operating system architecture, process management, and CPU scheduling algorithms.',
+        'To analyze process synchronization mechanisms, semaphores, and deadlock prevention strategies.',
+        'To comprehend memory management schemes including paging, segmentation, and virtual memory.',
+        'To evaluate storage management, file system structures, and disk scheduling algorithms.'
+      ];
+      courseUnits = [
+        { unitNumber: 1, unitName: 'OS Architecture & Process Management', content: 'Operating System Structure — System Calls — Kernel Architecture — Process Concept — Process State Transitions — Process Control Block (PCB) — Context Switching — Process Creation and Termination — Inter-Process Communication (IPC) — Direct and Indirect Communication.' },
+        { unitNumber: 2, unitName: 'CPU Scheduling & Process Synchronization', content: 'Basic CPU Scheduling Concepts — Scheduling Criteria — Scheduling Algorithms: FCFS, SJF, Priority, Round Robin, Multilevel Queue — Critical Section Problem — Hardware Synchronization — Semaphores — Classic Synchronization Problems: Producer-Consumer, Dining Philosophers — Monitors — Deadlock Characterization — Deadlock Handling.' },
+        { unitNumber: 3, unitName: 'Memory Management & Virtual Memory', content: 'Swapping — Contiguous Memory Allocation — Paging Architecture — Structure of Page Table — Segmentation — Virtual Memory Demand Paging — Page Replacement Algorithms: FIFO, Optimal, LRU, LFU — Allocation of Frames — Thrashing Analysis.' },
+        { unitNumber: 4, unitName: 'Storage & File System Interface', content: 'File Concept — Access Methods — Directory Structure — File System Mounting — File Sharing and Protection — Directory Implementation — Allocation Methods: Contiguous, Linked, Indexed — Free Space Management — Disk Structure — Disk Scheduling: FCFS, SSTF, SCAN, C-SCAN.' },
+        { unitNumber: 5, unitName: 'I/O Systems & Case Studies', content: 'I/O Hardware Principles — Application I/O Interface — Kernel I/O Subsystem — Transforming I/O Requests to Hardware Operations — Protection and Security Principles — User Authentication — Case Studies: Linux System Architecture and Windows OS Architecture.' }
+      ];
+      exps = [
+        { experimentNumber: 1, title: 'Implementation of CPU Scheduling Algorithms (FCFS, SJF, Round Robin)' },
+        { experimentNumber: 2, title: 'Implementation of Producer-Consumer Problem using Semaphores' },
+        { experimentNumber: 3, title: 'Implementation of Banker’s Algorithm for Deadlock Avoidance' },
+        { experimentNumber: 4, title: 'Implementation of Page Replacement Algorithms (FIFO, LRU, Optimal)' },
+        { experimentNumber: 5, title: 'Implementation of Disk Scheduling Algorithms (FCFS, SSTF, SCAN)' },
+        { experimentNumber: 6, title: 'Inter-Process Communication using Pipes and Shared Memory' },
+        { experimentNumber: 7, title: 'Implementation of Memory Allocation Strategies (First Fit, Best Fit, Worst Fit)' },
+        { experimentNumber: 8, title: 'File Allocation Strategies Simulation' },
+        { experimentNumber: 9, title: 'Implementation of Multithreading using Pthreads' },
+        { experimentNumber: 10, title: 'Shell Scripting and System Call programming in Linux' }
+      ];
+      cos = [
+        { description: 'Demonstrate fundamental concepts of operating systems and process management.', cognitiveLevel: 'K2' },
+        { description: 'Apply CPU scheduling algorithms and process synchronization mechanisms.', cognitiveLevel: 'K3' },
+        { description: 'Analyze memory management techniques and virtual memory page replacement algorithms.', cognitiveLevel: 'K4' },
+        { description: 'Evaluate file system structures, allocation methods, and disk scheduling.', cognitiveLevel: 'K4' },
+        { description: 'Design kernel I/O subsystem modules and examine security protection models.', cognitiveLevel: 'K5' }
+      ];
+      tbs = [
+        { title: 'Operating System Concepts', authors: 'Abraham Silberschatz, Peter B. Galvin, Greg Gagne', edition: '10th Edition', publisher: 'John Wiley & Sons', year: '2018' }
+      ];
+      refs = [
+        { title: 'Modern Operating Systems', authors: 'Andrew S. Tanenbaum, Herbert Bos', edition: '4th Edition', publisher: 'Pearson Education', year: '2015', url: 'https://pearson.com' }
+      ];
+    } else if (courseType === 'DBMS') {
+      title = 'Database Management Systems';
+      objs = [
+        'To understand database architecture, relational models, and Entity-Relationship (ER) diagram design.',
+        'To write efficient SQL queries, view definitions, constraints, and relational algebra expressions.',
+        'To apply relational database design principles and normalization techniques up to BCNF.',
+        'To comprehend transaction processing, ACID properties, concurrency control, and query optimization.'
+      ];
+      courseUnits = [
+        { unitNumber: 1, unitName: 'Database Architecture & ER Modeling', content: 'Purpose of Database Systems — View of Data — Database Architecture — Data Models — Entity Relationship (ER) Model — Entities, Attributes, Relationships — ER Diagram Design Rules — Extended ER Features — Specialization, Generalization, Aggregation — Conversion of ER to Relational Schema.' },
+        { unitNumber: 2, unitName: 'Relational Model & Structured Query Language (SQL)', content: 'Relational Algebra Operators — Selection, Projection, Join, Division — SQL Data Definition Language (DDL) — SQL Data Manipulation Language (DML) — Complex Subqueries — Aggregate Functions — Group By & Having — Views — Triggers and Stored Procedures — Integrity Constraints.' },
+        { unitNumber: 3, unitName: 'Database Design & Normalization', content: 'Functional Dependencies — Axioms of Functional Dependencies — Closure of Attribute Sets — Canonical Cover — Normalization Pitfalls — First Normal Form (1NF) — Second Normal Form (2NF) — Third Normal Form (3NF) — Boyce-Codd Normal Form (BCNF) — Multivalued Dependencies and 4NF.' },
+        { unitNumber: 4, unitName: 'Transaction Management & Concurrency Control', content: 'Transaction Concept — ACID Properties — Transaction State Diagram — Concurrent Executions — Serializability — Conflict and View Serializability — Recoverable Schedules — Lock-Based Protocols — Two-Phase Locking (2PL) — Deadlock Handling — Timestamp-Based Protocols.' },
+        { unitNumber: 5, unitName: 'Indexing, Hashing & Query Optimization', content: 'Basic Retrieval Structures — Ordered Indices — Dense and Sparse Indices — B+ Tree Index Files — Static and Dynamic Hashing — Query Processing Steps — Heuristic Query Optimization — Cost Estimation — Database Security and Granting Authorization.' }
+      ];
+      exps = [
+        { experimentNumber: 1, title: 'Data Definition Language (DDL) Commands and Schema Creation' },
+        { experimentNumber: 2, title: 'Data Manipulation Language (DML) Commands and Integrity Constraints' },
+        { experimentNumber: 3, title: 'Complex Nested SQL Subqueries and Join Operations' },
+        { experimentNumber: 4, title: 'Creation of Views, Indexes, and Sequences' },
+        { experimentNumber: 5, title: 'PL/SQL Programming: Cursors and Exception Handling' },
+        { experimentNumber: 6, title: 'PL/SQL Stored Procedures and Functions' },
+        { experimentNumber: 7, title: 'Design and Execution of Database Triggers' },
+        { experimentNumber: 8, title: 'ER Diagram to Relational Schema Conversion for Real-World Case Study' },
+        { experimentNumber: 9, title: 'Database Normalization Analysis (1NF to BCNF)' },
+        { experimentNumber: 10, title: 'Transaction Concurrency Simulation and Locking Demonstration' }
+      ];
+      cos = [
+        { description: 'Design ER models and map them into relational database schemas.', cognitiveLevel: 'K3' },
+        { description: 'Construct complex SQL queries, views, and PL/SQL procedures.', cognitiveLevel: 'K3' },
+        { description: 'Apply database normalization rules to eliminate redundancy.', cognitiveLevel: 'K4' },
+        { description: 'Analyze transaction processing, concurrency control, and recovery protocols.', cognitiveLevel: 'K4' },
+        { description: 'Evaluate B+ tree indexing strategies and query cost estimation.', cognitiveLevel: 'K5' }
+      ];
+      tbs = [
+        { title: 'Database System Concepts', authors: 'Abraham Silberschatz, Henry F. Korth, S. Sudarshan', edition: '7th Edition', publisher: 'McGraw Hill', year: '2020' }
+      ];
+      refs = [
+        { title: 'Fundamentals of Database Systems', authors: 'Ramez Elmasri, Shamkant B. Navathe', edition: '7th Edition', publisher: 'Pearson', year: '2017', url: 'https://pearson.com' }
+      ];
+    } else if (courseType === 'CN') {
+      title = 'Computer Networks';
+      objs = [
+        'To understand layered network architecture, OSI reference model, and TCP/IP protocol suite.',
+        'To analyze data link layer framing, error detection/correction, and media access protocols.',
+        'To comprehend IP addressing, routing algorithms, and network layer forwarding.',
+        'To evaluate transport layer protocols (TCP/UDP), congestion control, and application layer services.'
+      ];
+      courseUnits = [
+        { unitNumber: 1, unitName: 'Network Architecture & Physical Layer', content: 'Network Topologies — LAN, MAN, WAN — Layered Architecture — OSI 7-Layer Reference Model — TCP/IP Protocol Suite — Physical Layer Transmission Media — Guided Media (Twisted Pair, Coaxial, Fiber Optics) — Wireless Media — Switching Techniques: Circuit Switching, Packet Switching.' },
+        { unitNumber: 2, unitName: 'Data Link Layer & MAC Sublayer', content: 'Data Link Layer Services — Framing Techniques — Error Detection: Parity, CRC — Error Correction: Hamming Code — Flow Control Protocols: Stop-and-Wait, Sliding Window (Go-Back-N, Selective Repeat) — Multiple Access Protocols: ALOHA, CSMA/CD (Ethernet), CSMA/CA (Wi-Fi) — IEEE 802.3 Ethernet Standard — Switches and Bridges.' },
+        { unitNumber: 3, unitName: 'Network Layer & IP Routing', content: 'Network Layer Functions — IPv4 Addressing — Subnetting and CIDR — IPv6 Addressing Format — Address Resolution Protocol (ARP) — ICMP — IP Datagram Forwarding — Routing Algorithms: Distance Vector Routing (RIP), Link State Routing (OSPF) — Border Gateway Protocol (BGP).' },
+        { unitNumber: 4, unitName: 'Transport Layer Protocols', content: 'Transport Layer Services — Multiplexing and Demultiplexing — User Datagram Protocol (UDP) Header — Transmission Control Protocol (TCP) Segment Format — TCP 3-Way Handshake Connection Establishment — TCP Reliable Data Transfer — TCP Flow Control — TCP Congestion Control: Slow Start, Congestion Avoidance.' },
+        { unitNumber: 5, unitName: 'Application Layer & Network Security', content: 'Domain Name System (DNS) Resolution — Hypertext Transfer Protocol (HTTP/HTTPS) — File Transfer Protocol (FTP) — Simple Mail Transfer Protocol (SMTP) — Network Security Fundamentals — Symmetric Key Cryptography (AES) — Asymmetric Key Cryptography (RSA) — Firewalls and VPNs.' }
+      ];
+      exps = [
+        { experimentNumber: 1, title: 'Study of Network Cables, RJ-45 Connector Crimping, and NIC Configuration' },
+        { experimentNumber: 2, title: 'Implementation of Error Detection Codes (CRC) in C/Python' },
+        { experimentNumber: 3, title: 'Simulation of Stop-and-Wait and Sliding Window Protocols' },
+        { experimentNumber: 4, title: 'Packet Capture and Analysis using Wireshark' },
+        { experimentNumber: 5, title: 'IPv4 Subnetting and CIDR Address Allocation Calculation' },
+        { experimentNumber: 6, title: 'Implementation of Dijkstra’s Shortest Path Routing Algorithm' },
+        { experimentNumber: 7, title: 'Socket Programming: Client-Server Chat Application using TCP' },
+        { experimentNumber: 8, title: 'Socket Programming: UDP Echo Server and Client' },
+        { experimentNumber: 9, title: 'Simulation of Distance Vector Routing Protocol' },
+        { experimentNumber: 10, title: 'Network Topologies Simulation using Cisco Packet Tracer' }
+      ];
+      cos = [
+        { description: 'Understand layered computer network architectures and physical media transmission.', cognitiveLevel: 'K2' },
+        { description: 'Apply error control, flow control, and medium access protocols in Data Link Layer.', cognitiveLevel: 'K3' },
+        { description: 'Analyze IPv4/IPv6 addressing schemes and shortest path routing algorithms.', cognitiveLevel: 'K4' },
+        { description: 'Evaluate TCP connection management and congestion control algorithms.', cognitiveLevel: 'K4' },
+        { description: 'Design application layer socket programs and examine cryptographic protocols.', cognitiveLevel: 'K5' }
+      ];
+      tbs = [
+        { title: 'Computer Networking: A Top-Down Approach', authors: 'James F. Kurose, Keith W. Ross', edition: '7th Edition', publisher: 'Pearson', year: '2017' }
+      ];
+      refs = [
+        { title: 'Computer Networks', authors: 'Andrew S. Tanenbaum, David J. Wetherall', edition: '5th Edition', publisher: 'Pearson Education', year: '2014', url: 'https://pearson.com' }
+      ];
+    } else if (courseType === 'SE') {
+      title = 'Software Engineering';
+      objs = [
+        'To understand software engineering lifecycle models and agile development methodologies.',
+        'To gather software requirements, formulate SRS specifications, and create UML models.',
+        'To apply software architecture design principles, modularity, and design patterns.',
+        'To master software testing techniques, quality assurance, and DevOps CI/CD practices.'
+      ];
+      courseUnits = [
+        { unitNumber: 1, unitName: 'Software Process Models & Agile Development', content: 'Software Engineering Definition — Lifecycle Models: Waterfall Model, Incremental Model, Evolutionary Model, Spiral Model — Agile Development Philosophy — Scrum Framework — User Stories — Sprint Planning — Kanban Board — DevOps Culture Integration.' },
+        { unitNumber: 2, unitName: 'Requirements Engineering & UML Modeling', content: 'Requirements Elicitation Techniques — Functional and Non-Functional Requirements — Software Requirements Specification (SRS) Document Standard — Object-Oriented Analysis — UML Diagrams: Use Case Diagrams, Class Diagrams, Sequence Diagrams, Activity Diagrams, State Machine Diagrams.' },
+        { unitNumber: 3, unitName: 'Software Architecture & Architectural Design', content: 'Architectural Styles: Layered, Client-Server, Microservices, Event-Driven Architecture — Modularity Principles: Cohesion and Coupling — Software Design Patterns: Creational (Singleton, Factory), Structural (Adapter), Behavioral (Observer).' },
+        { unitNumber: 4, unitName: 'Software Testing & Quality Assurance', content: 'Software Testing Fundamentals — Black-Box Testing: Equivalence Partitioning, Boundary Value Analysis — White-Box Testing: Control Flow Graph, Cyclomatic Complexity, Basis Path Testing — Unit Testing, Integration Testing, System Testing — Acceptance Testing — Software Quality Metrics.' },
+        { unitNumber: 5, unitName: 'Project Management, Maintenance & DevOps', content: 'Software Cost Estimation: COCOMO Model — Risk Management — Software Configuration Management (Git) — Continuous Integration and Continuous Deployment (CI/CD) Pipelines — Software Maintenance Types: Corrective, Adaptive, Perfective, Preventive — Software Reengineering.' }
+      ];
+      exps = [
+        { experimentNumber: 1, title: 'Formulation of Software Requirements Specification (SRS) Document for Real-World Project' },
+        { experimentNumber: 2, title: 'Creation of Use Case Diagram and Actor Specifications' },
+        { experimentNumber: 3, title: 'Designing Domain Class Diagram and Attribute Mappings' },
+        { experimentNumber: 4, title: 'Modeling Sequence Diagrams for System Interaction Workflows' },
+        { experimentNumber: 5, title: 'Activity and Statechart Diagram Modeling' },
+        { experimentNumber: 6, title: 'Black-Box Test Case Design using Boundary Value Analysis' },
+        { experimentNumber: 7, title: 'White-Box Testing: Computing Cyclomatic Complexity of Code Modules' },
+        { experimentNumber: 8, title: 'Automated Unit Testing Execution using Jest / JUnit' },
+        { experimentNumber: 9, title: 'Git Version Control Branching and Pull Request Workflow' },
+        { experimentNumber: 10, title: 'Configuring Continuous Integration (CI) Pipeline Build Checks' }
+      ];
+      cos = [
+        { description: 'Select appropriate software lifecycle models and agile practices for project execution.', cognitiveLevel: 'K2' },
+        { description: 'Formulate SRS documents and model object-oriented UML diagrams.', cognitiveLevel: 'K3' },
+        { description: 'Design modular software architectures and apply creational/structural design patterns.', cognitiveLevel: 'K4' },
+        { description: 'Evaluate black-box and white-box software testing strategies.', cognitiveLevel: 'K4' },
+        { description: 'Estimate project costs using COCOMO model and configure DevOps CI/CD pipelines.', cognitiveLevel: 'K5' }
+      ];
+      tbs = [
+        { title: 'Software Engineering: A Practitioner’s Approach', authors: 'Roger S. Pressman, Bruce R. Maxim', edition: '9th Edition', publisher: 'McGraw-Hill', year: '2020' }
+      ];
+      refs = [
+        { title: 'Software Engineering', authors: 'Ian Sommerville', edition: '10th Edition', publisher: 'Pearson', year: '2016', url: 'https://pearson.com' }
+      ];
+    }
+
+    setObjectives(objs);
+    setUnits(courseUnits);
+
+    const loadedTopicsMap: Record<number, TopicItem[]> = {};
+    courseUnits.forEach((u) => {
+      loadedTopicsMap[u.unitNumber] = parseTopicsFromContentString(u.content);
+    });
+    setUnitTopics(loadedTopicsMap);
+
+    setExperiments(exps);
+    setCourseOutcomes(cos);
+    setTextbooks(tbs);
+    setReferences(refs);
+
+    const mapObj: Record<string, number> = {};
+    for (let c = 1; c <= 5; c++) {
+      for (let p = 1; p <= 12; p++) {
+        const key = `${c}_PO${p}`;
+        mapObj[key] = (c + p) % 3 === 0 ? 3 : (c + p) % 2 === 0 ? 2 : 1;
+      }
+      for (let s = 1; s <= 3; s++) {
+        const key = `${c}_PSO${s}`;
+        mapObj[key] = s === 1 ? 3 : 2;
+      }
+    }
+    setCoPoMappings(mapObj);
+
+    const justObj: Record<string, string> = {};
+    Object.entries(mapObj).forEach(([k, val]) => {
+      const [c, p] = k.split('_');
+      justObj[k] = `CO${c} strongly aligns with ${p} by applying structured ${title} concepts and engineering principles.`;
+    });
+    setCoPoJustifications(justObj);
+
+    setSdgMappings([
+      { coNumber: 1, sdgNumber: 4, topic: `Fundamental ${title} principles promote quality technical education.` },
+      { coNumber: 2, sdgNumber: 9, topic: `${title} core techniques support industry infrastructure and innovation.` },
+      { coNumber: 3, sdgNumber: 9, topic: `Advanced ${title} modeling enables software and system engineering design.` },
+      { coNumber: 4, sdgNumber: 9, topic: `${title} architecture optimization enhances operational efficiency.` },
+      { coNumber: 5, sdgNumber: 4, topic: `Practical ${title} skills empower technical proficiency and lifelong learning.` }
+    ]);
+
+    setAutoSaveStatus(`Loaded '${title}' course template across all steps!`);
+    setTimeout(() => setAutoSaveStatus(''), 4000);
   };
 
   return (
@@ -860,7 +1122,61 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
         {/* STEP 2: SYLLABUS UNITS / EXPERIMENTS */}
         {activeStep === 2 && (
           <div className="space-y-6">
-            <h3 className="text-sm font-bold uppercase text-brand-700">Step 2: Course Syllabus Content</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold uppercase text-brand-700">Step 2: Course Syllabus Content</h3>
+            </div>
+
+            {!isLocked && (
+              <div className="bg-purple-50/80 p-4 rounded-2xl border border-purple-200/80 space-y-2 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-extrabold text-brand-900 flex items-center">
+                    <Sparkles className="w-4 h-4 text-amber-500 mr-1.5" />
+                    Fast Syllabus Builder: Load Standard Course Template
+                  </span>
+                  <span className="text-[10px] font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
+                    5 Pre-configured Courses
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-600">Select a course template below to auto-fill all 5 syllabus units, objectives, topics, outcomes, textbooks & references:</p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => applyCoursePreset('DS')}
+                    className="px-3 py-1.5 text-xs font-bold bg-white text-brand-800 border border-purple-200 hover:bg-brand-600 hover:text-white rounded-xl shadow-2xs transition-all flex items-center"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 mr-1 text-brand-500" /> 1. Data Structures
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyCoursePreset('OS')}
+                    className="px-3 py-1.5 text-xs font-bold bg-white text-blue-800 border border-blue-200 hover:bg-blue-600 hover:text-white rounded-xl shadow-2xs transition-all flex items-center"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 mr-1 text-blue-500" /> 2. Operating Systems
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyCoursePreset('DBMS')}
+                    className="px-3 py-1.5 text-xs font-bold bg-white text-emerald-800 border border-emerald-200 hover:bg-emerald-600 hover:text-white rounded-xl shadow-2xs transition-all flex items-center"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 mr-1 text-emerald-500" /> 3. Database Management
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyCoursePreset('CN')}
+                    className="px-3 py-1.5 text-xs font-bold bg-white text-indigo-800 border border-indigo-200 hover:bg-indigo-600 hover:text-white rounded-xl shadow-2xs transition-all flex items-center"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 mr-1 text-indigo-500" /> 4. Computer Networks
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyCoursePreset('SE')}
+                    className="px-3 py-1.5 text-xs font-bold bg-white text-amber-800 border border-amber-200 hover:bg-amber-600 hover:text-white rounded-xl shadow-2xs transition-all flex items-center"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 mr-1 text-amber-500" /> 5. Software Engineering
+                  </button>
+                </div>
+              </div>
+            )}
 
             {(templateType === 'THEORY' || templateType === 'LAB_ORIENTED_THEORY' || templateType === 'PROJECT_ORIENTED_THEORY') && (
               <div className="space-y-4">
@@ -1724,22 +2040,33 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
               </div>
             </div>
 
-            {/* Submit Action Button */}
-            {!isLocked && (
-              <div className="flex items-center justify-between pt-4 border-t">
-                <span className="text-desc text-xs">
-                  Once submitted, syllabus will be locked for HoD review.
-                </span>
+            {/* Submit Action Button & PDF Preview */}
+            <div className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t gap-3">
+              <span className="text-desc text-xs">
+                {isLocked ? 'Syllabus has been finalized and locked.' : 'Once submitted, syllabus will be locked for HoD review.'}
+              </span>
+              <div className="flex items-center space-x-3 w-full sm:w-auto">
                 <button
-                  onClick={handleFinalSubmit}
-                  disabled={loading}
-                  className="px-8 py-3.5 bg-brand-600 hover:bg-brand-700 text-white font-extrabold text-xs rounded-2xl shadow-md flex items-center space-x-2 transition-all"
+                  type="button"
+                  onClick={() => setShowPdfModal(true)}
+                  className="px-6 py-3.5 bg-purple-100 hover:bg-purple-200 text-brand-900 font-extrabold text-xs rounded-2xl shadow-xs flex items-center space-x-2 transition-all border border-purple-200 shrink-0"
                 >
-                  <Send className="w-4 h-4" />
-                  <span>{loading ? 'Submitting Syllabus...' : 'Submit Syllabus to Head of Department'}</span>
+                  <Eye className="w-4 h-4 text-brand-700" />
+                  <span>Preview PDF</span>
                 </button>
+                {!isLocked && (
+                  <button
+                    type="button"
+                    onClick={handleFinalSubmit}
+                    disabled={loading}
+                    className="px-8 py-3.5 bg-brand-600 hover:bg-brand-700 text-white font-extrabold text-xs rounded-2xl shadow-md flex items-center space-x-2 transition-all w-full sm:w-auto justify-center"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>{loading ? 'Submitting Syllabus...' : 'Submit Syllabus to Head of Department'}</span>
+                  </button>
+                )}
               </div>
-            )}
+            </div>
           </div>
         )}
       </div>
