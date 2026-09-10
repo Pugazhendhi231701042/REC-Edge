@@ -613,45 +613,6 @@ export default function DeanDashboard() {
               </div>
             )}
 
-            {/* TAB 5: SYLLABUS REVIEWS (PENDING DEAN APPROVAL) */}
-            {activeTab === 'reviews' && (
-              <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Syllabus Reviews Awaiting Dean Approval</h3>
-                  <p className="text-xs text-desc">Syllabi approved by HoD requiring final institutional approval from Dean.</p>
-                </div>
-
-                {pendingDeanReviewsList.length === 0 ? (
-                  <div className="p-8 text-center bg-purple-50/30 rounded-2xl border border-purple-100 space-y-2">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-                    <p className="text-sm font-bold text-slate-800">No Pending Reviews</p>
-                    <p className="text-xs text-desc">All submitted syllabi have been reviewed by Dean.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {pendingDeanReviewsList.map((s: any) => (
-                      <div key={s.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 flex items-center justify-between">
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <span className="font-mono text-xs font-bold text-brand-700">{s.subjectCode}</span>
-                            <StatusBadge status={s.syllabusStatus} />
-                          </div>
-                          <h4 className="text-sm font-bold text-slate-900 mt-1">{s.subjectName}</h4>
-                          <p className="text-xs text-desc">Dept: {s.department?.shortName} | Faculty: {s.assignedFaculty?.name}</p>
-                        </div>
-                        <button
-                          onClick={() => setSelectedSyllabus(s)}
-                          className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
-                        >
-                          <Eye className="w-3.5 h-3.5 mr-1" /> Inspect & Review
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* TAB 6: APPROVED SYLLABI DIRECTORY (SEMESTER 1 TO 8 TABS) */}
             {activeTab === 'approved' && (
               <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-6">

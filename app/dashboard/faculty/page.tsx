@@ -118,9 +118,9 @@ export default function FacultyDashboard() {
   };
 
   const assignedCount = subjects.length;
-  const inProgressCount = subjects.filter((s) => s.syllabusStatus === 'IN_PROGRESS' || s.syllabusStatus === 'RETURNED_FOR_CORRECTION').length;
-  const submittedCount = subjects.filter((s) => s.syllabusStatus === 'SUBMITTED' || s.syllabusStatus === 'RESUBMITTED').length;
-  const approvedCount = subjects.filter((s) => s.syllabusStatus === 'APPROVED').length;
+  const inProgressCount = subjects.filter((s) => s.syllabusStatus === 'IN_PROGRESS' || s.syllabusStatus === 'NOT_STARTED' || s.syllabusStatus === 'RETURNED_FOR_CORRECTION').length;
+  const submittedCount = subjects.filter((s) => s.syllabusStatus === 'SUBMITTED' || s.syllabusStatus === 'RESUBMITTED' || s.syllabusStatus === 'SUBMITTED_TO_HOD' || s.syllabusStatus === 'HOD_REVIEW').length;
+  const approvedCount = subjects.filter((s) => s.syllabusStatus === 'APPROVED' || s.syllabusStatus === 'HOD_APPROVED').length;
 
   const overallCompletionPct = assignedCount > 0 ? Math.round((approvedCount / assignedCount) * 100) : 0;
 

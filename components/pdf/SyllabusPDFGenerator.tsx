@@ -1,5 +1,7 @@
-import React from 'react';
-import { Printer, Download, FileCheck, Globe } from 'lucide-react';
+import React, { useState } from 'react';
+import { Printer, Download, FileCheck, Globe, Loader2 } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 interface SyllabusPDFGeneratorProps {
   subject: any;
@@ -18,11 +20,53 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
   documentTitle = 'Syllabus Submission Acknowledgement',
   hideJustifications = false,
 }) => {
+  const [downloading, setDownloading] = useState(false);
+
   if (!subject || !submission) return null;
 
   const handlePrint = () => {
     window.print();
   };
+
+  const handleDownloadPdf = async () => {
+    const input = document.getElementById('printable-syllabus');
+    if (!input) return;
+    setDownloading(true);
+    try {
+      const canvas = await html2canvas(input, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210;
+      const pageHeight = 295;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position -= pageHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`${(documentTitle || 'Syllabus').replace(/\s+/g, '_')}_${subject.subjectCode || 'doc'}.pdf`);
+    } catch (err) {
+      console.error('PDF download error:', err);
+      window.print();
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const unitsList = submission.syllabusUnits || submission.units || [];
+  const experimentsList = submission.experiments || submission.labExperiments || [];
 
   const poKeys: string[] = [];
   for (let p = 1; p <= poCount; p++) poKeys.push(`PO${p}`);
@@ -85,7 +129,7 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
     return romans[num - 1] || num.toString();
   };
 
-  const isApproved = subject.syllabusStatus === 'APPROVED';
+  const isApproved = subject.syllabusStatus === 'APPROVED' || subject.syllabusStatus === 'HOD_APPROVED';
   const watermarkText = isApproved
     ? (subject.department?.programmeName || subject.department?.name || 'RAJALAKSHMI ENGINEERING COLLEGE').toUpperCase()
     : 'DRAFT';
@@ -106,12 +150,22 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
           <FileCheck className="w-5 h-5 text-brand-600" />
           <span className="text-sm font-bold text-slate-900">{documentTitle}</span>
         </div>
-        <button
-          onClick={handlePrint}
-          className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md flex items-center transition-all"
-        >
-          <Download className="w-4 h-4 mr-2" /> Download PDF
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={handlePrint}
+            className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center transition-all"
+          >
+            <Printer className="w-4 h-4 mr-1.5" /> Print
+          </button>
+          <button
+            onClick={handleDownloadPdf}
+            disabled={downloading}
+            className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md flex items-center transition-all disabled:opacity-50"
+          >
+            {downloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+            {downloading ? 'Generating PDF...' : 'Download PDF'}
+          </button>
+        </div>
       </div>
 
       {/* Dedicated Printable Institutional PDF Layout - CurriculumCreator Publication Style */}
@@ -189,10 +243,10 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
           )}
 
           {/* 3. Theory Course Syllabus Units (Units I – V) */}
-          {isTheoryOrLabTheory && submission.syllabusUnits && submission.syllabusUnits.length > 0 && (
+          {isTheoryOrLabTheory && unitsList.length > 0 && (
             <table className="w-full border-collapse border border-slate-900 text-xs mb-4">
               <tbody>
-                {submission.syllabusUnits.map((u: any, idx: number) => {
+                {unitsList.map((u: any, idx: number) => {
                   const roman = getRomanNumeral(u.unitNumber || idx + 1);
                   return (
                     <React.Fragment key={idx}>
@@ -225,7 +279,7 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
           )}
 
           {/* 4. List of Experiments Table (For Lab & Lab-Oriented Theory) */}
-          {isLabOrLabTheory && submission.experiments && submission.experiments.length > 0 && (
+          {isLabOrLabTheory && experimentsList.length > 0 && (
             <table className="w-full border-collapse border border-slate-900 text-xs mb-4 page-break-inside-avoid">
               <thead>
                 <tr className="bg-slate-100 font-bold border-b border-slate-900">
@@ -235,7 +289,7 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {submission.experiments.map((exp: any, idx: number) => (
+                {experimentsList.map((exp: any, idx: number) => (
                   <tr key={idx} className="border-b border-slate-900">
                     <td className="border border-slate-900 p-2 text-center font-bold w-[6%] text-slate-900">
                       {idx + 1}
@@ -337,7 +391,6 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
               <thead>
                 <tr className="bg-slate-100 font-bold border-b border-slate-900">
                   <th className="border border-slate-900 p-1.5 font-bold">CO</th>
-                  <th className="border border-slate-900 p-1 font-bold text-[10px] bg-purple-100 text-brand-900">Cognitive Level</th>
                   {poKeys.map((k) => (
                     <th key={k} className="border border-slate-900 p-1 text-[10px] font-bold">{k}</th>
                   ))}
@@ -345,12 +398,9 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
               </thead>
               <tbody>
                 {[1, 2, 3, 4, 5].map((coNum, idx) => {
-                  const coObj = (submission.courseOutcomes || [])[idx];
-                  const level = typeof coObj === 'object' && coObj?.cognitiveLevel ? coObj.cognitiveLevel : `K${Math.min(idx + 2, 5)}`;
                   return (
                     <tr key={coNum} className="border-b border-slate-900">
                       <td className="border border-slate-900 p-1.5 font-bold bg-slate-50">CO{coNum}</td>
-                      <td className="border border-slate-900 p-1 font-bold bg-purple-50 text-brand-900">{level}</td>
                       {poKeys.map((k) => {
                         const corr = mappingsMap[`${coNum}_${k}`] ?? 0;
                         return (
@@ -365,7 +415,7 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
               </tbody>
               <tfoot>
                 <tr className="bg-slate-100 font-black border-t-2 border-slate-900">
-                  <td colSpan={2} className="border border-slate-900 p-1.5 font-black text-slate-900 text-center">Average</td>
+                  <td className="border border-slate-900 p-1.5 font-black text-slate-900 text-center">Average</td>
                   {poKeys.map((k) => {
                     let total = 0;
                     let count = 0;

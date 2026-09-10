@@ -123,8 +123,26 @@ export default function HoDDashboard() {
 
   const handleAssignFaculty = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!selectedFacultyId) {
+      alert('Please select a faculty member.');
+      return;
+    }
+
+    if (assignDeadline && department?.activeStageDeadline) {
+      const selectedTime = new Date(assignDeadline).getTime();
+      const stageTime = new Date(department.activeStageDeadline).getTime();
+      if (selectedTime >= stageTime) {
+        alert(`⚠️ Validation Error: Faculty Submission Deadline must be strictly BEFORE (<) the Dean Stage Deadline (${formatIST(department.activeStageDeadline)}).`);
+        return;
+      }
+    }
+
     const idsToAssign = targetSubjectForAssign ? [targetSubjectForAssign.id] : selectedSubjectIds;
-    if (idsToAssign.length === 0 || !selectedFacultyId) return;
+    if (idsToAssign.length === 0) {
+      alert('No subject selected for faculty assignment.');
+      return;
+    }
 
     // Rule: Bulk assign works ONLY if ALL selected subjects are unassigned!
     const alreadyAssigned = subjects.filter((s) => idsToAssign.includes(s.id) && s.assignedFacultyId);
@@ -1100,10 +1118,19 @@ export default function HoDDashboard() {
                     Define exact statement text for POs and PSOs under Regulation 26. Faculty members will map these outcomes during syllabus formation.
                   </p>
                 </div>
-                {isStructureConfirmed && (
+                {isStructureConfirmed || subjects.length > 0 ? (
                   <span className="inline-flex items-center text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 shadow-2xs">
-                    <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-600" /> Structure Confirmed & Locked
+                    <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-600" /> 🔒 Structure Locked ({subjects.length > 0 ? 'Subjects Created' : 'Confirmed'})
                   </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleConfirmStructure}
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center space-x-1.5"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Lock POs & PSOs Structure</span>
+                  </button>
                 )}
               </div>
 
@@ -1137,10 +1164,11 @@ export default function HoDDashboard() {
                         <label className="block text-xs font-extrabold text-brand-700">{poKey} Statement</label>
                         <textarea
                           rows={2}
+                          readOnly={isStructureConfirmed || subjects.length > 0}
                           value={poStatements[poKey] || ''}
                           onChange={(e) => setPoStatements({ ...poStatements, [poKey]: e.target.value })}
                           placeholder={`Enter ${poKey} statement text (e.g. Engineering knowledge: Apply knowledge of mathematics...)`}
-                          className="w-full p-3 text-xs border rounded-xl font-medium focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 bg-white"
+                          className={`w-full p-3 text-xs border rounded-xl font-medium focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 ${isStructureConfirmed || subjects.length > 0 ? 'bg-slate-100 cursor-not-allowed' : 'bg-white'}`}
                         />
                       </div>
                     ))}
@@ -1162,10 +1190,11 @@ export default function HoDDashboard() {
                         <label className="block text-xs font-extrabold text-amber-900">{psoKey} Statement</label>
                         <textarea
                           rows={2}
+                          readOnly={isStructureConfirmed || subjects.length > 0}
                           value={psoStatements[psoKey] || ''}
                           onChange={(e) => setPsoStatements({ ...psoStatements, [psoKey]: e.target.value })}
                           placeholder={`Enter ${psoKey} statement text (e.g. Professional Skills: Ability to design and develop software solutions...)`}
-                          className="w-full p-3 text-xs border border-amber-200 rounded-xl font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 bg-white"
+                          className={`w-full p-3 text-xs border border-amber-200 rounded-xl font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 ${isStructureConfirmed || subjects.length > 0 ? 'bg-slate-100 cursor-not-allowed' : 'bg-white'}`}
                         />
                       </div>
                     ))}
@@ -1175,16 +1204,18 @@ export default function HoDDashboard() {
                 {/* Single Page Save All Button */}
                 <div className="pt-6 border-t border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <p className="text-xs text-desc">
-                    Click <strong>Save All Statements</strong> below to apply changes across all PO and PSO statements simultaneously.
+                    {isStructureConfirmed || subjects.length > 0 ? '🔒 Statements are locked because PO/PSO structure is confirmed or subjects have been created.' : 'Click Save All Statements below to apply changes across all PO and PSO statements simultaneously.'}
                   </p>
-                  <button
-                    type="button"
-                    onClick={handleSaveAllPOPSO}
-                    className="px-8 py-3 bg-brand-600 hover:bg-brand-700 text-white font-extrabold text-xs rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center space-x-2 shrink-0"
-                  >
-                    <Save className="w-4 h-4" />
-                    <span>Save All PO & PSO Statements</span>
-                  </button>
+                  {!(isStructureConfirmed || subjects.length > 0) && (
+                    <button
+                      type="button"
+                      onClick={handleSaveAllPOPSO}
+                      className="px-8 py-3 bg-brand-600 hover:bg-brand-700 text-white font-extrabold text-xs rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center justify-center space-x-2 shrink-0"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>Save All PO & PSO Statements</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1375,19 +1406,19 @@ export default function HoDDashboard() {
                   </select>
                 </div>
                 <div>
-                  <label className="block font-semibold mb-1 text-slate-700">Faculty Submission Deadline * (Mandatory - Must be within Dean HoD Stage Deadline)</label>
+                  <label className="block font-semibold mb-1 text-slate-700">Faculty Submission Deadline * (Date & Time - Must be strictly &lt; Dean Stage Deadline)</label>
                   <input
-                    type="date"
+                    type="datetime-local"
                     required
-                    min={new Date().toISOString().split('T')[0]}
-                    max={department?.activeStageDeadline ? new Date(department.activeStageDeadline).toISOString().split('T')[0] : undefined}
+                    min={new Date().toISOString().slice(0, 16)}
+                    max={department?.activeStageDeadline ? new Date(department.activeStageDeadline).toISOString().slice(0, 16) : undefined}
                     value={assignDeadline}
                     onChange={(e) => setAssignDeadline(e.target.value)}
                     className="w-full p-2.5 border rounded-xl font-bold text-slate-900 bg-white"
                   />
                   <p className="text-[10px] text-desc mt-1">
-                    Specify a mandatory future deadline date for faculty syllabus completion.
-                    {department?.activeStageDeadline && ` Must be on or before Dean HoD Stage Deadline (${new Date(department.activeStageDeadline).toLocaleDateString()}).`}
+                    Specify a mandatory future Date & Time deadline for faculty syllabus completion.
+                    {department?.activeStageDeadline && ` Must be strictly before Dean HoD Stage Deadline (${formatIST(department.activeStageDeadline)}).`}
                   </p>
                 </div>
                 <div className="flex justify-end space-x-3 pt-3 border-t">

@@ -63,7 +63,7 @@ export const SyllabusStepper: React.FC<SyllabusStepperProps> = ({
   const currentSyllabusStatus = subject.syllabusStatus;
 
   // Lock status check: Faculty cannot edit if submitted, resubmitted, or approved
-  const isLocked = ['SUBMITTED', 'RESUBMITTED', 'APPROVED'].includes(currentSyllabusStatus);
+  const isLocked = ['SUBMITTED', 'RESUBMITTED', 'SUBMITTED_TO_HOD', 'HOD_REVIEW', 'HOD_APPROVED', 'APPROVED'].includes(currentSyllabusStatus);
 
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);

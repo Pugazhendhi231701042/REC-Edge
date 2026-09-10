@@ -62,7 +62,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         { id: 'bundles', label: 'Department Bundles', icon: <BookOpen className="w-4 h-4" /> },
         { id: 'approved', label: 'Approved Syllabi Directory', icon: <BookOpen className="w-4 h-4" /> },
-        { id: 'reviews', label: 'Pending Dean Reviews', icon: <FileCheck className="w-4 h-4" /> },
         { id: 'extensions', label: 'Extension Requests', icon: <ShieldAlert className="w-4 h-4" /> },
       ],
     },

@@ -1,5 +1,7 @@
-import React from 'react';
-import { Printer, FileCheck, Globe, Award, BookOpen, Layers } from 'lucide-react';
+import React, { useState } from 'react';
+import { Printer, Download, FileCheck, Globe, Award, BookOpen, Layers, Loader2 } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 interface DepartmentCurriculumPDFGeneratorProps {
   department: any;
@@ -18,10 +20,49 @@ export const DepartmentCurriculumPDFGenerator: React.FC<DepartmentCurriculumPDFG
   subjects = [],
   documentTitle = 'Department Curriculum & Syllabus Book',
 }) => {
+  const [downloading, setDownloading] = useState(false);
+
   if (!department) return null;
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadPdf = async () => {
+    const input = document.getElementById('printable-department-curriculum');
+    if (!input) return;
+    setDownloading(true);
+    try {
+      const canvas = await html2canvas(input, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210;
+      const pageHeight = 295;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position -= pageHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`${department.shortName || 'Dept'}_Curriculum_Book.pdf`);
+    } catch (err) {
+      console.error('PDF download error:', err);
+      window.print();
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const cleanPrefix = (str: string) => {
@@ -49,18 +90,28 @@ export const DepartmentCurriculumPDFGenerator: React.FC<DepartmentCurriculumPDFG
 
   return (
     <div className="space-y-4 font-sans text-slate-900">
-      {/* Print Action Bar */}
+      {/* Print / Download Action Bar */}
       <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-purple-100 shadow-sm print:hidden">
         <div className="flex items-center space-x-2">
           <BookOpen className="w-5 h-5 text-brand-600" />
           <span className="text-sm font-bold text-slate-900">{documentTitle}</span>
         </div>
-        <button
-          onClick={handlePrint}
-          className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md flex items-center transition-all"
-        >
-          <Printer className="w-4 h-4 mr-2" /> Print Department Curriculum Book
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={handlePrint}
+            className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center transition-all"
+          >
+            <Printer className="w-4 h-4 mr-1.5" /> Print
+          </button>
+          <button
+            onClick={handleDownloadPdf}
+            disabled={downloading}
+            className="px-4 py-2 text-xs font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md flex items-center transition-all disabled:opacity-50"
+          >
+            {downloading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+            {downloading ? 'Generating PDF...' : 'Download PDF'}
+          </button>
+        </div>
       </div>
 
       {/* Printable Department Curriculum Book */}
@@ -188,6 +239,9 @@ export const DepartmentCurriculumPDFGenerator: React.FC<DepartmentCurriculumPDFG
                   || (subject.lecture ? subject.lecture * 15 : 0) + (subject.practical ? subject.practical * 15 : 0)
                   || (subject.credits ? Math.round(subject.credits * 15) : 45);
 
+                const uList = sub.syllabusUnits || sub.units || [];
+                const eList = sub.experiments || sub.labExperiments || [];
+
                 return (
                   <div key={subIdx} className="space-y-3 pt-2 page-break-inside-avoid border-b border-slate-300 pb-6">
                     {/* Subject Header Grid */}
@@ -225,22 +279,25 @@ export const DepartmentCurriculumPDFGenerator: React.FC<DepartmentCurriculumPDFG
                           </tr>
                         </thead>
                         <tbody>
-                          {sub.objectives.map((o: any, oIdx: number) => (
-                            <tr key={oIdx} className="border-b border-slate-900">
-                              <td className="border border-slate-900 p-2 text-left leading-relaxed">
-                                ●  {cleanPrefix(o.description)}
-                              </td>
-                            </tr>
-                          ))}
+                          {sub.objectives.map((o: any, oIdx: number) => {
+                            const text = typeof o === 'string' ? o : o?.description || '';
+                            return (
+                              <tr key={oIdx} className="border-b border-slate-900">
+                                <td className="border border-slate-900 p-2 text-left leading-relaxed">
+                                  ●  {cleanPrefix(text)}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     )}
 
                     {/* Units */}
-                    {isTheoryOrLabTheory && sub.syllabusUnits && sub.syllabusUnits.length > 0 && (
+                    {isTheoryOrLabTheory && uList.length > 0 && (
                       <table className="w-full border-collapse border border-slate-900 text-xs">
                         <tbody>
-                          {sub.syllabusUnits.map((u: any, uIdx: number) => (
+                          {uList.map((u: any, uIdx: number) => (
                             <React.Fragment key={uIdx}>
                               <tr className="bg-slate-100 font-bold border-t border-b border-slate-900">
                                 <td className="border border-slate-900 p-2 font-bold text-slate-900 w-[15%] text-left">
@@ -270,7 +327,7 @@ export const DepartmentCurriculumPDFGenerator: React.FC<DepartmentCurriculumPDFG
                     )}
 
                     {/* Experiments */}
-                    {isLabOrLabTheory && sub.experiments && sub.experiments.length > 0 && (
+                    {isLabOrLabTheory && eList.length > 0 && (
                       <table className="w-full border-collapse border border-slate-900 text-xs">
                         <thead>
                           <tr className="bg-slate-100 font-bold border-b border-slate-900">
@@ -280,7 +337,7 @@ export const DepartmentCurriculumPDFGenerator: React.FC<DepartmentCurriculumPDFG
                           </tr>
                         </thead>
                         <tbody>
-                          {sub.experiments.map((exp: any, eIdx: number) => (
+                          {eList.map((exp: any, eIdx: number) => (
                             <tr key={eIdx} className="border-b border-slate-900">
                               <td className="border border-slate-900 p-2 text-center font-bold w-[6%] text-slate-900">{eIdx + 1}</td>
                               <td className="border border-slate-900 p-2 text-left font-normal text-slate-800 leading-relaxed">{cleanPrefix(exp.title)}</td>

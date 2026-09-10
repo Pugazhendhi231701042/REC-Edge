@@ -94,10 +94,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, status: 'RETURNED_FOR_CORRECTION' });
   } else if (action === 'APPROVE') {
-    // HoD approval sets status to HOD_APPROVED (sent to Dean for final review)
+    // HoD approval sets status to APPROVED (added to Department Curriculum Book directly)
     await prisma.subject.update({
       where: { id: subjectId },
-      data: { syllabusStatus: 'HOD_APPROVED' },
+      data: { syllabusStatus: 'APPROVED' },
     });
 
     if (subject.submission) {
