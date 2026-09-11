@@ -87,6 +87,7 @@ export default function MasterAdminDashboard() {
   const [editingUser, setEditingUser] = useState<any>(null);
   const [userCode, setUserCode] = useState('');
   const [userEmail, setUserEmail] = useState('');
+  const [userEmailPrefix, setUserEmailPrefix] = useState('');
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState('FACULTY');
   const [userDeptId, setUserDeptId] = useState('');
@@ -148,6 +149,7 @@ export default function MasterAdminDashboard() {
   const [editingSubject, setEditingSubject] = useState<any>(null);
   const [selectedDeptForSubject, setSelectedDeptForSubject] = useState<string>('');
   const [selectedSemForSubject, setSelectedSemForSubject] = useState<number>(1);
+  const [selectedDetailsSubject, setSelectedDetailsSubject] = useState<any>(null);
 
   // Truncate Subjects Modal State
   const [showTruncateModal, setShowTruncateModal] = useState(false);
@@ -275,12 +277,13 @@ export default function MasterAdminDashboard() {
   const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setModalUserError('');
+    const fullEmail = userEmailPrefix.trim() ? `${userEmailPrefix.trim()}@rajalakshmi.edu.in` : userEmail;
     try {
       const payload: any = {
         action: editingUser ? 'EDIT_USER' : 'CREATE_USER',
         userId: editingUser?.id,
         userCode,
-        email: userEmail,
+        email: fullEmail,
         name: userName,
         role: userRole,
         departmentId: userDeptId || null,
@@ -690,8 +693,9 @@ export default function MasterAdminDashboard() {
 
   const openAddUser = () => {
     setEditingUser(null);
-    setUserCode(`CS${101 + users.length}`);
+    setUserCode('');
     setUserEmail('');
+    setUserEmailPrefix('');
     setUserName('');
     setUserRole('FACULTY');
     setUserDeptId(departments[0]?.id || '');
@@ -703,7 +707,10 @@ export default function MasterAdminDashboard() {
   const openEditUser = (u: any) => {
     setEditingUser(u);
     setUserCode(u.userCode || '');
-    setUserEmail(u.email || '');
+    const rawEmail = u.email || '';
+    const prefix = rawEmail.includes('@') ? rawEmail.split('@')[0] : rawEmail;
+    setUserEmail(rawEmail);
+    setUserEmailPrefix(prefix);
     setUserName(u.name || '');
     setUserRole(u.role || 'FACULTY');
     setUserDeptId(u.departmentId || '');
@@ -1258,11 +1265,9 @@ export default function MasterAdminDashboard() {
                 <thead className="bg-purple-50 text-slate-700 font-semibold">
                   <tr>
                     <th className="p-3">Department</th>
+                    <th className="p-3">Sem</th>
                     <th className="p-3">Subject Code</th>
                     <th className="p-3">Subject Title</th>
-                    <th className="p-3">Type</th>
-                    <th className="p-3">Category</th>
-                    <th className="p-3 text-center">L-T-P-C</th>
                     <th className="p-3">Faculty</th>
                     <th className="p-3">Syllabus Status</th>
                     <th className="p-3 text-right">Actions</th>
@@ -1272,33 +1277,49 @@ export default function MasterAdminDashboard() {
                   {filteredWorkflowSubjects.map((s: any) => (
                     <tr key={s.id} className="hover:bg-slate-50">
                       <td className="p-3 font-bold text-slate-900">{s.department?.shortName}</td>
-                      <td className="p-3 font-mono font-bold text-brand-700">{s.subjectCode} <span className="text-[10px] text-slate-400">Sem {s.semester}</span></td>
+                      <td className="p-3 font-bold text-slate-700">{s.semester}</td>
+                      <td className="p-3 font-mono font-bold text-brand-700">{s.subjectCode}</td>
                       <td className="p-3 font-bold text-slate-800">{s.subjectName}</td>
-                      <td className="p-3 text-slate-600">{s.subjectType?.name}</td>
-                      <td className="p-3 text-slate-600">{s.subjectCategory?.code}</td>
-                      <td className="p-3 text-center font-semibold">{s.lecture}-{s.tutorial}-{s.practical}-{s.credits}</td>
                       <td className="p-3 font-semibold text-indigo-900">{s.assignedFaculty ? `${s.assignedFaculty.name} (${s.assignedFaculty.userCode})` : 'Unassigned'}</td>
                       <td className="p-3"><StatusBadge status={s.syllabusStatus} /></td>
-                      <td className="p-3 text-right space-x-1.5">
+                      <td className="p-3 text-right space-x-1.5 shrink-0">
+                        {/* Eye icon: Subject Details Modal */}
                         <button
-                          onClick={() => openEditSubject(s)}
-                          className="px-2.5 py-1 text-[11px] font-bold text-brand-700 hover:text-brand-900 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 transition-all inline-flex items-center"
+                          type="button"
+                          onClick={() => setSelectedDetailsSubject(s)}
+                          title="View Subject Details (Type, Category, L-T-P-C)"
+                          className="p-1.5 bg-purple-50 hover:bg-purple-100 text-brand-700 rounded-lg border border-purple-200 transition-all inline-flex items-center"
                         >
-                          <Edit className="w-3 h-3 mr-1" /> Edit
+                          <Eye className="w-3.5 h-3.5" />
                         </button>
+                        {/* Edit icon */}
+                        <button
+                          type="button"
+                          onClick={() => openEditSubject(s)}
+                          title="Edit Subject Details"
+                          className="p-1.5 bg-brand-50 hover:bg-brand-100 text-brand-800 rounded-lg border border-brand-200 transition-all inline-flex items-center"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        {/* FileCheck icon: Inspect Submission */}
                         {s.submission && (
                           <button
+                            type="button"
                             onClick={() => setSelectedSyllabus(s)}
-                            className="px-2.5 py-1 text-[11px] font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition-all inline-flex items-center"
+                            title="Inspect Syllabus Document"
+                            className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 rounded-lg border border-indigo-200 transition-all inline-flex items-center"
                           >
-                            <Eye className="w-3 h-3 mr-1" /> Inspect
+                            <FileCheck className="w-3.5 h-3.5" />
                           </button>
                         )}
+                        {/* Trash icon */}
                         <button
+                          type="button"
                           onClick={() => handleDeleteSubject(s.id, s.subjectCode)}
-                          className="px-2.5 py-1 text-[11px] font-bold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-all inline-flex items-center"
+                          title="Delete Subject"
+                          className="p-1.5 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg border border-red-200 transition-all inline-flex items-center"
                         >
-                          <Trash2 className="w-3 h-3 mr-1" /> Delete
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </td>
                     </tr>
@@ -2241,15 +2262,34 @@ export default function MasterAdminDashboard() {
               <form onSubmit={handleSaveUser} className="space-y-3 text-xs">
                 <div>
                   <label className="block font-semibold mb-1">User ID (userCode) *</label>
-                  <input type="text" required value={userCode} onChange={(e) => setUserCode(e.target.value)} className="w-full p-2 border rounded-xl font-mono font-bold text-brand-700" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 231701042"
+                    value={userCode}
+                    onChange={(e) => setUserCode(e.target.value)}
+                    className="w-full p-2 border rounded-xl font-mono font-bold text-brand-700"
+                  />
                 </div>
                 <div>
                   <label className="block font-semibold mb-1">Full Name *</label>
                   <input type="text" required value={userName} onChange={(e) => setUserName(e.target.value)} className="w-full p-2 border rounded-xl" />
                 </div>
                 <div>
-                  <label className="block font-semibold mb-1">College Email (@rajalakshmi.edu.in) *</label>
-                  <input type="email" required value={userEmail} onChange={(e) => setUserEmail(e.target.value)} className="w-full p-2 border rounded-xl" />
+                  <label className="block font-semibold mb-1">College Email Username *</label>
+                  <div className="flex items-center">
+                    <input
+                      type="text"
+                      required
+                      placeholder="231701042"
+                      value={userEmailPrefix}
+                      onChange={(e) => setUserEmailPrefix(e.target.value.replace(/@.*$/, ''))}
+                      className="flex-1 p-2 border border-r-0 rounded-l-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 text-xs font-semibold"
+                    />
+                    <span className="p-2 bg-purple-100 text-brand-900 font-mono font-bold text-xs border border-l-0 rounded-r-xl select-none shrink-0">
+                      @rajalakshmi.edu.in
+                    </span>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -2507,6 +2547,81 @@ export default function MasterAdminDashboard() {
                 >
                   <Trash2 className="w-4 h-4 mr-1.5" />
                   {truncating ? 'Truncating...' : `Truncate Selected (${selectedDeptIdsForTruncate.length})`}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Subject Quick Details Modal */}
+        {selectedDetailsSubject && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b pb-3">
+                <div className="flex items-center space-x-2">
+                  <span className="font-mono text-xs font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
+                    {selectedDetailsSubject.subjectCode}
+                  </span>
+                  <h3 className="text-sm font-bold text-slate-900">Subject Overview Details</h3>
+                </div>
+                <button onClick={() => setSelectedDetailsSubject(null)} className="text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <span className="text-[11px] font-bold text-slate-500 uppercase">Subject Title</span>
+                  <p className="text-sm font-extrabold text-slate-900 mt-0.5">{selectedDetailsSubject.subjectName}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 p-3 bg-purple-50/50 rounded-2xl border border-purple-100">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Department</span>
+                    <p className="font-extrabold text-slate-900 mt-0.5">{selectedDetailsSubject.department?.shortName}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Semester</span>
+                    <p className="font-extrabold text-slate-900 mt-0.5">Semester {selectedDetailsSubject.semester}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">L-T-P-C Weightage</span>
+                    <p className="font-extrabold text-brand-700 mt-0.5">
+                      {selectedDetailsSubject.lecture}-{selectedDetailsSubject.tutorial}-{selectedDetailsSubject.practical}-{selectedDetailsSubject.credits}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Subject Type</span>
+                    <p className="font-bold text-slate-800 mt-0.5">{selectedDetailsSubject.subjectType?.name || 'Theory'}</p>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Category Code</span>
+                  <p className="font-mono font-bold text-slate-800">{selectedDetailsSubject.subjectCategory?.code || 'PC'}</p>
+                </div>
+
+                {selectedDetailsSubject.vertical && (
+                  <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200">
+                    <span className="text-[10px] font-bold text-amber-900 uppercase">Vertical Group</span>
+                    <p className="font-bold text-amber-900 mt-0.5">{selectedDetailsSubject.vertical}</p>
+                  </div>
+                )}
+
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Assigned Faculty</span>
+                  <p className="font-bold text-indigo-900">
+                    {selectedDetailsSubject.assignedFaculty ? `${selectedDetailsSubject.assignedFaculty.name} (${selectedDetailsSubject.assignedFaculty.userCode || selectedDetailsSubject.assignedFaculty.email})` : 'Unassigned'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-3 border-t">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDetailsSubject(null)}
+                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs"
+                >
+                  Close Details
                 </button>
               </div>
             </div>

@@ -40,20 +40,23 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
       });
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgWidth = 210;
-      const pageHeight = 295;
+      const margin = 10;
+      const pdfPageWidth = 210;
+      const pdfPageHeight = 297;
+      const imgWidth = pdfPageWidth - (margin * 2);
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const printablePageHeight = pdfPageHeight - (margin * 2);
       let heightLeft = imgHeight;
-      let position = 0;
+      let position = margin;
 
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
+      pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+      heightLeft -= printablePageHeight;
 
       while (heightLeft > 0) {
-        position -= pageHeight;
+        position = margin - (imgHeight - heightLeft);
         pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+        pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+        heightLeft -= printablePageHeight;
       }
 
       pdf.save(`${(documentTitle || 'Syllabus').replace(/\s+/g, '_')}_${subject.subjectCode || 'doc'}.pdf`);
@@ -129,14 +132,26 @@ export const SyllabusPDFGenerator: React.FC<SyllabusPDFGeneratorProps> = ({
     return romans[num - 1] || num.toString();
   };
 
-  const isApproved = subject.syllabusStatus === 'APPROVED' || subject.syllabusStatus === 'HOD_APPROVED';
-  const watermarkText = isApproved
-    ? (subject.department?.programmeName || subject.department?.name || 'RAJALAKSHMI ENGINEERING COLLEGE').toUpperCase()
-    : 'DRAFT';
+  const facultyCodeOrId = subject.assignedFaculty?.userCode || subject.assignedFaculty?.email?.split('@')[0] || subject.createdById || 'USER';
+  const watermarkText = `DRAFT (${facultyCodeOrId})`;
 
-  const templateType = subject.subjectType?.templateType || 'THEORY';
-  const isTheoryOrLabTheory = templateType === 'THEORY' || templateType === 'LAB_THEORY' || templateType === 'PROJECT_THEORY';
-  const isLabOrLabTheory = templateType === 'LAB' || templateType === 'LAB_THEORY' || templateType === 'PROJECT' || templateType === 'PROJECT_THEORY';
+  const templateTypeStr = String(subject.subjectType?.templateType || '').toUpperCase();
+  const typeNameStr = String(subject.subjectType?.name || '').toUpperCase();
+
+  const isTheoryOrLabTheory =
+    templateTypeStr.includes('THEORY') ||
+    typeNameStr.includes('THEORY') ||
+    (unitsList && unitsList.length > 0);
+
+  const isLabOrLabTheory =
+    templateTypeStr.includes('LAB') ||
+    templateTypeStr.includes('PRACTICAL') ||
+    templateTypeStr.includes('PROJECT') ||
+    typeNameStr.includes('LAB') ||
+    typeNameStr.includes('PRACTICAL') ||
+    typeNameStr.includes('LABORATORY') ||
+    (subject.practical && subject.practical > 0) ||
+    (experimentsList && experimentsList.length > 0);
 
   const computedTotalHours = submission.totalContactHours
     || (subject.lecture ? subject.lecture * 15 : 0) + (subject.practical ? subject.practical * 15 : 0)

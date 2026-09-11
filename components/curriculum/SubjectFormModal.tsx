@@ -194,6 +194,14 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
       return;
     }
 
+    const confirmMsg = editingSubject
+      ? `Are you sure you want to update subject "${subjectName.trim()}"?`
+      : `Are you sure you want to add subject "${subjectName.trim()}" to the department curriculum?`;
+
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+
     setLoading(true);
     setError('');
 

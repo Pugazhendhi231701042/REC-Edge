@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from './Sidebar';
+import { InactivityLogout } from '@/components/common/InactivityLogout';
 import { formatIST } from '@/lib/time';
 import {
   Bell,
@@ -211,6 +212,7 @@ export const AppShell: React.FC<AppShellProps> = ({ children, activeTab, onTabCh
 
   return (
     <div className="flex min-h-screen bg-bgmain font-sans antialiased">
+      <InactivityLogout />
       {/* Sidebar Navigation */}
       <Sidebar
         userRole={user?.role}

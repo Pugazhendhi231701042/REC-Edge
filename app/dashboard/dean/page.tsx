@@ -950,10 +950,10 @@ export default function DeanDashboard() {
               {/* PDF Preview Generator */}
               <DepartmentCurriculumPDFGenerator
                 department={selectedBundle.department}
-                peoStatements={selectedBundle.peoStatements}
-                poStatements={selectedBundle.poStatements}
-                psoStatements={selectedBundle.psoStatements}
-                subjects={selectedBundle.subjects}
+                peoStatements={selectedBundle.department?.programEducationalObjectiveStatements || selectedBundle.peoStatements || []}
+                poStatements={selectedBundle.department?.programOutcomeStatements || selectedBundle.poStatements || []}
+                psoStatements={selectedBundle.department?.programSpecificOutcomeStatements || selectedBundle.psoStatements || []}
+                subjects={selectedBundle.department?.subjects || selectedBundle.subjects || []}
                 documentTitle={`Department Curriculum Book — ${selectedBundle.department?.shortName}`}
               />
 

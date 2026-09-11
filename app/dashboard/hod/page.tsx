@@ -28,6 +28,8 @@ import {
   AlertCircle,
   Save,
   Edit3,
+  Edit,
+  FileCheck,
 } from 'lucide-react';
 
 const AVAILABLE_CORRECTION_SECTIONS = [
@@ -98,6 +100,9 @@ export default function HoDDashboard() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [subjectToDelete, setSubjectToDelete] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Subject Quick Details Modal State
+  const [selectedDetailsSubject, setSelectedDetailsSubject] = useState<any>(null);
 
   // Live 1-second countdown ticker for active stage deadline
   const [now, setNow] = useState(Date.now());
@@ -407,13 +412,19 @@ export default function HoDDashboard() {
         alert('Correction Return Deadline is mandatory when returning a syllabus for correction.');
         return;
       }
+      if (department?.activeStageDeadline) {
+        const selectedTime = new Date(returnDeadline).getTime();
+        const stageTime = new Date(department.activeStageDeadline).getTime();
+        if (selectedTime >= stageTime) {
+          alert(`⚠️ Validation Error: Correction Return Deadline must be strictly BEFORE (<) the Dean Stage Deadline (${formatIST(department.activeStageDeadline)}).`);
+          return;
+        }
+      }
+
+      if (!confirm('Are you sure you want to return this syllabus to the assigned faculty member for correction?')) {
+        return;
+      }
     }
-
-    const confirmMsg = action === 'APPROVE'
-      ? 'Are you sure you want to approve this syllabus and forward it to the Academic Dean for final review?'
-      : 'Are you sure you want to return this syllabus to the assigned faculty member for correction?';
-
-    if (!confirm(confirmMsg)) return;
 
     try {
       const res = await fetch('/api/hod/review', {
@@ -775,9 +786,6 @@ export default function HoDDashboard() {
                     <th className="p-3">Sem</th>
                     <th className="p-3">Subject Code</th>
                     <th className="p-3">Subject Name</th>
-                    <th className="p-3">Type</th>
-                    <th className="p-3">Category</th>
-                    <th className="p-3 text-center">L-T-P-C</th>
                     <th className="p-3">Assigned Faculty</th>
                     <th className="p-3">Status</th>
                     <th className="p-3 text-right">Actions</th>
@@ -786,7 +794,7 @@ export default function HoDDashboard() {
                 <tbody className="divide-y divide-slate-100">
                   {subjects.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="p-8 text-center text-desc text-xs">
+                      <td colSpan={7} className="p-8 text-center text-desc text-xs">
                         No subjects created yet in this department. Click "Add Subject" to begin.
                       </td>
                     </tr>
@@ -810,14 +818,9 @@ export default function HoDDashboard() {
                               }}
                             />
                           </td>
-                          <td className="p-3 font-bold text-slate-700">Sem {subj.semester}</td>
+                          <td className="p-3 font-bold text-slate-700">{subj.semester}</td>
                           <td className="p-3 font-mono font-bold text-brand-700">{subj.subjectCode}</td>
                           <td className="p-3 font-bold text-slate-900">{subj.subjectName}</td>
-                          <td className="p-3 text-slate-600">{subj.subjectType?.name}</td>
-                          <td className="p-3 text-slate-600">{subj.subjectCategory?.code}</td>
-                          <td className="p-3 text-center font-semibold text-slate-800">
-                            {subj.lecture}-{subj.tutorial}-{subj.practical}-{subj.credits}
-                          </td>
                           <td className="p-3 font-semibold text-indigo-900">
                             {subj.assignedFaculty ? (
                               <span>
@@ -831,39 +834,72 @@ export default function HoDDashboard() {
                           <td className="p-3">
                             <StatusBadge status={subj.syllabusStatus} />
                           </td>
-                          <td className="p-3 text-right space-x-2">
+                          <td className="p-3 text-right space-x-1.5 shrink-0">
+                            {/* Eye icon: View Subject Details */}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedDetailsSubject(subj)}
+                              title="View Subject Details (Type, Category, L-T-P-C)"
+                              className="p-1.5 bg-purple-50 hover:bg-purple-100 text-brand-700 rounded-lg border border-purple-200 transition-all inline-flex items-center"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Edit icon: Edit Subject Details Before Assigning */}
+                            {(!subj.submission || subj.syllabusStatus === 'DRAFT') && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingSubject(subj);
+                                  setShowSubjectModal(true);
+                                }}
+                                title="Edit Subject Details"
+                                className="p-1.5 bg-brand-50 hover:bg-brand-100 text-brand-800 rounded-lg border border-brand-200 transition-all inline-flex items-center"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+
+                            {/* UserCheck icon: Assign Faculty */}
                             {!subj.assignedFaculty && (
                               <button
+                                type="button"
                                 onClick={() => {
                                   setTargetSubjectForAssign(subj);
                                   setSelectedFacultyId(subj.assignedFacultyId || '');
                                   setShowAssignModal(true);
                                 }}
-                                className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-bold rounded-lg border border-indigo-200 text-xs inline-flex items-center"
+                                title="Assign Faculty"
+                                className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 rounded-lg border border-indigo-200 transition-all inline-flex items-center"
                               >
-                                <UserCheck className="w-3.5 h-3.5 mr-1" />
-                                Assign
+                                <UserCheck className="w-3.5 h-3.5" />
                               </button>
                             )}
 
+                            {/* Trash icon: Delete Subject */}
                             {isUnassigned && (
                               <button
+                                type="button"
                                 onClick={() => {
                                   setSubjectToDelete(subj);
                                   setShowDeleteModal(true);
                                 }}
-                                className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 font-bold rounded-lg border border-red-200 text-xs inline-flex items-center"
+                                title="Delete Subject"
+                                className="p-1.5 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg border border-red-200 transition-all inline-flex items-center"
                               >
-                                <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             )}
 
-                            {(subj.syllabusStatus === 'SUBMITTED' || subj.syllabusStatus === 'RESUBMITTED' || subj.syllabusStatus === 'APPROVED') && (
+                            {/* Review Syllabus icon: Inspect Submission */}
+                            {(subj.syllabusStatus === 'SUBMITTED' || subj.syllabusStatus === 'RESUBMITTED' || subj.syllabusStatus === 'APPROVED' || subj.syllabusStatus === 'HOD_APPROVED') && (
                               <button
+                                type="button"
                                 onClick={() => fetchFullSubjectForReview(subj)}
-                                className="px-2.5 py-1 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-lg text-xs inline-flex items-center"
+                                title="Inspect Syllabus Document"
+                                className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg border border-emerald-200 transition-all inline-flex items-center"
                               >
-                                <Eye className="w-3.5 h-3.5 mr-1" /> Review
+                                <FileCheck className="w-3.5 h-3.5" />
                               </button>
                             )}
                           </td>
@@ -1634,6 +1670,76 @@ export default function HoDDashboard() {
                     </div>
                   ))
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Subject Quick Details Modal */}
+        {selectedDetailsSubject && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b pb-3">
+                <div className="flex items-center space-x-2">
+                  <span className="font-mono text-xs font-bold text-brand-700 bg-purple-100 px-2 py-0.5 rounded">
+                    {selectedDetailsSubject.subjectCode}
+                  </span>
+                  <h3 className="text-sm font-bold text-slate-900">Subject Overview Details</h3>
+                </div>
+                <button onClick={() => setSelectedDetailsSubject(null)} className="text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <span className="text-[11px] font-bold text-slate-500 uppercase">Subject Title</span>
+                  <p className="text-sm font-extrabold text-slate-900 mt-0.5">{selectedDetailsSubject.subjectName}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 p-3 bg-purple-50/50 rounded-2xl border border-purple-100">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Semester</span>
+                    <p className="font-extrabold text-slate-900 mt-0.5">Semester {selectedDetailsSubject.semester}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">L-T-P-C Weightage</span>
+                    <p className="font-extrabold text-brand-700 mt-0.5">
+                      {selectedDetailsSubject.lecture}-{selectedDetailsSubject.tutorial}-{selectedDetailsSubject.practical}-{selectedDetailsSubject.credits}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Subject Type</span>
+                    <p className="font-bold text-slate-800 mt-0.5">{selectedDetailsSubject.subjectType?.name || 'Theory'}</p>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Category Code</span>
+                    <p className="font-mono font-bold text-slate-800 mt-0.5">{selectedDetailsSubject.subjectCategory?.code || 'PC'}</p>
+                  </div>
+                </div>
+
+                {selectedDetailsSubject.vertical && (
+                  <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200">
+                    <span className="text-[10px] font-bold text-amber-900 uppercase">Vertical Group</span>
+                    <p className="font-bold text-amber-900 mt-0.5">{selectedDetailsSubject.vertical}</p>
+                  </div>
+                )}
+
+                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Assigned Faculty</span>
+                  <p className="font-bold text-indigo-900">
+                    {selectedDetailsSubject.assignedFaculty ? `${selectedDetailsSubject.assignedFaculty.name} (${selectedDetailsSubject.assignedFaculty.userCode || selectedDetailsSubject.assignedFaculty.email})` : 'Unassigned'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-3 border-t">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDetailsSubject(null)}
+                  className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs"
+                >
+                  Close Details
+                </button>
               </div>
             </div>
           </div>

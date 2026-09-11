@@ -40,20 +40,23 @@ export const DepartmentCurriculumPDFGenerator: React.FC<DepartmentCurriculumPDFG
       });
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgWidth = 210;
-      const pageHeight = 295;
+      const margin = 10;
+      const pdfPageWidth = 210;
+      const pdfPageHeight = 297;
+      const imgWidth = pdfPageWidth - (margin * 2);
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const printablePageHeight = pdfPageHeight - (margin * 2);
       let heightLeft = imgHeight;
-      let position = 0;
+      let position = margin;
 
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
+      pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+      heightLeft -= printablePageHeight;
 
       while (heightLeft > 0) {
-        position -= pageHeight;
+        position = margin - (imgHeight - heightLeft);
         pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+        pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+        heightLeft -= printablePageHeight;
       }
 
       pdf.save(`${department.shortName || 'Dept'}_Curriculum_Book.pdf`);
@@ -115,7 +118,13 @@ export const DepartmentCurriculumPDFGenerator: React.FC<DepartmentCurriculumPDFG
       </div>
 
       {/* Printable Department Curriculum Book */}
-      <div id="printable-department-curriculum" className="printable-area bg-white p-10 md:p-16 rounded-3xl border border-slate-200 shadow-lg text-slate-900 print:shadow-none print:border-none print:p-0 space-y-10">
+      <div id="printable-department-curriculum" className="printable-area relative bg-white p-10 md:p-16 rounded-3xl border border-slate-200 shadow-lg text-slate-900 print:shadow-none print:border-none print:p-0 space-y-10 overflow-hidden">
+        {/* Diagonal Watermark Overlay */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.08] select-none">
+          <span className="text-5xl md:text-7xl font-black uppercase text-slate-900 tracking-widest -rotate-45 text-center leading-relaxed">
+            DRAFT ({department.departmentCode || department.shortName || 'CURRICULUM'})
+          </span>
+        </div>
         
         {/* Cover Page */}
         <div className="text-center border-b-4 border-brand-800 pb-10 pt-4">
@@ -232,15 +241,30 @@ export const DepartmentCurriculumPDFGenerator: React.FC<DepartmentCurriculumPDFG
 
               {semesterMap[sem].map((subject, subIdx) => {
                 const sub = subject.submission || {};
-                const templateType = subject.subjectType?.templateType || 'THEORY';
-                const isTheoryOrLabTheory = templateType === 'THEORY' || templateType === 'LAB_THEORY' || templateType === 'PROJECT_THEORY';
-                const isLabOrLabTheory = templateType === 'LAB' || templateType === 'LAB_THEORY' || templateType === 'PROJECT' || templateType === 'PROJECT_THEORY';
-                const computedTotalHours = sub.totalContactHours
-                  || (subject.lecture ? subject.lecture * 15 : 0) + (subject.practical ? subject.practical * 15 : 0)
-                  || (subject.credits ? Math.round(subject.credits * 15) : 45);
+                const templateTypeStr = String(subject.subjectType?.templateType || '').toUpperCase();
+                const typeNameStr = String(subject.subjectType?.name || '').toUpperCase();
 
                 const uList = sub.syllabusUnits || sub.units || [];
                 const eList = sub.experiments || sub.labExperiments || [];
+
+                const isTheoryOrLabTheory =
+                  templateTypeStr.includes('THEORY') ||
+                  typeNameStr.includes('THEORY') ||
+                  (uList && uList.length > 0);
+
+                const isLabOrLabTheory =
+                  templateTypeStr.includes('LAB') ||
+                  templateTypeStr.includes('PRACTICAL') ||
+                  templateTypeStr.includes('PROJECT') ||
+                  typeNameStr.includes('LAB') ||
+                  typeNameStr.includes('PRACTICAL') ||
+                  typeNameStr.includes('LABORATORY') ||
+                  (subject.practical && subject.practical > 0) ||
+                  (eList && eList.length > 0);
+
+                const computedTotalHours = sub.totalContactHours
+                  || (subject.lecture ? subject.lecture * 15 : 0) + (subject.practical ? subject.practical * 15 : 0)
+                  || (subject.credits ? Math.round(subject.credits * 15) : 45);
 
                 return (
                   <div key={subIdx} className="space-y-4 pt-6 border-b border-slate-300 pb-8" style={{ pageBreakBefore: 'always', breakBefore: 'page' }}>
