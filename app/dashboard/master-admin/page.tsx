@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { StatusBadge } from '@/components/common/StatusBadge';
 import { SyllabusPDFGenerator } from '@/components/pdf/SyllabusPDFGenerator';
+import { SubjectFormModal } from '@/components/curriculum/SubjectFormModal';
 import { formatIST } from '@/lib/time';
 import {
   Building2,
@@ -141,6 +142,18 @@ export default function MasterAdminDashboard() {
   const [catCodeInput, setCatCodeInput] = useState('');
   const [catNameInput, setCatNameInput] = useState('');
   const [catDescInput, setCatDescInput] = useState('');
+
+  // Subject Form Modal State (Master Admin Add/Edit Subject)
+  const [showSubjectModal, setShowSubjectModal] = useState(false);
+  const [editingSubject, setEditingSubject] = useState<any>(null);
+  const [selectedDeptForSubject, setSelectedDeptForSubject] = useState<string>('');
+  const [selectedSemForSubject, setSelectedSemForSubject] = useState<number>(1);
+
+  // Truncate Subjects Modal State
+  const [showTruncateModal, setShowTruncateModal] = useState(false);
+  const [selectedDeptIdsForTruncate, setSelectedDeptIdsForTruncate] = useState<string[]>([]);
+  const [truncating, setTruncating] = useState(false);
+  const [truncateError, setTruncateError] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -620,11 +633,58 @@ export default function MasterAdminDashboard() {
       if (res.ok) {
         alert(data.message || 'Subject deleted successfully.');
         fetchData();
-      } else {
-        setError(data.error || 'Failed to delete subject.');
       }
     } catch (err: any) {
       setError(err.message || 'Error deleting subject.');
+    }
+  };
+
+  const openAddSubject = (deptId?: string, sem?: number) => {
+    const targetDeptId = deptId || (departments[0]?.id || '');
+    setSelectedDeptForSubject(targetDeptId);
+    setSelectedSemForSubject(sem || 1);
+    setEditingSubject(null);
+    setShowSubjectModal(true);
+  };
+
+  const openEditSubject = (subject: any) => {
+    setEditingSubject(subject);
+    setSelectedDeptForSubject(subject.departmentId);
+    setSelectedSemForSubject(subject.semester);
+    setShowSubjectModal(true);
+  };
+
+  const handleTruncateSubjects = async () => {
+    if (selectedDeptIdsForTruncate.length === 0) {
+      alert('Please select at least one department to truncate subjects.');
+      return;
+    }
+    const isAll = selectedDeptIdsForTruncate.length === departments.length;
+    const msg = isAll
+      ? 'CRITICAL WARNING: You are about to TRUNCATE ALL SUBJECTS across ALL departments in the institution! This will permanently delete all subjects, syllabi, and attached data. Are you absolutely sure?'
+      : `WARNING: You are about to TRUNCATE ALL SUBJECTS for ${selectedDeptIdsForTruncate.length} department(s). Are you sure?`;
+
+    if (!confirm(msg)) return;
+
+    setTruncating(true);
+    setTruncateError('');
+    try {
+      const res = await fetch('/api/master-admin/truncate-subjects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ departmentIds: selectedDeptIdsForTruncate }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to truncate subjects.');
+
+      alert(`✓ ${data.message}`);
+      setShowTruncateModal(false);
+      setSelectedDeptIdsForTruncate([]);
+      fetchData();
+    } catch (err: any) {
+      setTruncateError(err.message);
+    } finally {
+      setTruncating(false);
     }
   };
 
@@ -940,11 +1000,11 @@ export default function MasterAdminDashboard() {
                   <button onClick={() => setActiveTab('regulations')} className="p-3 bg-purple-50 hover:bg-purple-100 text-brand-700 border border-purple-200 rounded-2xl flex items-center justify-center space-x-2">
                     <BookOpen className="w-4 h-4" /><span>+ Subject Types</span>
                   </button>
-                  <button onClick={() => setActiveTab('creditconfig')} className="p-3 bg-purple-50 hover:bg-purple-100 text-brand-700 border border-purple-200 rounded-2xl flex items-center justify-center space-x-2">
-                    <Sparkles className="w-4 h-4" /><span>+ Credit Weights</span>
+                  <button onClick={() => openAddSubject()} className="p-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl shadow-xs flex items-center justify-center space-x-2">
+                    <Plus className="w-4 h-4" /><span>+ Add Subject</span>
                   </button>
-                  <button onClick={() => setActiveTab('popso')} className="p-3 bg-purple-50 hover:bg-purple-100 text-brand-700 border border-purple-200 rounded-2xl flex items-center justify-center space-x-2">
-                    <BookOpen className="w-4 h-4" /><span>+ Configure PO / PSO</span>
+                  <button onClick={() => setShowTruncateModal(true)} className="p-3 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-2xl flex items-center justify-center space-x-2">
+                    <Trash2 className="w-4 h-4" /><span>Truncate Subjects</span>
                   </button>
                 </div>
               </div>
@@ -1150,6 +1210,20 @@ export default function MasterAdminDashboard() {
                 <h3 className="text-base font-bold text-slate-900">Institutional Subjects Master Directory</h3>
                 <p className="text-xs text-desc">Centralized subject database across Regulation 26.</p>
               </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => openAddSubject()}
+                  className="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-xs flex items-center shrink-0"
+                >
+                  <Plus className="w-4 h-4 mr-1.5" /> Add Subject
+                </button>
+                <button
+                  onClick={() => setShowTruncateModal(true)}
+                  className="px-4 py-2 text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl shadow-xs flex items-center shrink-0"
+                >
+                  <Trash2 className="w-4 h-4 mr-1.5 text-red-600" /> Truncate Subjects
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 rounded-2xl bg-purple-50/50 border border-purple-100">
@@ -1205,12 +1279,26 @@ export default function MasterAdminDashboard() {
                       <td className="p-3 text-center font-semibold">{s.lecture}-{s.tutorial}-{s.practical}-{s.credits}</td>
                       <td className="p-3 font-semibold text-indigo-900">{s.assignedFaculty ? `${s.assignedFaculty.name} (${s.assignedFaculty.userCode})` : 'Unassigned'}</td>
                       <td className="p-3"><StatusBadge status={s.syllabusStatus} /></td>
-                      <td className="p-3 text-right">
+                      <td className="p-3 text-right space-x-1.5">
+                        <button
+                          onClick={() => openEditSubject(s)}
+                          className="px-2.5 py-1 text-[11px] font-bold text-brand-700 hover:text-brand-900 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 transition-all inline-flex items-center"
+                        >
+                          <Edit className="w-3 h-3 mr-1" /> Edit
+                        </button>
+                        {s.submission && (
+                          <button
+                            onClick={() => setSelectedSyllabus(s)}
+                            className="px-2.5 py-1 text-[11px] font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 rounded-lg border border-indigo-200 transition-all inline-flex items-center"
+                          >
+                            <Eye className="w-3 h-3 mr-1" /> Inspect
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDeleteSubject(s.id, s.subjectCode)}
-                          className="px-2.5 py-1 text-[11px] font-bold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-lg transition-all"
+                          className="px-2.5 py-1 text-[11px] font-bold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-all inline-flex items-center"
                         >
-                          Delete
+                          <Trash2 className="w-3 h-3 mr-1" /> Delete
                         </button>
                       </td>
                     </tr>
@@ -2317,6 +2405,110 @@ export default function MasterAdminDashboard() {
                   <button type="submit" className="px-4 py-1.5 rounded-xl bg-brand-600 text-white font-bold">Save Department</button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+        {/* Master Admin Add / Edit Subject Modal */}
+        {showSubjectModal && (
+          <SubjectFormModal
+            isOpen={showSubjectModal}
+            onClose={() => setShowSubjectModal(false)}
+            onSuccess={() => {
+              setShowSubjectModal(false);
+              fetchData();
+            }}
+            departmentId={selectedDeptForSubject}
+            departmentCode={departments.find((d) => d.id === selectedDeptForSubject)?.departmentCode || 'CS'}
+            regulationCode={activeReg?.code || '27'}
+            semester={selectedSemForSubject}
+            subjectTypes={subjectTypes}
+            subjectCategories={subjectCategories}
+            editingSubject={editingSubject}
+          />
+        )}
+
+        {/* Truncate Subjects Modal */}
+        {showTruncateModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b pb-3">
+                <h3 className="text-base font-bold text-slate-900 flex items-center text-red-600">
+                  <ShieldAlert className="w-5 h-5 mr-2" /> Truncate Subjects by Department
+                </h3>
+                <button onClick={() => setShowTruncateModal(false)} className="text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-3 bg-red-50 border border-red-200 rounded-2xl text-xs text-red-800 space-y-1">
+                <p className="font-bold flex items-center"><AlertCircle className="w-4 h-4 mr-1 text-red-600" /> Destructive Action Warning</p>
+                <p>This action will permanently remove ALL subjects and attached syllabus submissions for the selected department(s). This cannot be undone.</p>
+              </div>
+
+              {truncateError && (
+                <div className="p-3 bg-red-100 text-red-700 font-semibold rounded-xl text-xs">
+                  {truncateError}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <label className="text-xs font-bold text-slate-700">Select Department(s):</label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedDeptIdsForTruncate.length === departments.length) {
+                        setSelectedDeptIdsForTruncate([]);
+                      } else {
+                        setSelectedDeptIdsForTruncate(departments.map((d) => d.id));
+                      }
+                    }}
+                    className="text-xs font-bold text-brand-600 hover:underline"
+                  >
+                    {selectedDeptIdsForTruncate.length === departments.length ? 'Deselect All' : 'Select All Departments'}
+                  </button>
+                </div>
+
+                <div className="max-h-60 overflow-y-auto space-y-1.5 border p-3 rounded-2xl bg-slate-50">
+                  {departments.map((d) => (
+                    <label key={d.id} className="flex items-center space-x-2 text-xs font-medium cursor-pointer p-1.5 hover:bg-white rounded-xl">
+                      <input
+                        type="checkbox"
+                        checked={selectedDeptIdsForTruncate.includes(d.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedDeptIdsForTruncate([...selectedDeptIdsForTruncate, d.id]);
+                          } else {
+                            setSelectedDeptIdsForTruncate(selectedDeptIdsForTruncate.filter((id) => id !== d.id));
+                          }
+                        }}
+                        className="rounded text-brand-600 focus:ring-brand-500"
+                      />
+                      <span className="font-bold text-slate-900">{d.shortName}</span>
+                      <span className="text-slate-500">— {d.programmeName}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-3 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowTruncateModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={truncating || selectedDeptIdsForTruncate.length === 0}
+                  onClick={handleTruncateSubjects}
+                  className="px-5 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-40 rounded-xl shadow-md flex items-center"
+                >
+                  <Trash2 className="w-4 h-4 mr-1.5" />
+                  {truncating ? 'Truncating...' : `Truncate Selected (${selectedDeptIdsForTruncate.length})`}
+                </button>
+              </div>
             </div>
           </div>
         )}

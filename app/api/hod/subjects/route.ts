@@ -36,7 +36,18 @@ export async function GET() {
       subjectType: true,
       subjectCategory: true,
       assignedFaculty: { select: { id: true, name: true, email: true, userCode: true } },
-      submission: { select: { id: true, totalContactHours: true } },
+      submission: {
+        include: {
+          syllabusUnits: { orderBy: { unitNumber: 'asc' } },
+          experiments: { orderBy: { experimentNumber: 'asc' } },
+          objectives: true,
+          courseOutcomes: true,
+          textbooks: true,
+          references: true,
+          sdgMappings: true,
+          coPoMappings: true,
+        },
+      },
     },
     orderBy: [{ semester: 'asc' }, { subjectCode: 'asc' }],
   });
@@ -47,14 +58,22 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const session = await getCurrentUser();
-    if (!session || session.role !== 'HOD') {
-      return NextResponse.json({ error: 'Unauthorized. HoD role required.' }, { status: 403 });
+    if (!session || (session.role !== 'HOD' && session.role !== 'MASTERADMIN')) {
+      return NextResponse.json({ error: 'Unauthorized. HoD or MasterAdmin role required.' }, { status: 403 });
     }
 
+    const body = await req.json();
+    const { id, semester, vertical, subjectTypeId, subjectCategoryId, subjectName, lecture, tutorial, practical, customPrefix, departmentId: reqDeptId } = body;
+
     const user = await prisma.user.findUnique({ where: { id: session.userId } });
-    const departmentId = user?.departmentId;
+    let departmentId = reqDeptId || user?.departmentId;
+    if (id && !departmentId) {
+      const existingSubj = await prisma.subject.findUnique({ where: { id } });
+      departmentId = existingSubj?.departmentId;
+    }
+
     if (!departmentId) {
-      return NextResponse.json({ error: 'HoD does not belong to a department.' }, { status: 400 });
+      return NextResponse.json({ error: 'Department ID is required.' }, { status: 400 });
     }
 
     const dept = await prisma.department.findUnique({ where: { id: departmentId } });
@@ -65,10 +84,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Active regulation or academic year not configured.' }, { status: 400 });
     }
 
-    const { id, semester, vertical, subjectTypeId, subjectCategoryId, subjectName, lecture, tutorial, practical, customPrefix } = await req.json();
-
-    // Prerequisite validation: POs & PSOs must be created before adding new subject
-    if (!id) {
+    // Prerequisite validation: POs & PSOs must be created before adding new subject (for HoD)
+    if (!id && session.role === 'HOD') {
       const poStmtCount = await prisma.programOutcomeStatement.count({
         where: { departmentId: dept.id, regulationId: activeReg.id },
       });
@@ -225,8 +242,8 @@ export async function POST(req: Request) {
 // DELETE Endpoint for HoD to delete unassigned subject(s)
 export async function DELETE(req: Request) {
   const session = await getCurrentUser();
-  if (!session || session.role !== 'HOD') {
-    return NextResponse.json({ error: 'Unauthorized. Only HoD can delete unassigned subjects.' }, { status: 403 });
+  if (!session || (session.role !== 'HOD' && session.role !== 'MASTERADMIN')) {
+    return NextResponse.json({ error: 'Unauthorized.' }, { status: 403 });
   }
 
   const { searchParams } = new URL(req.url);
@@ -249,13 +266,14 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: 'Subject ID(s) required.' }, { status: 400 });
   }
 
-  // Delete subjects belonging to HoD's department that are unassigned
+  const whereClause: any = { id: { in: targetIds } };
+  if (session.role === 'HOD') {
+    whereClause.departmentId = session.departmentId || undefined;
+    whereClause.assignedFacultyId = null;
+  }
+
   const deleted = await prisma.subject.deleteMany({
-    where: {
-      id: { in: targetIds },
-      departmentId: session.departmentId || undefined,
-      assignedFacultyId: null,
-    },
+    where: whereClause,
   });
 
   await logAudit({

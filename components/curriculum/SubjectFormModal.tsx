@@ -7,6 +7,7 @@ interface SubjectFormModalProps {
   onClose: () => void;
   onSuccess: () => void;
   departmentCode: string;
+  departmentId?: string;
   regulationCode?: string;
   semester: number;
   subjectTypes: any[];
@@ -30,6 +31,7 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
   onClose,
   onSuccess,
   departmentCode,
+  departmentId,
   regulationCode = '27',
   semester,
   subjectTypes,
@@ -41,9 +43,10 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
   const [subjectName, setSubjectName] = useState('');
   const [subjectTypeId, setSubjectTypeId] = useState('');
   const [subjectCategoryId, setSubjectCategoryId] = useState('');
+  const [useCustomPrefix, setUseCustomPrefix] = useState(false);
   const [coursePrefix, setCoursePrefix] = useState(departmentCode || 'CS');
   const [customPrefixesList, setCustomPrefixesList] = useState<string[]>([]);
-  const [lecture, setLecture] = useState(3);
+  const [lecture, setLecture] = useState(0);
   const [tutorial, setTutorial] = useState(0);
   const [practical, setPractical] = useState(0);
   const [lWeight, setLWeight] = useState(1.0);
@@ -103,12 +106,12 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
     : ['GE', 'PH', 'HS', 'MC', 'CD', 'AI', 'CB', 'EC', 'EE', 'ME', 'CE', 'IT'];
 
   useEffect(() => {
-    setSelectedSemester(editingSubject ? editingSubject.semester : (semester || ''));
+    setSelectedSemester(editingSubject ? editingSubject.semester : '');
     if (editingSubject) {
       setSubjectName(editingSubject.subjectName || '');
       setSubjectTypeId(editingSubject.subjectTypeId || '');
       setSubjectCategoryId(editingSubject.subjectCategoryId || '');
-      setLecture(editingSubject.lecture ?? 3);
+      setLecture(editingSubject.lecture ?? 0);
       setTutorial(editingSubject.tutorial ?? 0);
       setPractical(editingSubject.practical ?? 0);
       if (editingSubject.vertical) {
@@ -116,11 +119,13 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
       }
       const codePrefix = editingSubject.subjectCode ? editingSubject.subjectCode.substring(0, 2) : departmentCode;
       setCoursePrefix(codePrefix);
+      setUseCustomPrefix(codePrefix !== departmentCode);
     } else {
       setSubjectName('');
-      setSubjectTypeId(subjectTypes[0]?.id || '');
+      setSubjectTypeId(''); // Default to - Select Subject Type -
       setSubjectCategoryId(''); // Default to - Select Subject Category -
       setCoursePrefix(availablePrefixes[0] || departmentCode || 'CS');
+      setUseCustomPrefix(false);
       setSelectedVertical('Vertical A');
       setLecture(0);
       setTutorial(0);
@@ -151,9 +156,9 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
     ? selectedVertical.split(' ')[1]
     : selectedVertical;
 
-  // Live preview subject code (e.g. CD27E31 for electives, CS27421 for PC)
+  // Live preview subject code (e.g. CD27E31 for electives with custom prefix, CS27421 for PC)
   const semOrVertStr = isElectiveCategory ? verticalLetter : selectedSemester;
-  const activePrefix = isElectiveCategory ? coursePrefix : (departmentCode || 'CS');
+  const activePrefix = isElectiveCategory && useCustomPrefix ? coursePrefix : (departmentCode || 'CS');
   const codePreview = formatSubjectCode(activePrefix, regulationCode, semOrVertStr, typeCode, editingSubject ? 1 : 1);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -161,6 +166,11 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
 
     if (!subjectCategoryId) {
       setError('Please select a Subject Category.');
+      return;
+    }
+
+    if (!subjectTypeId) {
+      setError('Please select a Subject Type.');
       return;
     }
 
@@ -193,6 +203,7 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: editingSubject?.id,
+          departmentId: departmentId || undefined,
           semester: Number(selectedSemester),
           vertical: isElectiveCategory ? selectedVertical : null,
           subjectTypeId,
@@ -201,7 +212,7 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
           lecture,
           tutorial,
           practical,
-          customPrefix: isElectiveCategory ? coursePrefix : departmentCode,
+          customPrefix: isElectiveCategory && useCustomPrefix ? coursePrefix : departmentCode,
         }),
       });
 
@@ -333,8 +344,11 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
                   setPractical(0);
                 }
               }}
-              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600"
+              className="w-full px-3 py-2 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 font-medium"
             >
+              <option value="" disabled>
+                - Select Subject Type -
+              </option>
               {subjectTypes.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
@@ -343,40 +357,56 @@ export const SubjectFormModal: React.FC<SubjectFormModalProps> = ({
             </select>
           </div>
 
-          {/* Elective Course Prefix Radio Selection */}
+          {/* Custom Course Code Prefix Toggle & Selection (For Non-PC Categories) */}
           {isElectiveCategory && (
-            <div className="bg-amber-50/80 p-3.5 rounded-2xl border border-amber-200/80 space-y-2 animate-in fade-in zoom-in-95">
+            <div className="bg-amber-50/80 p-3.5 rounded-2xl border border-amber-200/80 space-y-3 animate-in fade-in zoom-in-95">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-amber-900">
-                  Course Code Prefix (Offering Dept / Domain)
-                </span>
-                <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
-                  Elective Course
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-600">Select department/subject prefix for subject code generation:</p>
-              <div className="flex flex-wrap gap-2 pt-1">
-                {availablePrefixes.map((pfx) => (
-                  <label
-                    key={pfx}
-                    className={`cursor-pointer px-3 py-1 rounded-xl text-xs font-mono font-bold border transition-all flex items-center space-x-1.5 ${
-                      coursePrefix === pfx
-                        ? 'bg-brand-600 text-white border-brand-700 shadow-xs ring-2 ring-brand-300'
-                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                <div>
+                  <span className="text-xs font-bold text-amber-900 block">Custom Course Code Prefix</span>
+                  <span className="text-[10px] text-amber-700">Enable to override department prefix ({departmentCode}) with custom domain prefix</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUseCustomPrefix(!useCustomPrefix)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    useCustomPrefix ? 'bg-amber-600' : 'bg-slate-300'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                      useCustomPrefix ? 'translate-x-5' : 'translate-x-0'
                     }`}
-                  >
-                    <input
-                      type="radio"
-                      name="coursePrefix"
-                      value={pfx}
-                      checked={coursePrefix === pfx}
-                      onChange={(e) => setCoursePrefix(e.target.value)}
-                      className="sr-only"
-                    />
-                    <span>{pfx}</span>
-                  </label>
-                ))}
+                  />
+                </button>
               </div>
+
+              {useCustomPrefix && (
+                <div className="pt-2 border-t border-amber-200/60 space-y-1.5 animate-in fade-in duration-150">
+                  <p className="text-[11px] font-semibold text-slate-700">Select Offering Dept / Domain Prefix:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {availablePrefixes.map((pfx) => (
+                      <label
+                        key={pfx}
+                        className={`cursor-pointer px-3 py-1 rounded-xl text-xs font-mono font-bold border transition-all flex items-center space-x-1.5 ${
+                          coursePrefix === pfx
+                            ? 'bg-amber-600 text-white border-amber-700 shadow-xs ring-2 ring-amber-300'
+                            : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="coursePrefix"
+                          value={pfx}
+                          checked={coursePrefix === pfx}
+                          onChange={(e) => setCoursePrefix(e.target.value)}
+                          className="sr-only"
+                        />
+                        <span>{pfx}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

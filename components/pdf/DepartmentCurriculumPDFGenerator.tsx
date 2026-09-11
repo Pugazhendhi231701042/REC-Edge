@@ -115,17 +115,17 @@ export const DepartmentCurriculumPDFGenerator: React.FC<DepartmentCurriculumPDFG
       </div>
 
       {/* Printable Department Curriculum Book */}
-      <div id="printable-department-curriculum" className="printable-area bg-white p-8 md:p-12 rounded-3xl border border-slate-200 shadow-lg text-slate-900 print:shadow-none print:border-none print:p-0 space-y-8">
+      <div id="printable-department-curriculum" className="printable-area bg-white p-10 md:p-16 rounded-3xl border border-slate-200 shadow-lg text-slate-900 print:shadow-none print:border-none print:p-0 space-y-10">
         
         {/* Cover Page */}
-        <div className="text-center border-b-4 border-brand-800 pb-8 pt-4 page-break-after-always">
+        <div className="text-center border-b-4 border-brand-800 pb-10 pt-4">
           <h1 className="text-2xl md:text-3xl font-black uppercase text-brand-900 tracking-wide">
             Rajalakshmi Engineering College
           </h1>
           <p className="text-xs font-bold text-slate-600 uppercase tracking-widest mt-1">
             An Autonomous Institution | Affiliated to Anna University
           </p>
-          <div className="my-6 py-6 border-y-2 border-slate-900 bg-slate-50">
+          <div className="my-8 py-8 border-y-2 border-slate-900 bg-slate-50">
             <h2 className="text-xl md:text-2xl font-black text-slate-900 uppercase tracking-wide">
               {department.programmeName} ({department.shortName})
             </h2>
@@ -140,7 +140,7 @@ export const DepartmentCurriculumPDFGenerator: React.FC<DepartmentCurriculumPDFG
 
         {/* 1. Program Outcomes (POs) & Program Specific Outcomes (PSOs) */}
         <div className="space-y-6">
-          <h2 className="text-sm font-black uppercase text-brand-800 border-b-2 border-slate-900 pb-1 flex items-center">
+          <h2 className="text-base font-black uppercase text-brand-800 border-b-2 border-slate-900 pb-1.5 flex items-center">
             <Award className="w-4 h-4 mr-2 text-brand-600 print:hidden" />
             1. Program Outcomes (POs) & Program Specific Outcomes (PSOs)
           </h2>
@@ -153,8 +153,8 @@ export const DepartmentCurriculumPDFGenerator: React.FC<DepartmentCurriculumPDFG
                 <tbody>
                   {poStatements.map((po, idx) => (
                     <tr key={idx} className="border-b border-slate-900">
-                      <td className="border border-slate-900 p-2 font-bold w-[12%] text-center bg-slate-100">{po.poKey || `PO${idx + 1}`}</td>
-                      <td className="border border-slate-900 p-2 text-left leading-relaxed">{cleanPrefix(po.statement)}</td>
+                      <td className="border border-slate-900 p-2.5 font-bold w-[12%] text-center bg-slate-100">{po.poKey || `PO${idx + 1}`}</td>
+                      <td className="border border-slate-900 p-2.5 text-left leading-relaxed">{cleanPrefix(po.statement)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -170,8 +170,8 @@ export const DepartmentCurriculumPDFGenerator: React.FC<DepartmentCurriculumPDFG
                 <tbody>
                   {psoStatements.map((pso, idx) => (
                     <tr key={idx} className="border-b border-slate-900">
-                      <td className="border border-slate-900 p-2 font-bold w-[12%] text-center bg-slate-100">{pso.psoKey || `PSO${idx + 1}`}</td>
-                      <td className="border border-slate-900 p-2 text-left leading-relaxed">{cleanPrefix(pso.statement)}</td>
+                      <td className="border border-slate-900 p-2.5 font-bold w-[12%] text-center bg-slate-100">{pso.psoKey || `PSO${idx + 1}`}</td>
+                      <td className="border border-slate-900 p-2.5 text-left leading-relaxed">{cleanPrefix(pso.statement)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -180,9 +180,9 @@ export const DepartmentCurriculumPDFGenerator: React.FC<DepartmentCurriculumPDFG
           )}
         </div>
 
-        {/* 2. Course Structure Overview by Semester */}
-        <div className="space-y-4">
-          <h2 className="text-sm font-black uppercase text-brand-800 border-b-2 border-slate-900 pb-1 flex items-center">
+        {/* 2. Course Structure Overview by Semester (Starts on NEW PAGE) */}
+        <div className="space-y-4 pt-6" style={{ pageBreakBefore: 'always', breakBefore: 'page' }}>
+          <h2 className="text-base font-black uppercase text-brand-800 border-b-2 border-slate-900 pb-1.5 flex items-center">
             <Layers className="w-4 h-4 mr-2 text-brand-600 print:hidden" />
             2. Curriculum Scheme of Instruction
           </h2>
@@ -190,43 +190,43 @@ export const DepartmentCurriculumPDFGenerator: React.FC<DepartmentCurriculumPDFG
           <table className="w-full border-collapse border border-slate-900 text-xs text-center">
             <thead>
               <tr className="bg-slate-100 font-bold border-b border-slate-900">
-                <th className="border border-slate-900 p-2 w-[8%]">Sem</th>
-                <th className="border border-slate-900 p-2 w-[16%]">Course Code</th>
-                <th className="border border-slate-900 p-2 text-left">Course Title</th>
-                <th className="border border-slate-900 p-2 w-[12%]">Category</th>
-                <th className="border border-slate-900 p-2 w-[6%]">L</th>
-                <th className="border border-slate-900 p-2 w-[6%]">T</th>
-                <th className="border border-slate-900 p-2 w-[6%]">P</th>
-                <th className="border border-slate-900 p-2 w-[6%]">C</th>
+                <th className="border border-slate-900 p-2.5 w-[8%]">Sem</th>
+                <th className="border border-slate-900 p-2.5 w-[16%]">Course Code</th>
+                <th className="border border-slate-900 p-2.5 text-left">Course Title</th>
+                <th className="border border-slate-900 p-2.5 w-[12%]">Category</th>
+                <th className="border border-slate-900 p-2.5 w-[6%]">L</th>
+                <th className="border border-slate-900 p-2.5 w-[6%]">T</th>
+                <th className="border border-slate-900 p-2.5 w-[6%]">P</th>
+                <th className="border border-slate-900 p-2.5 w-[6%]">C</th>
               </tr>
             </thead>
             <tbody>
               {subjects.map((s, idx) => (
                 <tr key={idx} className="border-b border-slate-900">
-                  <td className="border border-slate-900 p-2 font-bold">{s.semester}</td>
-                  <td className="border border-slate-900 p-2 font-bold">{s.subjectCode}</td>
-                  <td className="border border-slate-900 p-2 text-left font-bold uppercase">{s.subjectName}</td>
-                  <td className="border border-slate-900 p-2">{s.subjectCategory?.code || 'PC'}</td>
-                  <td className="border border-slate-900 p-2 font-semibold">{s.lecture ?? 0}</td>
-                  <td className="border border-slate-900 p-2 font-semibold">{s.tutorial ?? 0}</td>
-                  <td className="border border-slate-900 p-2 font-semibold">{s.practical ?? 0}</td>
-                  <td className="border border-slate-900 p-2 font-semibold">{s.credits ?? 0}</td>
+                  <td className="border border-slate-900 p-2.5 font-bold">{s.semester}</td>
+                  <td className="border border-slate-900 p-2.5 font-bold">{s.subjectCode}</td>
+                  <td className="border border-slate-900 p-2.5 text-left font-bold uppercase">{s.subjectName}</td>
+                  <td className="border border-slate-900 p-2.5">{s.subjectCategory?.code || 'PC'}</td>
+                  <td className="border border-slate-900 p-2.5 font-semibold">{s.lecture ?? 0}</td>
+                  <td className="border border-slate-900 p-2.5 font-semibold">{s.tutorial ?? 0}</td>
+                  <td className="border border-slate-900 p-2.5 font-semibold">{s.practical ?? 0}</td>
+                  <td className="border border-slate-900 p-2.5 font-semibold">{s.credits ?? 0}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        {/* 3. Detailed Course Syllabi (Iterating through all semester subjects) */}
-        <div className="space-y-8">
-          <h2 className="text-sm font-black uppercase text-brand-800 border-b-2 border-slate-900 pb-1 flex items-center">
+        {/* 3. Detailed Course Syllabi (Starts on NEW PAGE) */}
+        <div className="space-y-8 pt-6" style={{ pageBreakBefore: 'always', breakBefore: 'page' }}>
+          <h2 className="text-base font-black uppercase text-brand-800 border-b-2 border-slate-900 pb-1.5 flex items-center">
             <BookOpen className="w-4 h-4 mr-2 text-brand-600 print:hidden" />
             3. Detailed Course Syllabi
           </h2>
 
           {semesters.map((sem) => (
             <div key={sem} className="space-y-6">
-              <h3 className="text-xs font-black uppercase bg-slate-900 text-white p-2 tracking-wider">
+              <h3 className="text-xs font-black uppercase bg-slate-900 text-white p-2.5 tracking-wider">
                 SEMESTER {sem}
               </h3>
 
@@ -243,7 +243,7 @@ export const DepartmentCurriculumPDFGenerator: React.FC<DepartmentCurriculumPDFG
                 const eList = sub.experiments || sub.labExperiments || [];
 
                 return (
-                  <div key={subIdx} className="space-y-3 pt-2 page-break-inside-avoid border-b border-slate-300 pb-6">
+                  <div key={subIdx} className="space-y-4 pt-6 border-b border-slate-300 pb-8" style={{ pageBreakBefore: 'always', breakBefore: 'page' }}>
                     {/* Subject Header Grid */}
                     <table className="w-full border-collapse border border-slate-900 text-xs">
                       <thead>
