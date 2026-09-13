@@ -124,9 +124,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       title: 'CURRICULUM & FACULTY',
       items: [
-        { id: 'curriculum', label: 'Department Curriculum', icon: <Building2 className="w-4 h-4" /> },
+        { id: 'curriculum', label: 'Courses Catalogue', icon: <Building2 className="w-4 h-4" /> },
         { id: 'po_pso', label: 'PO & PSO Statements', icon: <BookOpen className="w-4 h-4" /> },
-        { id: 'department_book', label: 'Department Curriculum Book', icon: <BookOpen className="w-4 h-4" /> },
+        { id: 'department_book', label: 'Programme Curriculum and Syllabi', icon: <BookOpen className="w-4 h-4" /> },
         { id: 'assignments', label: 'Faculty Assignments', icon: <Users className="w-4 h-4" /> },
       ],
     },

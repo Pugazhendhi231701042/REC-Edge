@@ -117,6 +117,21 @@ export default function MasterAdminDashboard() {
   const [newPrefixInput, setNewPrefixInput] = useState('');
   const [creditMsg, setCreditMsg] = useState('');
 
+  // Step 2 Curriculum Formation Governance Constraints State
+  const [minSemCredits, setMinSemCredits] = useState(20.0);
+  const [maxSemCredits, setMaxSemCredits] = useState(24.0);
+  const [maxLabPerSem, setMaxLabPerSem] = useState(2);
+  const [maxLabTotal, setMaxLabTotal] = useState(8);
+  const [categoryComposition, setCategoryComposition] = useState<Record<string, { min: number; max: number }>>({
+    PC: { min: 40, max: 50 },
+    PE: { min: 10, max: 20 },
+    OE: { min: 5, max: 15 },
+    HS: { min: 5, max: 12 },
+    BS: { min: 10, max: 18 },
+    ES: { min: 8, max: 15 },
+    EEC: { min: 3, max: 10 },
+  });
+
   // PO/PSO Config State
   const [selectedDeptForConfig, setSelectedDeptForConfig] = useState('');
   const [poCount, setPoCount] = useState(12);
@@ -228,6 +243,18 @@ export default function MasterAdminDashboard() {
           setHoursPerCredit(data.config.hoursPerCredit ?? 15);
           if (data.config.customPrefixes) {
             setCustomPrefixes(data.config.customPrefixes);
+          }
+          setMinSemCredits(data.config.minSemCredits ?? 20.0);
+          setMaxSemCredits(data.config.maxSemCredits ?? 24.0);
+          setMaxLabPerSem(data.config.maxLabPerSem ?? 2);
+          setMaxLabTotal(data.config.maxLabTotal ?? 8);
+          if (data.config.categoryComposition) {
+            try {
+              const parsed = typeof data.config.categoryComposition === 'string'
+                ? JSON.parse(data.config.categoryComposition)
+                : data.config.categoryComposition;
+              setCategoryComposition(parsed);
+            } catch (e) {}
           }
         }
       }
@@ -524,10 +551,15 @@ export default function MasterAdminDashboard() {
           pWeight,
           hoursPerCredit,
           customPrefixes: targetPrefixes,
+          minSemCredits,
+          maxSemCredits,
+          maxLabPerSem,
+          maxLabTotal,
+          categoryComposition: JSON.stringify(categoryComposition),
         }),
       });
       if (res.ok) {
-        setCreditMsg(`Credit configuration & prefixes updated successfully.`);
+        setCreditMsg(`Credit configuration & curriculum constraints updated successfully.`);
         if (typeof newPrefixList === 'string') {
           setCustomPrefixes(newPrefixList);
         }
@@ -1712,6 +1744,133 @@ export default function MasterAdminDashboard() {
             {/* SUB-SECTION 2: CREDIT FORMULA & DOMAIN PREFIXES */}
             {academicSubTab === 'credit' && (
               <div className="space-y-6">
+                {/* STEP 2 CURRICULUM GOVERNANCE CONSTRAINTS CONFIG */}
+                <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 flex items-center">
+                      <Sparkles className="w-4 h-4 mr-2 text-brand-600" />
+                      Step 2 Curriculum Governance & Constraint Rules
+                    </h3>
+                    <p className="text-xs text-desc">Configure institutional rules enforced when HoDs select courses from the global catalogue into their 8-semester curriculum.</p>
+                  </div>
+
+                  <form onSubmit={(e) => { e.preventDefault(); handleSaveCreditConfig(); }} className="space-y-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Semester Credit Limits */}
+                      <div className="p-4 border rounded-2xl bg-slate-50 space-y-3">
+                        <h4 className="text-xs font-bold text-slate-900 uppercase">1. Semester Credit Constraints</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-700 mb-1">Min Credits / Sem</label>
+                            <input
+                              type="number"
+                              step="0.5"
+                              value={minSemCredits}
+                              onChange={(e) => setMinSemCredits(parseFloat(e.target.value) || 0)}
+                              className="w-full p-2 text-xs border rounded-xl font-bold bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-700 mb-1">Max Credits / Sem</label>
+                            <input
+                              type="number"
+                              step="0.5"
+                              value={maxSemCredits}
+                              onChange={(e) => setMaxSemCredits(parseFloat(e.target.value) || 0)}
+                              className="w-full p-2 text-xs border rounded-xl font-bold bg-white"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Subject Type Limits */}
+                      <div className="p-4 border rounded-2xl bg-slate-50 space-y-3">
+                        <h4 className="text-xs font-bold text-slate-900 uppercase">2. Subject Type Limits</h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-700 mb-1">Max Labs / Sem</label>
+                            <input
+                              type="number"
+                              value={maxLabPerSem}
+                              onChange={(e) => setMaxLabPerSem(parseInt(e.target.value) || 0)}
+                              className="w-full p-2 text-xs border rounded-xl font-bold bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold text-slate-700 mb-1">Max Labs Total (8 Sems)</label>
+                            <input
+                              type="number"
+                              value={maxLabTotal}
+                              onChange={(e) => setMaxLabTotal(parseInt(e.target.value) || 0)}
+                              className="w-full p-2 text-xs border rounded-xl font-bold bg-white"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Category Credit Composition Target % Ranges */}
+                    <div className="p-4 border rounded-2xl bg-slate-50 space-y-3">
+                      <h4 className="text-xs font-bold text-slate-900 uppercase">3. Subject Category Credit Composition (% Targets)</h4>
+                      <p className="text-[11px] text-desc">Define allowed credit percentage ranges across all 8 semesters for each subject category:</p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+                        {[
+                          { code: 'PC', label: 'Professional Core (PC)' },
+                          { code: 'PE', label: 'Professional Elective (PE)' },
+                          { code: 'OE', label: 'Open Elective (OE)' },
+                          { code: 'HS', label: 'Humanities & Soc. Sci (HS)' },
+                          { code: 'BS', label: 'Basic Sciences (BS)' },
+                          { code: 'ES', label: 'Engineering Sciences (ES)' },
+                          { code: 'EEC', label: 'Employability Enh. (EEC)' },
+                        ].map((cat) => {
+                          const currentComp = categoryComposition[cat.code] || { min: 0, max: 100 };
+                          return (
+                            <div key={cat.code} className="p-3 bg-white border rounded-xl space-y-2">
+                              <span className="text-[11px] font-extrabold text-brand-800 uppercase block">{cat.label}</span>
+                              <div className="flex items-center space-x-1.5 text-xs">
+                                <div>
+                                  <span className="text-[10px] text-slate-500 block">Min %</span>
+                                  <input
+                                    type="number"
+                                    value={currentComp.min}
+                                    onChange={(e) => {
+                                      const updated = { ...categoryComposition, [cat.code]: { ...currentComp, min: parseFloat(e.target.value) || 0 } };
+                                      setCategoryComposition(updated);
+                                    }}
+                                    className="w-14 p-1 border rounded text-center font-bold"
+                                  />
+                                </div>
+                                <span className="text-slate-400 font-bold mt-3">–</span>
+                                <div>
+                                  <span className="text-[10px] text-slate-500 block">Max %</span>
+                                  <input
+                                    type="number"
+                                    value={currentComp.max}
+                                    onChange={(e) => {
+                                      const updated = { ...categoryComposition, [cat.code]: { ...currentComp, max: parseFloat(e.target.value) || 0 } };
+                                      setCategoryComposition(updated);
+                                    }}
+                                    className="w-14 p-1 border rounded text-center font-bold"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center space-x-2"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>Save Step 2 Governance Rules & Constraints</span>
+                    </button>
+                  </form>
+                </div>
+
                 <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5 max-w-xl">
                   <h3 className="text-base font-bold text-slate-900">Credit Calculation Formula Config</h3>
                   {creditMsg && <div className="p-3 rounded-xl bg-emerald-50 text-xs text-emerald-700 border border-emerald-200">{creditMsg}</div>}

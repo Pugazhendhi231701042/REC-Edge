@@ -85,6 +85,30 @@ export default function HoDDashboard() {
   const [isStructureConfirmed, setIsStructureConfirmed] = useState<boolean>(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string>('');
 
+  // Step 1 Global Courses Catalogue State
+  const [catalogue, setCatalogue] = useState<any[]>([]);
+  const [allDepartments, setAllDepartments] = useState<any[]>([]);
+  const [catalogueDeptFilter, setCatalogueDeptFilter] = useState('ALL');
+  const [catalogueCategoryFilter, setCatalogueCategoryFilter] = useState('ALL');
+  const [catalogueSearch, setCatalogueSearch] = useState('');
+
+  // Step 2 MasterAdmin Credit & Curriculum Governance Rules
+  const [creditRules, setCreditRules] = useState<any>({
+    minSemCredits: 20.0,
+    maxSemCredits: 24.0,
+    maxLabPerSem: 2,
+    maxLabTotal: 8,
+    categoryComposition: {
+      PC: { min: 40, max: 50 },
+      PE: { min: 10, max: 20 },
+      OE: { min: 5, max: 15 },
+      HS: { min: 5, max: 12 },
+      BS: { min: 10, max: 18 },
+      ES: { min: 8, max: 15 },
+      EEC: { min: 3, max: 10 },
+    },
+  });
+
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewSubject, setReviewSubject] = useState<any>(null);
   const [correctionReason, setCorrectionReason] = useState('');
@@ -218,11 +242,13 @@ export default function HoDDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [resSubj, resRegs, resStages, resBundle] = await Promise.all([
+      const [resSubj, resRegs, resStages, resBundle, resCat, resCredit] = await Promise.all([
         fetch('/api/hod/subjects'),
         fetch('/api/master-admin/regulations'),
         fetch('/api/dean/stage'),
         fetch('/api/hod/curriculum/bundle'),
+        fetch('/api/hod/catalogue'),
+        fetch('/api/master-admin/credit-config'),
       ]);
 
       if (resSubj.ok) {
@@ -249,6 +275,41 @@ export default function HoDDashboard() {
         const data = await resBundle.json();
         setBundle(data.bundle);
         setCanSubmitBundle(data.canSubmit);
+      }
+
+      if (resCat.ok) {
+        const data = await resCat.json();
+        setCatalogue(data.catalogue || []);
+        setAllDepartments(data.departments || []);
+      }
+
+      if (resCredit.ok) {
+        const data = await resCredit.json();
+        if (data.config) {
+          let parsedComp = {
+            PC: { min: 40, max: 50 },
+            PE: { min: 10, max: 20 },
+            OE: { min: 5, max: 15 },
+            HS: { min: 5, max: 12 },
+            BS: { min: 10, max: 18 },
+            ES: { min: 8, max: 15 },
+            EEC: { min: 3, max: 10 },
+          };
+          if (data.config.categoryComposition) {
+            try {
+              parsedComp = typeof data.config.categoryComposition === 'string'
+                ? JSON.parse(data.config.categoryComposition)
+                : data.config.categoryComposition;
+            } catch (e) {}
+          }
+          setCreditRules({
+            minSemCredits: data.config.minSemCredits ?? 20.0,
+            maxSemCredits: data.config.maxSemCredits ?? 24.0,
+            maxLabPerSem: data.config.maxLabPerSem ?? 2,
+            maxLabTotal: data.config.maxLabTotal ?? 8,
+            categoryComposition: parsedComp,
+          });
+        }
       }
 
       fetchPOPSOStatements();
@@ -278,6 +339,74 @@ export default function HoDDashboard() {
         if (data.isConfirmed) setIsStructureConfirmed(true);
       }
     } catch (err) {}
+  };
+
+  // Step 2 Automated Real-Time Constraint Validation Engine
+  const computeCurriculumConstraints = () => {
+    const totalProgCredits = subjects.reduce((sum, s) => sum + (Number(s.credits) || 0), 0);
+
+    const semCreditsMap: Record<number, number> = {};
+    const semLabsMap: Record<number, number> = {};
+    const semViolations: string[] = [];
+
+    for (let sem = 1; sem <= 8; sem++) {
+      const semSubjs = subjects.filter((s) => s.semester === sem);
+      const creditsSum = semSubjs.reduce((sum, s) => sum + (Number(s.credits) || 0), 0);
+      const labsCount = semSubjs.filter((s) => s.subjectType?.name?.toLowerCase().includes('lab') || (s.practical && s.practical > 0)).length;
+
+      semCreditsMap[sem] = creditsSum;
+      semLabsMap[sem] = labsCount;
+
+      if (creditsSum > 0 && creditsSum < creditRules.minSemCredits) {
+        semViolations.push(`Sem ${sem} credits (${creditsSum}) is below minimum allowed (${creditRules.minSemCredits}).`);
+      } else if (creditsSum > creditRules.maxSemCredits) {
+        semViolations.push(`Sem ${sem} credits (${creditsSum}) exceeds maximum allowed (${creditRules.maxSemCredits}).`);
+      }
+
+      if (labsCount > creditRules.maxLabPerSem) {
+        semViolations.push(`Sem ${sem} has ${labsCount} lab courses, exceeding maximum allowed per semester (${creditRules.maxLabPerSem}).`);
+      }
+    }
+
+    const totalLabsCount = subjects.filter((s) => s.subjectType?.name?.toLowerCase().includes('lab') || (s.practical && s.practical > 0)).length;
+    if (totalLabsCount > creditRules.maxLabTotal) {
+      semViolations.push(`Total lab courses across programme (${totalLabsCount}) exceeds maximum allowed limit (${creditRules.maxLabTotal}).`);
+    }
+
+    const categoryBreakdown: Record<string, { credits: number; pct: number; min: number; max: number; isValid: boolean }> = {};
+    const categoryCodes = ['PC', 'PE', 'OE', 'HS', 'BS', 'ES', 'EEC'];
+
+    categoryCodes.forEach((code) => {
+      const catSubjs = subjects.filter((s) => s.subjectCategory?.code === code);
+      const catCredits = catSubjs.reduce((sum, s) => sum + (Number(s.credits) || 0), 0);
+      const pct = totalProgCredits > 0 ? parseFloat(((catCredits / totalProgCredits) * 100).toFixed(2)) : 0;
+      const target = creditRules.categoryComposition[code] || { min: 0, max: 100 };
+      const isValid = totalProgCredits === 0 || (pct >= target.min && pct <= target.max);
+
+      categoryBreakdown[code] = {
+        credits: catCredits,
+        pct,
+        min: target.min,
+        max: target.max,
+        isValid,
+      };
+
+      if (totalProgCredits > 0 && !isValid) {
+        semViolations.push(`Category '${code}' credit composition (${pct}%) is outside allowed target range (${target.min}% - ${target.max}%).`);
+      }
+    });
+
+    const isValidCurriculum = semViolations.length === 0;
+
+    return {
+      totalProgCredits,
+      semCreditsMap,
+      semLabsMap,
+      totalLabsCount,
+      categoryBreakdown,
+      semViolations,
+      isValidCurriculum,
+    };
   };
 
   const handleConfirmStructure = async () => {
@@ -705,19 +834,24 @@ export default function HoDDashboard() {
           </div>
         )}
 
-        {/* TAB 2: CURRICULUM & SUBJECTS DEDICATED PAGE */}
+        {/* TAB 2: COURSES CATALOGUE (STEP 1) */}
         {(activeTab === 'curriculum' || activeTab === 'subjects') && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-6">
-            <div className="flex items-center justify-between border-b pb-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
               <div>
-                <h3 className="text-base font-bold text-slate-900">Department Curriculum & Subjects Master</h3>
-                <p className="text-xs text-desc">Form subjects, assign faculty members, and manage LTPC credits.</p>
+                <span className="text-[10px] font-black uppercase text-brand-700 bg-purple-100 px-2.5 py-1 rounded-md">
+                  Step 1 — Institutional Course Repository
+                </span>
+                <h3 className="text-xl font-extrabold text-slate-900 mt-1">Courses Catalogue</h3>
+                <p className="text-xs text-desc mt-0.5">
+                  All approved courses created across college departments. HoDs can create new courses for their department or inspect existing syllabi in the catalogue.
+                </p>
               </div>
               <button
                 onClick={handleOpenAddSubject}
-                className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
+                className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center shrink-0"
               >
-                <Plus className="w-4 h-4 mr-1.5" /> Add Subject
+                <Plus className="w-4 h-4 mr-1.5" /> + Create New Course
               </button>
             </div>
 
@@ -1258,19 +1392,20 @@ export default function HoDDashboard() {
           </div>
         )}
 
-        {/* TAB: DEPARTMENT CURRICULUM BOOK DEDICATED PAGE */}
+        {/* TAB: PROGRAMME CURRICULUM AND SYLLABI (STEP 2) */}
         {activeTab === 'department_book' && (
           <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-6">
+            {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
               <div>
                 <span className="text-[10px] font-black uppercase text-brand-700 bg-purple-100 px-2.5 py-1 rounded-md">
-                  Merged Official Document
+                  Step 2 — Curriculum Formation & Governance Engine
                 </span>
                 <h2 className="text-xl font-black text-slate-900 tracking-tight mt-1">
-                  Department Curriculum & Syllabus Book
+                  Programme Curriculum and Syllabi
                 </h2>
                 <p className="text-xs text-desc mt-0.5">
-                  Consolidated PDF compilation of POs, PSOs, Scheme of Instruction table, and all approved subject syllabi for {department?.programmeName}.
+                  Formulate 8-semester curriculum for {department?.programmeName} from the global Courses Catalogue. The system automatically validates semester credit limits, subject type caps, and credit composition percentages against MasterAdmin rules.
                 </p>
               </div>
 
@@ -1294,11 +1429,118 @@ export default function HoDDashboard() {
                     }`}
                   >
                     <Send className="w-4 h-4" />
-                    <span>{submittingBundle ? 'Submitting...' : 'Submit Bundle to Academic Dean'}</span>
+                    <span>{submittingBundle ? 'Submitting...' : 'Submit Handbook to Academic Dean'}</span>
                   </button>
                 )}
               </div>
             </div>
+
+            {/* AUTOMATED REAL-TIME CONSTRAINT VALIDATION ENGINE DASHBOARD */}
+            {(() => {
+              const constraints = computeCurriculumConstraints();
+
+              return (
+                <div className="p-5 border rounded-2xl bg-purple-50/30 border-purple-200/80 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Sparkles className="w-5 h-5 text-brand-600" />
+                      <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wide">
+                        Automated MasterAdmin Governance Constraint Engine
+                      </h3>
+                    </div>
+                    <span className="text-xs font-bold text-slate-700">
+                      Total Programme Credits: <strong className="text-brand-700">{constraints.totalProgCredits} C</strong>
+                    </span>
+                  </div>
+
+                  {/* Health Banner */}
+                  {constraints.isValidCurriculum ? (
+                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-bold flex items-center">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 mr-2 shrink-0" />
+                      <span>✅ <strong>Valid 8-Semester Curriculum:</strong> All credit limits, subject type caps, and category percentage compositions satisfy MasterAdmin rules!</span>
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-800 space-y-1">
+                      <span className="font-bold text-red-900 flex items-center">
+                        <AlertCircle className="w-4 h-4 text-red-600 mr-1.5 shrink-0" />
+                        ❌ {constraints.semViolations.length} Constraint Violation(s) Detected:
+                      </span>
+                      <ul className="list-disc list-inside text-[11px] pl-5 space-y-0.5">
+                        {constraints.semViolations.map((v, idx) => (
+                          <li key={idx}>{v}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* 1. Semester Credit Pills */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                      <span>1. Semester Credit Distribution (Allowed: {creditRules.minSemCredits} – {creditRules.maxSemCredits} Credits/Sem)</span>
+                      <span className="text-[11px] text-desc font-normal">Max Labs/Sem: {creditRules.maxLabPerSem}</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2">
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => {
+                        const semCred = constraints.semCreditsMap[sem] || 0;
+                        const semLabs = constraints.semLabsMap[sem] || 0;
+                        const isValidSem = (semCred === 0 || (semCred >= creditRules.minSemCredits && semCred <= creditRules.maxSemCredits)) && semLabs <= creditRules.maxLabPerSem;
+
+                        return (
+                          <div
+                            key={sem}
+                            className={`p-2.5 rounded-xl border text-center space-y-0.5 ${
+                              isValidSem
+                                ? 'bg-white border-purple-200 text-slate-900'
+                                : 'bg-rose-50 border-rose-300 text-rose-900'
+                            }`}
+                          >
+                            <span className="text-[10px] font-bold text-slate-500 uppercase block">Sem {sem}</span>
+                            <span className="text-xs font-black block">{semCred} C</span>
+                            <span className="text-[10px] font-semibold text-slate-500 block">{semLabs} Labs</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 2. Subject Category Credit Composition % Breakdown */}
+                  <div className="space-y-2 pt-2 border-t border-purple-100">
+                    <span className="text-xs font-bold text-slate-800 block">
+                      2. Programme Credit Composition Breakdown (% Targets) — Total Labs: <strong>{constraints.totalLabsCount} / {creditRules.maxLabTotal}</strong>
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+                      {[
+                        { code: 'PC', label: 'Professional Core' },
+                        { code: 'PE', label: 'Prof. Elective' },
+                        { code: 'OE', label: 'Open Elective' },
+                        { code: 'HS', label: 'Humanities' },
+                        { code: 'BS', label: 'Basic Sciences' },
+                        { code: 'ES', label: 'Engg Sciences' },
+                        { code: 'EEC', label: 'Employability' },
+                      ].map((cat) => {
+                        const data = constraints.categoryBreakdown[cat.code] || { credits: 0, pct: 0, min: 0, max: 100, isValid: true };
+                        return (
+                          <div
+                            key={cat.code}
+                            className={`p-2.5 rounded-xl border space-y-1 text-center ${
+                              data.isValid
+                                ? 'bg-white border-purple-200'
+                                : 'bg-rose-50 border-rose-300 text-rose-900'
+                            }`}
+                          >
+                            <span className="text-[10px] font-bold text-slate-600 block uppercase">{cat.code}</span>
+                            <span className="text-xs font-black block">{data.credits} C</span>
+                            <span className={`text-[10px] font-bold block ${data.isValid ? 'text-brand-700' : 'text-rose-700'}`}>
+                              {data.pct}% ({data.min}%–{data.max}%)
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {bundle?.status === 'RETURNED_FOR_CORRECTION' && (
               <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-800 space-y-1">
@@ -1311,7 +1553,7 @@ export default function HoDDashboard() {
 
             {!canSubmitBundle && bundle?.status !== 'SUBMITTED' && bundle?.status !== 'APPROVED' && (
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
-                * All created department subjects must reach <strong>HOD Approved</strong> status before you can submit the Department Bundle to the Dean.
+                * All created department subjects must reach <strong>HOD Approved</strong> status before you can submit the Programme Handbook to the Dean.
               </div>
             )}
 
@@ -1320,7 +1562,7 @@ export default function HoDDashboard() {
               poStatements={Object.entries(poStatements).map(([key, stmt]) => ({ poKey: key, statement: stmt }))}
               psoStatements={Object.entries(psoStatements).map(([key, stmt]) => ({ psoKey: key, statement: stmt }))}
               subjects={subjects}
-              documentTitle={`${department?.shortName || 'Department'} Curriculum & Syllabus Book`}
+              documentTitle={`${department?.shortName || 'Programme'} Curriculum & Syllabi Handbook`}
             />
           </div>
         )}
