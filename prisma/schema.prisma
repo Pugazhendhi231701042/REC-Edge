@@ -155,14 +155,6 @@ model CreditConfig {
   pWeight           Float    @default(0.5)
   hoursPerCredit    Int      @default(15) // 15 contact hours per credit standard
   customPrefixes    String?  @default("GE, PH, HS, MC, CS, EC, EE, ME, CE, AI, CB, IT")
-  
-  // Step 2 Curriculum Governance Constraints (MasterAdmin Configurable)
-  minSemCredits     Float    @default(20.0) // Min credits per semester
-  maxSemCredits     Float    @default(24.0) // Max credits per semester
-  maxLabPerSem      Int      @default(2)    // Max laboratory courses allowed per semester
-  maxLabTotal       Int      @default(8)    // Max laboratory courses allowed across 8-semester programme
-  categoryComposition String? @default("{\"PC\":{\"min\":40,\"max\":50},\"PE\":{\"min\":10,\"max\":20},\"OE\":{\"min\":5,\"max\":15},\"HS\":{\"min\":5,\"max\":12},\"BS\":{\"min\":10,\"max\":18},\"ES\":{\"min\":8,\"max\":15},\"EEC\":{\"min\":3,\"max\":10}}")
-
   updatedAt         DateTime @updatedAt
 }
 

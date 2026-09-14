@@ -10,46 +10,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
   }
 
-  let stages = await prisma.academicStage.findMany({
-    include: {
-      initiatedBy: { select: { name: true, email: true } },
-    },
-    orderBy: { order: 'asc' },
-  });
-
-  // Dynamic Auto-Sync Stage Statuses based on current date
-  const now = new Date();
-  let activeStageFound = false;
-
-  // Check if Stage 2 (or another stage) should be ACTIVE based on current date (Sept 13th)
-  for (const s of stages) {
-    if (s.startDate && s.deadline) {
-      const start = new Date(s.startDate);
-      const end = new Date(s.deadline);
-
-      if (now >= start && now <= end) {
-        activeStageFound = true;
-        // Update all stages accordingly
-        for (const stg of stages) {
-          let targetStatus = stg.status;
-          if (stg.order < s.order) targetStatus = 'COMPLETED';
-          else if (stg.order === s.order) targetStatus = 'ACTIVE';
-          else targetStatus = 'INACTIVE';
-
-          if (stg.status !== targetStatus) {
-            await prisma.academicStage.update({
-              where: { id: stg.id },
-              data: { status: targetStatus },
-            });
-          }
-        }
-        break;
-      }
-    }
-  }
-
-  // Refetch if any updates occurred
-  stages = await prisma.academicStage.findMany({
+  const stages = await prisma.academicStage.findMany({
     include: {
       initiatedBy: { select: { name: true, email: true } },
     },
@@ -135,7 +96,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, stages: updatedStages });
   }
 
-  // Single stage update / Initiation
+  // Single stage update
   const { stageId, deadline, startDate, venue, status } = body;
   if (!stageId) {
     return NextResponse.json({ error: 'Stage ID is required.' }, { status: 400 });
@@ -146,39 +107,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Academic stage not found.' }, { status: 404 });
   }
 
-  const allStages = await prisma.academicStage.findMany({ orderBy: { order: 'asc' } });
-  const targetStatus = status || 'ACTIVE';
+  const updateData: any = {
+    status: status || 'ACTIVE',
+    initiatedById: session.userId,
+    initiatedAt: new Date(),
+  };
 
-  for (const stg of allStages) {
-    const updateData: any = {};
-    if (stg.id === stageId) {
-      updateData.status = targetStatus;
-      updateData.initiatedById = session.userId;
-      updateData.initiatedAt = new Date();
-      if (startDate) updateData.startDate = new Date(startDate);
-      if (deadline) updateData.deadline = new Date(deadline);
-      if (venue !== undefined) updateData.venue = venue ? venue.trim() : null;
-    } else if (stg.order < stageToUpdate.order) {
-      updateData.status = 'COMPLETED';
-    } else {
-      updateData.status = 'INACTIVE';
-    }
+  if (startDate) updateData.startDate = new Date(startDate);
+  if (deadline) updateData.deadline = new Date(deadline);
+  if (venue !== undefined) updateData.venue = venue ? venue.trim() : null;
 
-    await prisma.academicStage.update({
-      where: { id: stg.id },
-      data: updateData,
-    });
-  }
-
-  const stage = await prisma.academicStage.findUnique({ where: { id: stageId } });
+  const stage = await prisma.academicStage.update({
+    where: { id: stageId },
+    data: updateData,
+  });
 
   await logAudit({
     userId: session.userId,
     userRole: session.role,
     action: 'UPDATE_STAGE_DEADLINE',
     entity: 'AcademicStage',
-    entityId: stageId,
-    details: { name: stageToUpdate.name, status: targetStatus },
+    entityId: stage.id,
+    details: { name: stage.name, deadline: stage.deadline },
   });
 
   return NextResponse.json({ success: true, stage });
