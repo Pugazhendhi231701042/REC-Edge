@@ -578,6 +578,13 @@ export default function MasterAdminDashboard() {
     setSavingGovernance(true);
     setGovernanceSaveMsg('');
     try {
+      const fullComposition: Record<string, number> = { ...categoryTargets };
+      subjectCategories.forEach((cat) => {
+        if (fullComposition[cat.code] === undefined) {
+          fullComposition[cat.code] = 0;
+        }
+      });
+
       const res = await fetch('/api/master-admin/credit-config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -595,7 +602,7 @@ export default function MasterAdminDashboard() {
           maxLabPerSem,
           maxLabTotal,
           maxLabOrientedPerSem,
-          categoryComposition: categoryTargets,
+          categoryComposition: fullComposition,
         }),
       });
       if (res.ok) {
@@ -2135,19 +2142,22 @@ export default function MasterAdminDashboard() {
                       Percentage distribution of credits across subject categories. In Programme Planning, the required credits for each category will equal <code>round(Total Programme Credits × Category %)</code>.
                     </p>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
-                      {[
-                        { code: 'PC', label: 'Professional Core' },
-                        { code: 'PE', label: 'Prof. Elective' },
-                        { code: 'OE', label: 'Open Elective' },
-                        { code: 'HS', label: 'Humanities' },
-                        { code: 'BS', label: 'Basic Sciences' },
-                        { code: 'ES', label: 'Engg Sciences' },
-                        { code: 'EEC', label: 'Employability' },
-                      ].map((cat) => (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                      {(subjectCategories.length > 0
+                        ? subjectCategories
+                        : [
+                            { code: 'PC', name: 'Professional Core' },
+                            { code: 'PE', name: 'Professional Elective' },
+                            { code: 'OE', name: 'Open Elective' },
+                            { code: 'HS', name: 'Humanities & Social Sciences' },
+                            { code: 'BS', name: 'Basic Sciences' },
+                            { code: 'ES', name: 'Engineering Sciences' },
+                            { code: 'EEC', name: 'Employability Enhancement' },
+                          ]
+                      ).map((cat: any) => (
                         <div key={cat.code} className="p-3 rounded-xl bg-white border border-purple-100 space-y-1">
-                          <label className="text-[10px] font-extrabold text-brand-700 uppercase block">
-                            {cat.code} ({cat.label})
+                          <label className="text-[10px] font-extrabold text-brand-700 uppercase block truncate" title={`${cat.code} - ${cat.name}`}>
+                            {cat.code} ({cat.name})
                           </label>
                           <div className="flex items-center space-x-1">
                             <input
@@ -2205,21 +2215,24 @@ export default function MasterAdminDashboard() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-purple-50">
-                          {[
-                            { code: 'PC', label: 'Professional Core' },
-                            { code: 'PE', label: 'Professional Elective' },
-                            { code: 'OE', label: 'Open Elective' },
-                            { code: 'HS', label: 'Humanities & Social Sciences' },
-                            { code: 'BS', label: 'Basic Sciences' },
-                            { code: 'ES', label: 'Engineering Sciences' },
-                            { code: 'EEC', label: 'Employability Enhancement' },
-                          ].map((cat) => {
+                          {(subjectCategories.length > 0
+                            ? subjectCategories
+                            : [
+                                { code: 'PC', name: 'Professional Core' },
+                                { code: 'PE', name: 'Professional Elective' },
+                                { code: 'OE', name: 'Open Elective' },
+                                { code: 'HS', name: 'Humanities & Social Sciences' },
+                                { code: 'BS', name: 'Basic Sciences' },
+                                { code: 'ES', name: 'Engineering Sciences' },
+                                { code: 'EEC', name: 'Employability Enhancement' },
+                              ]
+                          ).map((cat: any) => {
                             const pct = categoryTargets[cat.code] || 0;
                             const required = Math.round(simulatedCredits * (pct / 100));
                             return (
                               <tr key={cat.code} className="hover:bg-purple-50/20">
                                 <td className="p-2.5 font-bold text-brand-700">{cat.code}</td>
-                                <td className="p-2.5 text-slate-800">{cat.label}</td>
+                                <td className="p-2.5 text-slate-800">{cat.name}</td>
                                 <td className="p-2.5 text-center font-bold text-slate-700">{pct}%</td>
                                 <td className="p-2.5 text-center font-mono text-[11px] text-slate-500">
                                   round({simulatedCredits} × {pct}%)

@@ -74,5 +74,11 @@ export async function GET(req: Request) {
     ],
   });
 
-  return NextResponse.json({ departments, subjects });
+  // Fetch all active categories and types for filtering
+  const [subjectCategories, subjectTypes] = await Promise.all([
+    prisma.subjectCategory.findMany({ where: { active: true }, orderBy: { code: 'asc' } }),
+    prisma.subjectType.findMany({ where: { active: true }, orderBy: { code: 'asc' } }),
+  ]);
+
+  return NextResponse.json({ departments, subjects, subjectCategories, subjectTypes });
 }

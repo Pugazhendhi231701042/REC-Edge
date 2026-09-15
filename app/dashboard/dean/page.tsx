@@ -74,6 +74,8 @@ export default function DeanDashboard() {
   const [showReturnModal, setShowReturnModal] = useState(false);
 
   const [activeDeanSemester, setActiveDeanSemester] = useState<number>(1);
+  const [deanApprovedSearch, setDeanApprovedSearch] = useState<string>('');
+  const [deanApprovedDeptFilter, setDeanApprovedDeptFilter] = useState<string>('ALL');
 
   // Hover state for Overall Completion Status Split-up
   const [showCompletionHover, setShowCompletionHover] = useState(false);
@@ -1092,9 +1094,46 @@ export default function DeanDashboard() {
             {/* TAB 6: APPROVED SYLLABI DIRECTORY (SEMESTER 1 TO 8 TABS) */}
             {activeTab === 'approved' && (
               <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-6">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Approved Syllabi Directory</h3>
-                  <p className="text-xs text-desc">Official institutionally approved syllabi organized by Academic Semesters (1 to 8).</p>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">Approved Syllabi Directory</h3>
+                    <p className="text-xs text-desc">Official institutionally approved syllabi organized by Academic Semesters (1 to 8).</p>
+                  </div>
+
+                  {/* Search and Department Filter Toolbar */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative">
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search code, title, faculty, dept..."
+                        value={deanApprovedSearch}
+                        onChange={(e) => setDeanApprovedSearch(e.target.value)}
+                        className="pl-9 pr-3 py-2 text-xs border border-purple-200 rounded-xl bg-purple-50/30 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-brand-500 w-56 sm:w-64"
+                      />
+                      {deanApprovedSearch && (
+                        <button
+                          onClick={() => setDeanApprovedSearch('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    <select
+                      value={deanApprovedDeptFilter}
+                      onChange={(e) => setDeanApprovedDeptFilter(e.target.value)}
+                      className="p-2 text-xs border border-purple-200 rounded-xl bg-white font-medium text-slate-700"
+                    >
+                      <option value="ALL">All Departments</option>
+                      {overview?.deptSummaries?.map((d: any) => (
+                        <option key={d.id} value={d.id}>
+                          {d.programmeName} ({d.departmentCode})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 {/* Semester 1 to 8 Tabs */}
@@ -1118,12 +1157,29 @@ export default function DeanDashboard() {
                 {(() => {
                   const semSubjects = approvedSyllabiList
                     .filter((s: any) => s.semester === activeDeanSemester)
+                    .filter((s: any) => {
+                      if (deanApprovedDeptFilter !== 'ALL' && s.departmentId !== deanApprovedDeptFilter && s.department?.id !== deanApprovedDeptFilter) {
+                        return false;
+                      }
+                      if (deanApprovedSearch.trim()) {
+                        const q = deanApprovedSearch.toLowerCase();
+                        const matchCode = s.subjectCode?.toLowerCase().includes(q);
+                        const matchName = s.subjectName?.toLowerCase().includes(q);
+                        const matchDept =
+                          s.department?.shortName?.toLowerCase().includes(q) ||
+                          s.department?.programmeName?.toLowerCase().includes(q) ||
+                          s.department?.name?.toLowerCase().includes(q);
+                        const matchFac = s.assignedFaculty?.name?.toLowerCase().includes(q);
+                        if (!matchCode && !matchName && !matchDept && !matchFac) return false;
+                      }
+                      return true;
+                    })
                     .sort((a: any, b: any) => a.subjectCode.localeCompare(b.subjectCode));
 
                   if (semSubjects.length === 0) {
                     return (
                       <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed text-desc text-xs">
-                        No approved syllabi found in Semester {activeDeanSemester}.
+                        No approved syllabi found in Semester {activeDeanSemester}{deanApprovedSearch || deanApprovedDeptFilter !== 'ALL' ? ' matching the selected filters' : ''}.
                       </div>
                     );
                   }

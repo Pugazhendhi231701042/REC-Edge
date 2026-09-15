@@ -175,13 +175,14 @@ export async function GET() {
       }
 
       const categoryBreakdown: Record<string, any> = {};
+      const creditBase = minTotalCredits > 0 ? minTotalCredits : 160.0;
       for (const [catCode, targetPct] of Object.entries(targetComposition)) {
         const actual = categoryCreditsMap[catCode] || 0;
-        const expected = totalCredits > 0 ? Math.round(totalCredits * (targetPct / 100)) : 0;
-        const valid = totalCredits > 0 ? actual === expected : false;
+        const expected = Math.round(creditBase * (targetPct / 100));
+        const valid = actual === expected;
         categoryBreakdown[catCode] = { actual, targetPct, expected, valid };
-        if (totalCredits > 0 && actual !== expected) {
-          violations.push(`${catCode}: ${actual} C vs ${expected} C expected`);
+        if (totalCredits >= minTotalCredits && actual !== expected) {
+          violations.push(`${catCode}: ${actual} C vs ${expected} C expected (${targetPct}% of ${creditBase} C)`);
         }
       }
 

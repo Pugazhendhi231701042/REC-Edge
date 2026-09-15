@@ -118,6 +118,17 @@ export async function GET(req: Request) {
     EEC: 3,
   };
 
+  const allActiveCategories = await prisma.subjectCategory.findMany({
+    where: { active: true },
+    orderBy: { code: 'asc' },
+  });
+
+  allActiveCategories.forEach((c) => {
+    if (targetComposition[c.code] === undefined) {
+      targetComposition[c.code] = 0;
+    }
+  });
+
   try {
     if (creditConfig?.categoryComposition) {
       const parsed = JSON.parse(creditConfig.categoryComposition);
@@ -212,10 +223,12 @@ export async function GET(req: Request) {
     { credits: number; targetPct: number; expectedCredits: number; isValid: boolean }
   > = {};
 
+  const creditBase = minTotalCredits > 0 ? minTotalCredits : 160.0;
+
   for (const [catCode, targetPct] of Object.entries(targetComposition)) {
     const actualCred = categoryCreditsMap[catCode] || 0;
-    const expectedCredits = totalCredits > 0 ? Math.round(totalCredits * (targetPct / 100)) : 0;
-    const isValid = totalCredits > 0 ? actualCred === expectedCredits : false;
+    const expectedCredits = Math.round(creditBase * (targetPct / 100));
+    const isValid = actualCred === expectedCredits;
 
     categoryBreakdown[catCode] = {
       credits: actualCred,
@@ -224,9 +237,9 @@ export async function GET(req: Request) {
       isValid,
     };
 
-    if (totalCredits > 0 && actualCred !== expectedCredits) {
+    if (totalCredits >= minTotalCredits && actualCred !== expectedCredits) {
       violations.push(
-        `Category ${catCode} requires ${expectedCredits} C (${targetPct}% of ${totalCredits} C), but currently has ${actualCred} C.`
+        `Category ${catCode} requires ${expectedCredits} C (${targetPct}% of ${creditBase} C), but currently has ${actualCred} C.`
       );
     }
   }
@@ -403,7 +416,63 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true });
   }
 
-  // 3. SUBMIT PROGRAMME CURRICULUM BOOK TO DEAN
+  // 3. MOVE SUBJECT TO ANOTHER SEMESTER (DRAG AND DROP)
+  if (action === 'MOVE_SUBJECT') {
+    const { id, targetSemester } = body;
+    if (!id || !targetSemester) {
+      return NextResponse.json({ error: 'Plan item ID and targetSemester are required.' }, { status: 400 });
+    }
+
+    const item = await prisma.programmeSubjectPlan.findUnique({
+      where: { id },
+      include: { subject: true },
+    });
+
+    if (!item) {
+      return NextResponse.json({ error: 'Plan item not found.' }, { status: 404 });
+    }
+
+    const newSem = Number(targetSemester);
+    if (newSem < 1 || newSem > 8) {
+      return NextResponse.json({ error: 'Target semester must be between 1 and 8.' }, { status: 400 });
+    }
+
+    const maxOrder = await prisma.programmeSubjectPlan.findFirst({
+      where: {
+        departmentId: item.departmentId,
+        regulationId: item.regulationId,
+        academicYearId: item.academicYearId,
+        semester: newSem,
+      },
+      orderBy: { order: 'desc' },
+      select: { order: true },
+    });
+
+    const updated = await prisma.programmeSubjectPlan.update({
+      where: { id },
+      data: {
+        semester: newSem,
+        order: (maxOrder?.order || 0) + 1,
+      },
+    });
+
+    await logAudit({
+      userId: session.userId,
+      userRole: session.role,
+      action: 'MOVE_PROGRAMME_SUBJECT',
+      entity: 'ProgrammeSubjectPlan',
+      entityId: id,
+      details: {
+        subjectCode: item.subject?.subjectCode,
+        fromSemester: item.semester,
+        toSemester: newSem,
+      },
+    });
+
+    return NextResponse.json({ success: true, updated });
+  }
+
+  // 4. SUBMIT PROGRAMME CURRICULUM BOOK TO DEAN
   if (action === 'SUBMIT_CURRICULUM') {
     // Check if Step 2 is unlocked
     const stages = await prisma.academicStage.findMany({ orderBy: { order: 'asc' } });
