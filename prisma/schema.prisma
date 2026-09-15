@@ -186,10 +186,12 @@ model SDGGoal {
 }
 
 model POConfiguration {
-  id           String @id @default(uuid())
+  id           String    @id @default(uuid())
   departmentId String
   regulationId String
-  poCount      Int    @default(12)
+  poCount      Int       @default(12)
+  isLocked     Boolean   @default(false)
+  lockedAt     DateTime?
 
   department Department @relation(fields: [departmentId], references: [id])
   regulation Regulation @relation(fields: [regulationId], references: [id])
@@ -198,10 +200,12 @@ model POConfiguration {
 }
 
 model PSOConfiguration {
-  id           String @id @default(uuid())
+  id           String    @id @default(uuid())
   departmentId String
   regulationId String
-  psoCount     Int    @default(3)
+  psoCount     Int       @default(3)
+  isLocked     Boolean   @default(false)
+  lockedAt     DateTime?
 
   department Department @relation(fields: [departmentId], references: [id])
   regulation Regulation @relation(fields: [regulationId], references: [id])

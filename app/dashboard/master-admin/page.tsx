@@ -149,7 +149,7 @@ export default function MasterAdminDashboard() {
   const [simulatedCredits, setSimulatedCredits] = useState<number>(163);
 
   // Academic Config Sub-tab State
-  const [academicSubTab, setAcademicSubTab] = useState<'regulations' | 'credit' | 'popso' | 'sdgs' | 'governance'>('regulations');
+  const [academicSubTab, setAcademicSubTab] = useState<'regulations' | 'credit' | 'popso' | 'sdgs' | 'governance' | 'settings'>('regulations');
 
   // Regulation Create / Edit Modal State
   const [showRegModal, setShowRegModal] = useState(false);
@@ -1470,16 +1470,33 @@ export default function MasterAdminDashboard() {
                       <td className="p-3 text-slate-700">{u.email}</td>
                       <td className="p-3"><span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-100">{u.role}</span></td>
                       <td className="p-3 text-slate-600">{u.department ? u.department.shortName : (u.role === 'MASTERADMIN' || u.role === 'SUPERADMIN' ? 'Institutional Global' : 'N/A')}</td>
-                      <td className="p-3 text-right space-x-1">
-                        <button onClick={() => openEditUser(u)} className="px-2.5 py-1 bg-brand-50 text-brand-800 font-bold rounded-lg border border-purple-200 text-xs inline-flex items-center">
-                          <Edit className="w-3.5 h-3.5 mr-1" /> Edit
-                        </button>
-                        <button onClick={() => handleResetUserPassword(u)} title="Reset Password to Changeme@123" className="px-2.5 py-1 bg-amber-50 text-amber-800 font-bold rounded-lg border border-amber-200 text-xs inline-flex items-center">
-                          <KeyRound className="w-3.5 h-3.5 mr-1" /> Reset Pass
-                        </button>
-                        <button onClick={() => handleDeleteUser(u)} title="Delete User Account" className="px-2.5 py-1 bg-red-50 text-red-700 font-bold rounded-lg border border-red-200 text-xs inline-flex items-center">
-                          <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
-                        </button>
+                      <td className="p-3 text-right">
+                        <div className="flex items-center justify-end space-x-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openEditUser(u)}
+                            title="Edit User"
+                            className="p-1.5 bg-brand-50 hover:bg-brand-100 text-brand-800 rounded-lg border border-purple-200 transition-colors inline-flex items-center shadow-2xs"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleResetUserPassword(u)}
+                            title="Reset Password to Changeme@123"
+                            className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg border border-amber-200 transition-colors inline-flex items-center shadow-2xs"
+                          >
+                            <KeyRound className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteUser(u)}
+                            title="Delete User Account"
+                            className="p-1.5 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg border border-red-200 transition-colors inline-flex items-center shadow-2xs"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1609,6 +1626,18 @@ export default function MasterAdminDashboard() {
                 >
                   <Sliders className="w-3.5 h-3.5" />
                   <span>5. Programme Governance & Constraints</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAcademicSubTab('settings')}
+                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center space-x-2 ${
+                    academicSubTab === 'settings'
+                      ? 'bg-brand-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  <span>6. System & Formula Configuration</span>
                 </button>
               </div>
             </div>
@@ -2220,6 +2249,149 @@ export default function MasterAdminDashboard() {
                 </div>
               </form>
             )}
+
+            {/* SUB-SECTION 6: SYSTEM & FORMULA CONFIGURATION */}
+            {academicSubTab === 'settings' && (
+              <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-6 max-w-4xl">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Global System & Formula Settings</h3>
+                  <p className="text-xs text-desc">Configure institutional academic, subject, CO/PO, workflow, and platform parameters.</p>
+                </div>
+
+                <div className="space-y-6 text-xs">
+                  {/* Academic Settings */}
+                  <div className="p-5 rounded-2xl bg-purple-50/40 border border-purple-100 space-y-3">
+                    <h4 className="font-bold text-slate-900 flex items-center">
+                      <Sliders className="w-4 h-4 mr-2 text-brand-600" /> Academic Settings
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-desc font-semibold">Active Regulation</label>
+                        <input type="text" readOnly value={settingsData.activeRegulation || 'Regulation 26'} className="w-full p-2 border rounded-xl bg-slate-100 font-bold" />
+                      </div>
+                      <div>
+                        <label className="block text-desc font-semibold">Academic Year</label>
+                        <input type="text" readOnly value={settingsData.academicYear || '2026–2027'} className="w-full p-2 border rounded-xl bg-slate-100 font-bold" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subject & Credit Calculation Formula Settings */}
+                  <div className="p-5 rounded-2xl bg-purple-50/40 border border-purple-100 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-bold text-slate-900 flex items-center">
+                        <BookOpen className="w-4 h-4 mr-2 text-brand-600" /> Subject & Credit Formula Settings
+                      </h4>
+                      {creditMsg && (
+                        <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                          {creditMsg}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="p-4 bg-white rounded-xl border border-purple-100 space-y-3">
+                      <label className="block font-bold text-slate-900">Credit Calculation Method (LTPC):</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setCalculationMethod('SUM')}
+                          className={`p-3 rounded-xl border text-left transition-all ${
+                            calculationMethod === 'SUM'
+                              ? 'bg-purple-100/70 border-brand-600 ring-2 ring-brand-500/20 text-brand-900 font-bold'
+                              : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          <p className="font-extrabold text-xs">Method A: Direct Sum (Recommended)</p>
+                          <p className="text-[11px] text-desc mt-0.5 font-normal">Formula: <code>C = L + T + P</code> (e.g. L=1, T=1, P=1 → C=3)</p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setCalculationMethod('WEIGHTED')}
+                          className={`p-3 rounded-xl border text-left transition-all ${
+                            calculationMethod === 'WEIGHTED'
+                              ? 'bg-purple-100/70 border-brand-600 ring-2 ring-brand-500/20 text-brand-900 font-bold'
+                              : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                          }`}
+                        >
+                          <p className="font-extrabold text-xs">Method B: Weighted Formula</p>
+                          <p className="text-[11px] text-desc mt-0.5 font-normal">Formula: <code>C = L*wL + T*wT + P*wP</code> (e.g. P=2 → 1.0 Credit)</p>
+                        </button>
+                      </div>
+
+                      {calculationMethod === 'WEIGHTED' && (
+                        <div className="grid grid-cols-3 gap-3 pt-2">
+                          <div>
+                            <label className="block text-desc font-semibold mb-1">Lecture Weight (wL)</label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={lWeight}
+                              onChange={(e) => setLWeight(parseFloat(e.target.value) || 1.0)}
+                              className="w-full p-2 border rounded-xl font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-desc font-semibold mb-1">Tutorial Weight (wT)</label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={tWeight}
+                              onChange={(e) => setTWeight(parseFloat(e.target.value) || 1.0)}
+                              className="w-full p-2 border rounded-xl font-bold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-desc font-semibold mb-1">Practical Weight (wP)</label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={pWeight}
+                              onChange={(e) => setPWeight(parseFloat(e.target.value) || 0.5)}
+                              className="w-full p-2 border rounded-xl font-bold"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="pt-4 border-t border-purple-100 space-y-1.5">
+                        <label className="block text-xs font-bold text-slate-900">Contact Hours per Credit Standard</label>
+                        <p className="text-[11px] text-desc">Default standard: 15 contact hours per 1 credit (Theory 3 credits = 45h, Lab 2 credits = 30h, Lab-Oriented 4 credits = 60h)</p>
+                        <div className="flex items-center space-x-3 pt-1">
+                          <input
+                            type="number"
+                            min="1"
+                            max="60"
+                            value={hoursPerCredit}
+                            onChange={(e) => setHoursPerCredit(parseInt(e.target.value) || 15)}
+                            className="w-32 p-2 border rounded-xl font-extrabold text-xs"
+                          />
+                          <span className="text-xs font-semibold text-slate-700">Contact Hours / Credit</span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={handleSaveCreditConfig}
+                          className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
+                        >
+                          <Save className="w-3.5 h-3.5 mr-1.5" /> Save Credit Calculation Rule
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Security & Audit */}
+                  <div className="p-5 rounded-2xl bg-purple-50/40 border border-purple-100 space-y-3">
+                    <h4 className="font-bold text-slate-900 flex items-center">
+                      <ShieldCheck className="w-4 h-4 mr-2 text-brand-600" /> Platform Security & Audit
+                    </h4>
+                    <p className="text-slate-700">All administrative operations performed by MasterAdmin are logged permanently in the immutable System Audit Trail with IST timestamps.</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -2377,149 +2549,6 @@ export default function MasterAdminDashboard() {
                   ))}
                 </tbody>
               </table>
-            </div>
-          </div>
-        )}
-
-        {/* TAB: SYSTEM SETTINGS (Section 29) */}
-        {activeTab === 'settings' && (
-          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-6 max-w-4xl">
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Global System Settings</h3>
-              <p className="text-xs text-desc">Configure institutional academic, subject, CO/PO, workflow, and platform parameters.</p>
-            </div>
-
-            <div className="space-y-6 text-xs">
-              {/* Academic Settings */}
-              <div className="p-5 rounded-2xl bg-purple-50/40 border border-purple-100 space-y-3">
-                <h4 className="font-bold text-slate-900 flex items-center">
-                  <Sliders className="w-4 h-4 mr-2 text-brand-600" /> Academic Settings
-                </h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-desc font-semibold">Active Regulation</label>
-                    <input type="text" readOnly value={settingsData.activeRegulation || 'Regulation 26'} className="w-full p-2 border rounded-xl bg-slate-100 font-bold" />
-                  </div>
-                  <div>
-                    <label className="block text-desc font-semibold">Academic Year</label>
-                    <input type="text" readOnly value={settingsData.academicYear || '2026–2027'} className="w-full p-2 border rounded-xl bg-slate-100 font-bold" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Subject & Credit Calculation Formula Settings */}
-              <div className="p-5 rounded-2xl bg-purple-50/40 border border-purple-100 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-900 flex items-center">
-                    <BookOpen className="w-4 h-4 mr-2 text-brand-600" /> Subject & Credit Formula Settings
-                  </h4>
-                  {creditMsg && (
-                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
-                      {creditMsg}
-                    </span>
-                  )}
-                </div>
-
-                <div className="p-4 bg-white rounded-xl border border-purple-100 space-y-3">
-                  <label className="block font-bold text-slate-900">Credit Calculation Method (LTPC):</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setCalculationMethod('SUM')}
-                      className={`p-3 rounded-xl border text-left transition-all ${
-                        calculationMethod === 'SUM'
-                          ? 'bg-purple-100/70 border-brand-600 ring-2 ring-brand-500/20 text-brand-900 font-bold'
-                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                      }`}
-                    >
-                      <p className="font-extrabold text-xs">Method A: Direct Sum (Recommended)</p>
-                      <p className="text-[11px] text-desc mt-0.5 font-normal">Formula: <code>C = L + T + P</code> (e.g. L=1, T=1, P=1 → C=3)</p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setCalculationMethod('WEIGHTED')}
-                      className={`p-3 rounded-xl border text-left transition-all ${
-                        calculationMethod === 'WEIGHTED'
-                          ? 'bg-purple-100/70 border-brand-600 ring-2 ring-brand-500/20 text-brand-900 font-bold'
-                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
-                      }`}
-                    >
-                      <p className="font-extrabold text-xs">Method B: Weighted Formula</p>
-                      <p className="text-[11px] text-desc mt-0.5 font-normal">Formula: <code>C = L*wL + T*wT + P*wP</code> (e.g. P=2 → 1.0 Credit)</p>
-                    </button>
-                  </div>
-
-                  {calculationMethod === 'WEIGHTED' && (
-                    <div className="grid grid-cols-3 gap-3 pt-2">
-                      <div>
-                        <label className="block text-desc font-semibold mb-1">Lecture Weight (wL)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={lWeight}
-                          onChange={(e) => setLWeight(parseFloat(e.target.value) || 1.0)}
-                          className="w-full p-2 border rounded-xl font-bold"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-desc font-semibold mb-1">Tutorial Weight (wT)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={tWeight}
-                          onChange={(e) => setTWeight(parseFloat(e.target.value) || 1.0)}
-                          className="w-full p-2 border rounded-xl font-bold"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-desc font-semibold mb-1">Practical Weight (wP)</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          value={pWeight}
-                          onChange={(e) => setPWeight(parseFloat(e.target.value) || 0.5)}
-                          className="w-full p-2 border rounded-xl font-bold"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="pt-4 border-t border-purple-100 space-y-1.5">
-                    <label className="block text-xs font-bold text-slate-900">Contact Hours per Credit Standard</label>
-                    <p className="text-[11px] text-desc">Default standard: 15 contact hours per 1 credit (Theory 3 credits = 45h, Lab 2 credits = 30h, Lab-Oriented 4 credits = 60h)</p>
-                    <div className="flex items-center space-x-3 pt-1">
-                      <input
-                        type="number"
-                        min="1"
-                        max="60"
-                        value={hoursPerCredit}
-                        onChange={(e) => setHoursPerCredit(parseInt(e.target.value) || 15)}
-                        className="w-32 p-2 border rounded-xl font-extrabold text-xs"
-                      />
-                      <span className="text-xs font-semibold text-slate-700">Contact Hours / Credit</span>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={handleSaveCreditConfig}
-                      className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center"
-                    >
-                      <Save className="w-3.5 h-3.5 mr-1.5" /> Save Credit Calculation Rule
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Security & Audit */}
-              <div className="p-5 rounded-2xl bg-purple-50/40 border border-purple-100 space-y-3">
-                <h4 className="font-bold text-slate-900 flex items-center">
-                  <ShieldCheck className="w-4 h-4 mr-2 text-brand-600" /> Platform Security & Audit
-                </h4>
-                <p className="text-slate-700">All administrative operations performed by MasterAdmin are logged permanently in the immutable System Audit Trail with IST timestamps.</p>
-              </div>
             </div>
           </div>
         )}

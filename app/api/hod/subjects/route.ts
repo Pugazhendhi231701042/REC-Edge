@@ -84,8 +84,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Active regulation or academic year not configured.' }, { status: 400 });
     }
 
-    // Prerequisite validation: POs & PSOs must be created before adding new subject (for HoD)
+    // Prerequisite validation: POs & PSOs must be created and locked before adding new subject (for HoD)
     if (!id && session.role === 'HOD') {
+      const poConfig = await prisma.pOConfiguration.findUnique({
+        where: { departmentId_regulationId: { departmentId: dept.id, regulationId: activeReg.id } },
+      });
       const poStmtCount = await prisma.programOutcomeStatement.count({
         where: { departmentId: dept.id, regulationId: activeReg.id },
       });
@@ -95,7 +98,14 @@ export async function POST(req: Request) {
 
       if (poStmtCount === 0 || psoStmtCount === 0) {
         return NextResponse.json(
-          { error: 'Program Outcomes (POs) and Program Specific Outcomes (PSOs) structure must be confirmed and statements saved by HoD before creating subjects.' },
+          { error: 'Action Required: Program Outcomes (POs) and Program Specific Outcomes (PSOs) must be created and saved before adding subjects.' },
+          { status: 400 }
+        );
+      }
+
+      if (!poConfig?.isLocked) {
+        return NextResponse.json(
+          { error: 'Action Required: Program Outcomes (POs) and Program Specific Outcomes (PSOs) must be locked before creating subjects.' },
           { status: 400 }
         );
       }

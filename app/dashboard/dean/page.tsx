@@ -32,6 +32,8 @@ import {
   MapPin,
   Lock,
   Edit3,
+  Edit,
+  Save,
   BookOpen,
 } from 'lucide-react';
 
@@ -52,16 +54,19 @@ export default function DeanDashboard() {
   const [showBundleReturnModal, setShowBundleReturnModal] = useState(false);
   const [bundleReturnReason, setBundleReturnReason] = useState('');
 
-  // Bulk 4-Stage Deadlines Manager Modal
-  const [showBulkStageModal, setShowBulkStageModal] = useState(false);
-  const [bulkStageDates, setBulkStageDates] = useState<any[]>([]);
+  // Single-Stage Edit Deadline Modal State
+  const [editingStage, setEditingStage] = useState<any>(null);
+  const [stageStartDate, setStageStartDate] = useState('');
+  const [stageDeadline, setStageDeadline] = useState('');
+  const [stageStatus, setStageStatus] = useState('ACTIVE');
+  const [stageVenue, setStageVenue] = useState('Main Boardroom');
+  const [submittingStage, setSubmittingStage] = useState(false);
 
-  // Stage Initiation / Edit Deadline Modal State
+  // Stage Initiation Legacy State
   const [showInitiateModal, setShowInitiateModal] = useState(false);
   const [targetStage, setTargetStage] = useState<any>(null);
   const [initiateDeadline, setInitiateDeadline] = useState('');
   const [initiateVenue, setInitiateVenue] = useState('Main Boardroom');
-  const [submittingStage, setSubmittingStage] = useState(false);
 
   // Selected Approved Syllabus for Drilldown Viewer
   const [selectedSyllabus, setSelectedSyllabus] = useState<any>(null);
@@ -189,42 +194,50 @@ export default function DeanDashboard() {
     }
   };
 
-  const handleOpenBulkStagesModal = () => {
-    setBulkStageDates(
-      stages.map((s) => ({
-        id: s.id,
-        order: s.order,
-        name: s.name,
-        startDate: s.startDate ? new Date(s.startDate).toISOString().slice(0, 16) : '',
-        deadline: s.deadline ? new Date(s.deadline).toISOString().slice(0, 16) : '',
-        status: s.status,
-      }))
-    );
-    setShowBulkStageModal(true);
+  const handleOpenEditStageModal = (stg: any) => {
+    setEditingStage(stg);
+    setStageStartDate(stg.startDate ? new Date(stg.startDate).toISOString().slice(0, 10) : '');
+    setStageDeadline(stg.deadline ? new Date(stg.deadline).toISOString().slice(0, 10) : '');
+    setStageStatus(stg.status || 'ACTIVE');
+    setStageVenue(stg.venue || 'Main Boardroom');
   };
 
-  const handleSaveBulkStageDeadlines = async (e: React.FormEvent) => {
+  const handleSaveSingleStageDeadline = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editingStage) return;
+    if (!stageStartDate || !stageDeadline) {
+      alert('Both Start Date and Deadline Date are required.');
+      return;
+    }
+    if (new Date(stageDeadline).getTime() <= new Date(stageStartDate).getTime()) {
+      alert('Deadline Date must be strictly after Start Date.');
+      return;
+    }
+
     setSubmittingStage(true);
     try {
       const res = await fetch('/api/dean/stage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'BULK_UPDATE_STAGES',
-          stages: bulkStageDates,
+          stageId: editingStage.id,
+          startDate: stageStartDate,
+          deadline: stageDeadline,
+          status: stageStatus,
+          venue: stageVenue,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || 'Failed to save stage deadlines.');
+        alert(data.error || 'Failed to update stage deadline.');
         return;
       }
-      alert('✓ Stage Deadlines configured successfully for all 4 stages!');
-      setShowBulkStageModal(false);
+      alert(`✓ Stage ${editingStage.order} (${editingStage.name}) deadline updated successfully!`);
+      setEditingStage(null);
       fetchData();
     } catch (err) {
-      console.error('Failed bulk stage update');
+      console.error('Failed to update stage deadline:', err);
+      alert('Error updating stage deadline.');
     } finally {
       setSubmittingStage(false);
     }
@@ -434,6 +447,16 @@ export default function DeanDashboard() {
                     </div>
                     {stg.description && <p className="text-xs text-desc mt-0.5">{stg.description}</p>}
                   </div>
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditStageModal(stg)}
+                      className="px-3 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-800 font-bold text-xs rounded-xl border border-purple-200 shadow-2xs flex items-center space-x-1.5 transition-colors shrink-0"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                      <span>Edit Deadline</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Scheduled Info */}
@@ -480,11 +503,11 @@ export default function DeanDashboard() {
                   </div>
                   <div className="mt-3 md:mt-0 flex items-center space-x-3">
                     <button
-                      onClick={handleOpenBulkStagesModal}
+                      onClick={() => setActiveTab('stages')}
                       className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center space-x-1.5"
                     >
-                      <Clock className="w-4 h-4" />
-                      <span>Configure Stage Deadlines</span>
+                      <Layers className="w-4 h-4" />
+                      <span>Manage Academic Stages</span>
                     </button>
                     {activeStage && (
                       <div className="px-3.5 py-1.5 rounded-xl bg-purple-50 text-brand-800 border border-purple-200 text-xs font-bold flex items-center space-x-2">
@@ -594,15 +617,8 @@ export default function DeanDashboard() {
                     <h3 className="text-base font-bold text-slate-900 flex items-center">
                       <Layers className="w-4 h-4 mr-2 text-brand-600" /> Academic Stage Governance
                     </h3>
-                    <p className="text-xs text-desc">Configure start dates and end deadlines for all 4 academic stages.</p>
+                    <p className="text-xs text-desc">Configure start dates and end deadlines for each academic stage below.</p>
                   </div>
-                  <button
-                    onClick={handleOpenBulkStagesModal}
-                    className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-md flex items-center space-x-1.5"
-                  >
-                    <Clock className="w-4 h-4" />
-                    <span>Configure Deadlines</span>
-                  </button>
                 </div>
 
                 {renderVerticalStageProgress()}
@@ -1454,77 +1470,92 @@ export default function DeanDashboard() {
           </div>
         )}
 
-        {/* Bulk 4-Stage Deadlines Manager Modal */}
-        {showBulkStageModal && (
+        {/* Single Stage Deadline Edit Modal */}
+        {editingStage && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
-            <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-5">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5">
               <div className="flex items-center justify-between border-b pb-3">
                 <div className="flex items-center space-x-2">
                   <Clock className="w-5 h-5 text-brand-600" />
-                  <h3 className="text-base font-bold text-slate-900">Configure All 4 Academic Stage Deadlines</h3>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Edit Deadline — Stage {editingStage.order}: {editingStage.name}
+                  </h3>
                 </div>
-                <button onClick={() => setShowBulkStageModal(false)} className="text-slate-400 hover:text-slate-600">
+                <button onClick={() => setEditingStage(null)} className="text-slate-400 hover:text-slate-600">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               <p className="text-xs text-desc">
-                Set start dates and deadlines for all 4 official stages. If an extension is approved for any stage in the future, all subsequent stages will automatically shift forward.
+                Update the schedule for <strong>Stage {editingStage.order} ({editingStage.name})</strong>. Academic portals and HoD workspaces will reflect this updated timeline.
               </p>
 
-              <form onSubmit={handleSaveBulkStageDeadlines} className="space-y-4">
-                {bulkStageDates.map((stg) => (
-                  <div key={stg.id} className="p-4 rounded-2xl border border-purple-100 bg-purple-50/30 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-xs font-extrabold text-slate-900">
-                        Stage {stg.order}: {stg.name}
-                      </h4>
-                      <StatusBadge status={stg.status} />
-                    </div>
+              <form onSubmit={handleSaveSingleStageDeadline} className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-semibold mb-1 text-slate-700">Stage Status</label>
+                  <select
+                    value={stageStatus}
+                    onChange={(e) => setStageStatus(e.target.value)}
+                    className="w-full p-2.5 border border-slate-300 rounded-xl font-bold bg-slate-50"
+                  >
+                    <option value="INACTIVE">INACTIVE</option>
+                    <option value="ACTIVE">ACTIVE</option>
+                    <option value="COMPLETED">COMPLETED</option>
+                    <option value="OVERDUE">OVERDUE</option>
+                  </select>
+                </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                      <div>
-                        <label className="block font-semibold mb-1 text-slate-700">Start Date</label>
-                        <input
-                          type="date"
-                          value={stg.startDate}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setBulkStageDates((prev) =>
-                              prev.map((item) => (item.id === stg.id ? { ...item, startDate: val } : item))
-                            );
-                          }}
-                          className="w-full p-2 border rounded-xl font-medium"
-                        />
-                      </div>
-                      <div>
-                        <label className="block font-semibold mb-1 text-slate-700">Deadline Date</label>
-                        <input
-                          type="date"
-                          value={stg.deadline}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setBulkStageDates((prev) =>
-                              prev.map((item) => (item.id === stg.id ? { ...item, deadline: val } : item))
-                            );
-                          }}
-                          className="w-full p-2 border rounded-xl font-medium"
-                        />
-                      </div>
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold mb-1 text-slate-700">Start Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={stageStartDate}
+                      onChange={(e) => setStageStartDate(e.target.value)}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl font-semibold"
+                    />
                   </div>
-                ))}
+                  <div>
+                    <label className="block font-semibold mb-1 text-slate-700">Deadline Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={stageDeadline}
+                      onChange={(e) => setStageDeadline(e.target.value)}
+                      className="w-full p-2.5 border border-slate-300 rounded-xl font-semibold"
+                    />
+                  </div>
+                </div>
+
+                {(editingStage.name.includes('DAC') || editingStage.name.includes('BoS')) && (
+                  <div>
+                    <label className="block font-semibold mb-1 text-slate-700">Meeting Venue</label>
+                    <input
+                      type="text"
+                      value={stageVenue}
+                      onChange={(e) => setStageVenue(e.target.value)}
+                      placeholder="e.g. Main Boardroom / Conference Hall"
+                      className="w-full p-2.5 border border-slate-300 rounded-xl font-semibold"
+                    />
+                  </div>
+                )}
 
                 <div className="flex justify-end space-x-3 pt-3 border-t">
-                  <button type="button" onClick={() => setShowBulkStageModal(false)} className="px-4 py-2 text-xs font-semibold text-slate-600">
+                  <button
+                    type="button"
+                    onClick={() => setEditingStage(null)}
+                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800"
+                  >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={submittingStage}
-                    className="px-5 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md disabled:opacity-50"
+                    className="px-5 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md disabled:opacity-50 flex items-center space-x-1.5"
                   >
-                    {submittingStage ? 'Saving Deadlines...' : 'Save All Stage Deadlines'}
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{submittingStage ? 'Saving...' : 'Save Stage Deadline'}</span>
                   </button>
                 </div>
               </form>

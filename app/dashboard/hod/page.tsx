@@ -26,6 +26,7 @@ import {
   Filter,
   Clock,
   AlertCircle,
+  AlertTriangle,
   Save,
   Edit3,
   Edit,
@@ -83,6 +84,9 @@ export default function HoDDashboard() {
   const [poCount, setPoCount] = useState<number>(12);
   const [psoCount, setPsoCount] = useState<number>(3);
   const [isStructureConfirmed, setIsStructureConfirmed] = useState<boolean>(false);
+  const [isLockedPOPSO, setIsLockedPOPSO] = useState<boolean>(false);
+  const [showLockConfirmModal, setShowLockConfirmModal] = useState<boolean>(false);
+  const [lockingPOPSO, setLockingPOPSO] = useState<boolean>(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string>('');
 
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -408,8 +412,40 @@ export default function HoDDashboard() {
         if (data.poCount) setPoCount(data.poCount);
         if (data.psoCount) setPsoCount(data.psoCount);
         if (data.isConfirmed) setIsStructureConfirmed(true);
+        setIsLockedPOPSO(Boolean(data.isLocked));
       }
     } catch (err) {}
+  };
+
+  const handleLockPOPSO = async () => {
+    const hasConfigured = Object.keys(poStatements).length > 0 && Object.keys(psoStatements).length > 0;
+    if (!hasConfigured) {
+      alert('Please enter and save both PO and PSO statements before locking.');
+      return;
+    }
+    if (!confirm('Are you sure you want to lock POs and PSOs? Once locked, statements cannot be edited.')) {
+      return;
+    }
+    setLockingPOPSO(true);
+    try {
+      const res = await fetch('/api/hod/po-pso', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'LOCK_PO_PSO' }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to lock POs and PSOs.');
+        return;
+      }
+      setIsLockedPOPSO(true);
+      alert('✓ Program Outcomes (POs) and Program Specific Outcomes (PSOs) locked successfully!');
+      fetchPOPSOStatements();
+    } catch (err) {
+      console.error('Failed to lock PO/PSO:', err);
+    } finally {
+      setLockingPOPSO(false);
+    }
   };
 
   const handleConfirmStructure = async () => {
@@ -525,10 +561,17 @@ export default function HoDDashboard() {
 
   const handleOpenAddSubject = () => {
     if (!hasConfiguredPOPSO) {
-      alert('⚠️ Action Required: Program Outcomes (POs) and Program Specific Outcomes (PSOs) must be created and saved before adding subjects.');
+      alert('⚠️ Action Required: Program Outcomes (POs) and Program Specific Outcomes (PSOs) must be created, saved, and locked before adding subjects.');
       setActiveTab('po_pso');
       return;
     }
+
+    if (!isLockedPOPSO) {
+      // Prompt: "can i lock?" before creating first subject
+      setShowLockConfirmModal(true);
+      return;
+    }
+
     setEditingSubject(null);
     setShowSubjectModal(true);
   };
@@ -1286,18 +1329,19 @@ export default function HoDDashboard() {
                     Define exact statement text for POs and PSOs under Regulation 26. Faculty members will map these outcomes during syllabus formation.
                   </p>
                 </div>
-                {isStructureConfirmed || subjects.length > 0 ? (
-                  <span className="inline-flex items-center text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 shadow-2xs">
-                    <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-600" /> 🔒 Structure Locked ({subjects.length > 0 ? 'Subjects Created' : 'Confirmed'})
+                {isLockedPOPSO ? (
+                  <span className="inline-flex items-center text-xs font-bold text-emerald-800 bg-emerald-50 px-3.5 py-2 rounded-xl border border-emerald-300 shadow-2xs">
+                    <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-600" /> 🔒 POs & PSOs Locked (Cannot be edited)
                   </span>
                 ) : (
                   <button
                     type="button"
-                    onClick={handleConfirmStructure}
+                    onClick={handleLockPOPSO}
+                    disabled={lockingPOPSO}
                     className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center space-x-1.5"
                   >
                     <Lock className="w-3.5 h-3.5" />
-                    <span>Lock POs & PSOs Structure</span>
+                    <span>{lockingPOPSO ? 'Locking...' : 'Lock POs & PSOs'}</span>
                   </button>
                 )}
               </div>
@@ -1332,11 +1376,11 @@ export default function HoDDashboard() {
                         <label className="block text-xs font-extrabold text-brand-700">{poKey} Statement</label>
                         <textarea
                           rows={2}
-                          readOnly={isStructureConfirmed || subjects.length > 0}
+                          readOnly={isLockedPOPSO}
                           value={poStatements[poKey] || ''}
                           onChange={(e) => setPoStatements({ ...poStatements, [poKey]: e.target.value })}
                           placeholder={`Enter ${poKey} statement text (e.g. Engineering knowledge: Apply knowledge of mathematics...)`}
-                          className={`w-full p-3 text-xs border rounded-xl font-medium focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 ${isStructureConfirmed || subjects.length > 0 ? 'bg-slate-100 cursor-not-allowed' : 'bg-white'}`}
+                          className={`w-full p-3 text-xs border rounded-xl font-medium focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 ${isLockedPOPSO ? 'bg-slate-100 cursor-not-allowed text-slate-600' : 'bg-white text-slate-900'}`}
                         />
                       </div>
                     ))}
@@ -1358,11 +1402,11 @@ export default function HoDDashboard() {
                         <label className="block text-xs font-extrabold text-amber-900">{psoKey} Statement</label>
                         <textarea
                           rows={2}
-                          readOnly={isStructureConfirmed || subjects.length > 0}
+                          readOnly={isLockedPOPSO}
                           value={psoStatements[psoKey] || ''}
                           onChange={(e) => setPsoStatements({ ...psoStatements, [psoKey]: e.target.value })}
                           placeholder={`Enter ${psoKey} statement text (e.g. Professional Skills: Ability to design and develop software solutions...)`}
-                          className={`w-full p-3 text-xs border border-amber-200 rounded-xl font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 ${isStructureConfirmed || subjects.length > 0 ? 'bg-slate-100 cursor-not-allowed' : 'bg-white'}`}
+                          className={`w-full p-3 text-xs border border-amber-200 rounded-xl font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 ${isLockedPOPSO ? 'bg-slate-100 cursor-not-allowed text-slate-600' : 'bg-white text-slate-900'}`}
                         />
                       </div>
                     ))}
@@ -1372,9 +1416,11 @@ export default function HoDDashboard() {
                 {/* Single Page Save All Button */}
                 <div className="pt-6 border-t border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <p className="text-xs text-desc">
-                    {isStructureConfirmed || subjects.length > 0 ? '🔒 Statements are locked because PO/PSO structure is confirmed or subjects have been created.' : 'Click Save All Statements below to apply changes across all PO and PSO statements simultaneously.'}
+                    {isLockedPOPSO
+                      ? '🔒 Statements are locked and cannot be edited.'
+                      : 'Click Save All Statements below to save PO and PSO statements before locking.'}
                   </p>
-                  {!(isStructureConfirmed || subjects.length > 0) && (
+                  {!isLockedPOPSO && (
                     <button
                       type="button"
                       onClick={handleSaveAllPOPSO}
@@ -2375,6 +2421,77 @@ export default function HoDDashboard() {
                   className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs"
                 >
                   Close Details
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* PO & PSO Lock Confirmation Modal */}
+        {showLockConfirmModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 text-center">
+              <div className="w-14 h-14 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto shadow-xs">
+                <Lock className="w-7 h-7" />
+              </div>
+
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  Lock Program Outcomes (POs) & PSOs?
+                </h3>
+                <p className="text-xs text-desc mt-2 leading-relaxed">
+                  Your PO and PSO statements are created and saved, but not yet locked. To proceed with creating your department subjects, POs and PSOs must be locked first.
+                </p>
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 mt-3 text-left">
+                  <p className="text-[11px] font-bold text-amber-900 flex items-center">
+                    <AlertTriangle className="w-4 h-4 mr-1.5 text-amber-600 shrink-0" />
+                    Important Notice:
+                  </p>
+                  <p className="text-[11px] text-amber-800 mt-1">
+                    Once locked, POs and PSOs <strong>cannot be edited</strong>, as syllabus formulations depend on these statements.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end space-x-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowLockConfirmModal(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={lockingPOPSO}
+                  onClick={async () => {
+                    setLockingPOPSO(true);
+                    try {
+                      const res = await fetch('/api/hod/po-pso', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'LOCK_PO_PSO' }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) {
+                        alert(data.error || 'Failed to lock POs and PSOs.');
+                        return;
+                      }
+                      setIsLockedPOPSO(true);
+                      setShowLockConfirmModal(false);
+                      setEditingSubject(null);
+                      setShowSubjectModal(true);
+                    } catch (err) {
+                      console.error(err);
+                      alert('Error locking POs and PSOs.');
+                    } finally {
+                      setLockingPOPSO(false);
+                    }
+                  }}
+                  className="px-4 py-2 text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-md disabled:opacity-50 flex items-center space-x-1.5"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>{lockingPOPSO ? 'Locking...' : 'Yes, Lock & Proceed'}</span>
                 </button>
               </div>
             </div>

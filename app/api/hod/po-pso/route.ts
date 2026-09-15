@@ -45,6 +45,8 @@ export async function GET(req: Request) {
   const poCount = poConfig ? poConfig.poCount : (poStatements.length > 0 ? poStatements.length : 12);
   const psoCount = psoConfig ? psoConfig.psoCount : (psoStatements.length > 0 ? psoStatements.length : 3);
   const isConfirmed = !!(poConfig || psoConfig || poStatements.length > 0 || psoStatements.length > 0 || peoStatements.length > 0);
+  const isLocked = Boolean(poConfig?.isLocked || psoConfig?.isLocked);
+  const lockedAt = poConfig?.lockedAt || psoConfig?.lockedAt || null;
 
   return NextResponse.json({
     poStatements,
@@ -53,6 +55,8 @@ export async function GET(req: Request) {
     poCount,
     psoCount,
     isConfirmed,
+    isLocked,
+    lockedAt,
   });
 }
 
@@ -72,6 +76,65 @@ export async function POST(req: Request) {
   const activeReg = await prisma.regulation.findFirst({ where: { active: true } }) || await prisma.regulation.findFirst();
   if (!activeReg) {
     return NextResponse.json({ error: 'No active regulation configured.' }, { status: 404 });
+  }
+
+  const [existingPoConfig, existingPsoConfig] = await Promise.all([
+    prisma.pOConfiguration.findUnique({
+      where: { departmentId_regulationId: { departmentId, regulationId: activeReg.id } },
+    }),
+    prisma.pSOConfiguration.findUnique({
+      where: { departmentId_regulationId: { departmentId, regulationId: activeReg.id } },
+    }),
+  ]);
+
+  const isAlreadyLocked = Boolean(existingPoConfig?.isLocked || existingPsoConfig?.isLocked);
+
+  // Handle explicit LOCK_PO_PSO action
+  if (body.action === 'LOCK_PO_PSO') {
+    const [poStmtCount, psoStmtCount] = await Promise.all([
+      prisma.programOutcomeStatement.count({ where: { departmentId, regulationId: activeReg.id } }),
+      prisma.programSpecificOutcomeStatement.count({ where: { departmentId, regulationId: activeReg.id } }),
+    ]);
+
+    if (poStmtCount === 0 || psoStmtCount === 0) {
+      return NextResponse.json(
+        { error: 'Cannot lock: Both PO and PSO statements must be created and saved first.' },
+        { status: 400 }
+      );
+    }
+
+    const now = new Date();
+    await Promise.all([
+      prisma.pOConfiguration.upsert({
+        where: { departmentId_regulationId: { departmentId, regulationId: activeReg.id } },
+        update: { isLocked: true, lockedAt: now },
+        create: { departmentId, regulationId: activeReg.id, poCount: 12, isLocked: true, lockedAt: now },
+      }),
+      prisma.pSOConfiguration.upsert({
+        where: { departmentId_regulationId: { departmentId, regulationId: activeReg.id } },
+        update: { isLocked: true, lockedAt: now },
+        create: { departmentId, regulationId: activeReg.id, psoCount: 3, isLocked: true, lockedAt: now },
+      }),
+    ]);
+
+    await logAudit({
+      userId: session.userId,
+      userRole: session.role,
+      action: 'LOCK_PO_PSO_STATEMENTS',
+      entity: 'POConfiguration',
+      entityId: departmentId,
+      details: { lockedAt: now },
+    });
+
+    return NextResponse.json({ success: true, isLocked: true, message: 'POs and PSOs locked successfully.' });
+  }
+
+  // Prevent modifications if already locked
+  if (isAlreadyLocked) {
+    return NextResponse.json(
+      { error: 'Program Outcomes (POs) and Program Specific Outcomes (PSOs) are locked and cannot be edited.' },
+      { status: 400 }
+    );
   }
 
   // Handle Structure Confirmation (Setting PO/PSO counts)

@@ -109,7 +109,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: 'SECURITY & SYSTEM',
       items: [
         { id: 'auditlogs', label: 'Audit Trail Logs', icon: <History className="w-4 h-4" /> },
-        { id: 'settings', label: 'System Configuration', icon: <Settings className="w-4 h-4" /> },
       ],
     },
   ];

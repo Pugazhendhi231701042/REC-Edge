@@ -65,15 +65,111 @@ export async function POST(req: Request) {
       if (userId === session.userId) {
         return NextResponse.json({ error: 'Cannot delete your own active MasterAdmin account.' }, { status: 400 });
       }
-      await prisma.user.delete({ where: { id: userId } });
+
+      const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+      if (!targetUser) {
+        return NextResponse.json({ error: 'User not found.' }, { status: 404 });
+      }
+
+      // Check minimum 1 MasterAdmin constraint
+      if (targetUser.role === 'MASTERADMIN') {
+        const masterAdminCount = await prisma.user.count({ where: { role: 'MASTERADMIN' } });
+        if (masterAdminCount <= 1) {
+          return NextResponse.json(
+            { error: 'Cannot delete this account. At least one MasterAdmin account must remain in the system.' },
+            { status: 400 }
+          );
+        }
+      }
+
+      // Perform safe foreign key cleanup and deletion in a single transaction
+      await prisma.$transaction(async (tx) => {
+        // 1. Unassign HoD if this user heads any department
+        await tx.department.updateMany({
+          where: { hodId: userId },
+          data: { hodId: null },
+        });
+
+        // 2. Unassign from assigned faculty on subjects
+        await tx.subject.updateMany({
+          where: { assignedFacultyId: userId },
+          data: { assignedFacultyId: null },
+        });
+
+        // 3. Reassign subject creator to current master admin to preserve subjects
+        await tx.subject.updateMany({
+          where: { createdById: userId },
+          data: { createdById: session.userId },
+        });
+
+        // 4. Nullify stage initiator
+        await tx.academicStage.updateMany({
+          where: { initiatedById: userId },
+          data: { initiatedById: null },
+        });
+
+        // 5. Clean up extension requests
+        await tx.extensionRequest.updateMany({
+          where: { decidedById: userId },
+          data: { decidedById: null },
+        });
+        await tx.extensionRequest.deleteMany({
+          where: { requestedById: userId },
+        });
+
+        // 6. Clean up syllabus submissions
+        await tx.syllabusSubmission.updateMany({
+          where: { approvedById: userId },
+          data: { approvedById: null },
+        });
+        await tx.syllabusSubmission.updateMany({
+          where: { facultyId: userId },
+          data: { facultyId: session.userId },
+        });
+
+        // 7. Clean up curriculum bundles
+        await tx.departmentCurriculumBundle.updateMany({
+          where: { approvedById: userId },
+          data: { approvedById: null },
+        });
+        await tx.departmentCurriculumBundle.updateMany({
+          where: { submittedById: userId },
+          data: { submittedById: null },
+        });
+
+        // 8. Clean up programme curriculum submissions
+        await tx.programmeCurriculumSubmission.updateMany({
+          where: { approvedById: userId },
+          data: { approvedById: null },
+        });
+        await tx.programmeCurriculumSubmission.updateMany({
+          where: { submittedById: userId },
+          data: { submittedById: null },
+        });
+
+        // 9. Delete personal notifications
+        await tx.notification.deleteMany({
+          where: { recipientId: userId },
+        });
+
+        // 10. Delete audit logs associated with this user
+        await tx.auditLog.deleteMany({
+          where: { userId },
+        });
+
+        // 11. Finally delete the user account
+        await tx.user.delete({ where: { id: userId } });
+      });
+
       await logAudit({
         userId: session.userId,
         userRole: session.role,
         action: 'DELETE_USER',
         entity: 'User',
         entityId: userId,
+        details: { deletedEmail: targetUser.email, deletedRole: targetUser.role },
       });
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ success: true, message: `User ${targetUser.name} deleted successfully.` });
     }
 
     // EDIT_USER Action: MasterAdmin can edit all attributes of a user
