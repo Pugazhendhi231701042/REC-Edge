@@ -45,7 +45,6 @@ async function main() {
   await prisma.creditConfig.deleteMany();
 
   console.log('All tables truncated successfully.');
-  console.log('Seeding minimal 4-user database (1 MasterAdmin, 1 SuperAdmin/Dean, 1 HoD, 1 Faculty)...');
 
   const defaultPasswordHash = await bcrypt.hash('Changeme@123', 10);
 
@@ -70,12 +69,10 @@ async function main() {
     { number: 17, name: 'Partnerships for the Goals' },
   ];
 
-  const sdgMap: Record<number, string> = {};
   for (const sdg of sdgList) {
-    const created = await prisma.sDGGoal.create({
+    await prisma.sDGGoal.create({
       data: { sdgNumber: sdg.number, name: sdg.name, active: true },
     });
-    sdgMap[sdg.number] = created.id;
   }
 
   // 2. Academic Year
@@ -156,7 +153,7 @@ async function main() {
       tWeight: 1.0,
       pWeight: 0.5,
       hoursPerCredit: 15,
-      customPrefixes: 'GE, PH, HS, MC, CS, EC, EE, ME, CE, AI, CB, IT',
+      customPrefixes: 'GE, PH, HS, MC, CS, EC, EE, ME, CE, AI, CB, IT, AE, AT, BM, BT, CH, CV, CR, CD, FT, MT',
       minTotalCredits: 160.0,
       maxTotalCredits: 165.0,
       minSemCredits: 20.0,
@@ -168,7 +165,7 @@ async function main() {
     },
   });
 
-  // 7. Seed the 4 Core System Users:
+  // 7. Seed Core System Administrator Users:
   // User 1: MasterAdmin
   const masterAdmin = await prisma.user.create({
     data: {
@@ -193,31 +190,7 @@ async function main() {
     },
   });
 
-  // User 3: HoD CSE
-  const hodUser = await prisma.user.create({
-    data: {
-      email: 'hod.cse@rajalakshmi.edu.in',
-      userCode: 'CS101',
-      password: defaultPasswordHash,
-      name: 'Dr. HoD CSE',
-      role: 'HOD',
-      active: true,
-    },
-  });
-
-  // User 4: Faculty CSE
-  const facultyUser = await prisma.user.create({
-    data: {
-      email: 'alan.turing@rajalakshmi.edu.in',
-      userCode: 'CSF01',
-      password: defaultPasswordHash,
-      name: 'Dr. Alan Turing',
-      role: 'FACULTY',
-      active: true,
-    },
-  });
-
-  // 8. Seed 18 Engineering Departments
+  // 8. 18 Engineering Departments List
   const departmentsData = [
     { code: 'AE', shortName: 'AERO', programmeName: 'Aeronautical Engineering' },
     { code: 'AT', shortName: 'AUTO', programmeName: 'Automobile Engineering' },
@@ -239,60 +212,7 @@ async function main() {
     { code: 'MT', shortName: 'MCT', programmeName: 'Mechatronics Engineering' },
   ];
 
-  let cseDept: any = null;
-
-  for (const d of departmentsData) {
-    const isCSE = d.code === 'CS';
-    const dept = await prisma.department.create({
-      data: {
-        programmeType: 'UG',
-        programmeName: d.programmeName,
-        shortName: d.shortName,
-        departmentCode: d.code,
-        semesters: 8,
-        hodId: isCSE ? hodUser.id : null,
-        active: true,
-      },
-    });
-
-    if (isCSE) {
-      cseDept = dept;
-    }
-
-    // PO and PSO configuration for Regulation 26
-    await prisma.pOConfiguration.create({
-      data: {
-        departmentId: dept.id,
-        regulationId: reg26.id,
-        poCount: 12,
-        isLocked: isCSE,
-        lockedAt: isCSE ? new Date('2026-08-20T09:00:00Z') : null,
-      },
-    });
-
-    await prisma.pSOConfiguration.create({
-      data: {
-        departmentId: dept.id,
-        regulationId: reg26.id,
-        psoCount: 3,
-        isLocked: isCSE,
-        lockedAt: isCSE ? new Date('2026-08-20T09:00:00Z') : null,
-      },
-    });
-  }
-
-  // Link HoD and Faculty users to the CSE department
-  await prisma.user.update({
-    where: { id: hodUser.id },
-    data: { departmentId: cseDept.id },
-  });
-
-  await prisma.user.update({
-    where: { id: facultyUser.id },
-    data: { departmentId: cseDept.id },
-  });
-
-  // Seed standard 12 NBA Program Outcomes (POs) for CSE
+  // Standard NBA Program Outcomes (POs)
   const poStatementsList = [
     { poKey: 'PO1', statement: 'Engineering Knowledge: Apply the knowledge of mathematics, science, engineering fundamentals, and an engineering specialization to the solution of complex engineering problems.' },
     { poKey: 'PO2', statement: 'Problem Analysis: Identify, formulate, review research literature, and analyze complex engineering problems reaching substantiated conclusions using first principles of mathematics, natural sciences, and engineering sciences.' },
@@ -308,521 +228,454 @@ async function main() {
     { poKey: 'PO12', statement: 'Life-long Learning: Recognize the need for, and have the preparation and ability to engage in independent and life-long learning in the broadest context of technological change.' },
   ];
 
-  for (const item of poStatementsList) {
-    await prisma.programOutcomeStatement.create({
+  // Helper to build 25 subjects for a department
+  const buildDepartmentSubjects = (d: typeof departmentsData[0]) => {
+    // Custom domain topics based on department
+    const isCSE = d.code === 'CS';
+    const isECE = d.code === 'EC';
+    const isMECH = d.code === 'ME';
+    const isEEE = d.code === 'EE';
+    const isCIVIL = d.code === 'CV';
+    const isBIO = d.code === 'BT';
+    const isAIDS = d.code === 'AI';
+
+    // 25 Subjects Template per Department across 8 Semesters
+    return [
+      // Sem 1 (2 subjects)
+      { sem: 1, name: `Matrices and Calculus for ${d.shortName}`, code: `${d.code}26101`, type: 'Theory', cat: 'BS', l: 3, t: 1, p: 0, c: 4.0 },
+      { sem: 1, name: `Engineering Physics & Computing Laboratory`, code: `${d.code}26111`, type: 'Lab', cat: 'BS', l: 0, t: 0, p: 4, c: 2.0 },
+
+      // Sem 2 (2 subjects)
+      { sem: 2, name: `Differential Equations & Transform Techniques`, code: `${d.code}26201`, type: 'Theory', cat: 'BS', l: 3, t: 1, p: 0, c: 4.0 },
+      { sem: 2, name: `Engineering Practice & Workshop Laboratory`, code: `${d.code}26211`, type: 'Lab', cat: 'ES', l: 0, t: 0, p: 4, c: 2.0 },
+
+      // Sem 3 (4 subjects)
+      {
+        sem: 3,
+        name: isCSE ? 'Data Structures' : isECE ? 'Electronic Circuits & Analysis' : isMECH ? 'Thermodynamics & Thermal Engineering' : isCIVIL ? 'Mechanics of Solids' : `Foundations of ${d.programmeName}`,
+        code: `${d.code}26301`,
+        type: 'Theory',
+        cat: 'PC',
+        l: 3, t: 0, p: 0, c: 3.0,
+      },
+      {
+        sem: 3,
+        name: isCSE ? 'Object Oriented Programming Paradigms' : isECE ? 'Digital Logic and Microprocessors' : isMECH ? 'Fluid Mechanics & Machinery' : `Core Principles of ${d.shortName} Modeling`,
+        code: `${d.code}26302`,
+        type: 'Theory',
+        cat: 'PC',
+        l: 3, t: 0, p: 0, c: 3.0,
+      },
+      {
+        sem: 3,
+        name: isCSE ? 'Data Structures and Algorithms Laboratory' : isECE ? 'Electronic Circuits Laboratory' : isMECH ? 'Thermal Engineering Laboratory' : `${d.shortName} Core Laboratory I`,
+        code: `${d.code}26311`,
+        type: 'Lab',
+        cat: 'PC',
+        l: 0, t: 0, p: 4, c: 2.0,
+      },
+      {
+        sem: 3,
+        name: isCSE ? 'Object Oriented Programming Laboratory' : isECE ? 'Digital System Design Laboratory' : `Programming & Numerical Simulation Laboratory`,
+        code: `${d.code}26312`,
+        type: 'Lab',
+        cat: 'ES',
+        l: 0, t: 0, p: 4, c: 2.0,
+      },
+
+      // Sem 4 (4 subjects)
+      {
+        sem: 4,
+        name: isCSE ? 'Database Management Systems' : isECE ? 'Signals and Systems' : isMECH ? 'Manufacturing Processes' : `Advanced ${d.programmeName} Theory`,
+        code: `${d.code}26401`,
+        type: 'Theory',
+        cat: 'PC',
+        l: 3, t: 0, p: 0, c: 3.0,
+      },
+      {
+        sem: 4,
+        name: isCSE ? 'Operating Systems' : isECE ? 'Linear Integrated Circuits' : isMECH ? 'Kinematics of Machinery' : `Probability, Statistics and Stochastic Analytics`,
+        code: `${d.code}26402`,
+        type: 'Theory',
+        cat: 'BS',
+        l: 3, t: 1, p: 0, c: 4.0,
+      },
+      {
+        sem: 4,
+        name: isCSE ? 'Design and Analysis of Algorithms' : isECE ? 'Analog and Digital Communication' : isMECH ? 'Applied Machine Design' : `Applied ${d.shortName} Design and Analysis`,
+        code: `${d.code}26421`,
+        type: 'Lab-Oriented Theory',
+        cat: 'PC',
+        l: 3, t: 0, p: 2, c: 4.0,
+      },
+      {
+        sem: 4,
+        name: isCSE ? 'Database Management Systems Laboratory' : isECE ? 'Linear Integrated Circuits Laboratory' : isMECH ? 'Manufacturing Technology Laboratory' : `${d.shortName} Experimental Systems Laboratory`,
+        code: `${d.code}26411`,
+        type: 'Lab',
+        cat: 'PC',
+        l: 0, t: 0, p: 4, c: 2.0,
+      },
+
+      // Sem 5 (4 subjects)
+      {
+        sem: 5,
+        name: isCSE ? 'Computer Networks' : isECE ? 'Digital Signal Processing' : isMECH ? 'Design of Machine Elements' : `Control Systems and Instrumentation`,
+        code: `${d.code}26501`,
+        type: 'Theory',
+        cat: 'PC',
+        l: 3, t: 0, p: 0, c: 3.0,
+      },
+      {
+        sem: 5,
+        name: isCSE ? 'Web Application Development' : isECE ? 'Embedded Systems and Microcontrollers' : isMECH ? 'CAD/CAM and Finite Element Analysis' : `Computational ${d.shortName} Software Engineering`,
+        code: `${d.code}26521`,
+        type: 'Lab-Oriented Theory',
+        cat: 'PC',
+        l: 3, t: 0, p: 2, c: 4.0,
+      },
+      {
+        sem: 5,
+        name: isCSE ? 'Computer Networks Laboratory' : isECE ? 'Digital Signal Processing Laboratory' : isMECH ? 'CAD/CAM Simulation Laboratory' : `Advanced ${d.shortName} Domain Laboratory`,
+        code: `${d.code}26511`,
+        type: 'Lab',
+        cat: 'PC',
+        l: 0, t: 0, p: 4, c: 2.0,
+      },
+      {
+        sem: 5,
+        name: `Mini Project / Societally Relevant Project`,
+        code: `${d.code}26531`,
+        type: 'Project',
+        cat: 'EEC',
+        l: 0, t: 0, p: 4, c: 2.0,
+      },
+
+      // Sem 6 (3 subjects)
+      {
+        sem: 6,
+        name: isCSE ? 'Artificial Intelligence and Machine Learning' : isECE ? 'VLSI Design and Verification' : isMECH ? 'Heat and Mass Transfer' : `Artificial Intelligence & Automation in ${d.shortName}`,
+        code: `${d.code}26621`,
+        type: 'Lab-Oriented Theory',
+        cat: 'PC',
+        l: 3, t: 0, p: 2, c: 4.0,
+      },
+      {
+        sem: 6,
+        name: isCSE ? 'Distributed Systems and Blockchain' : isECE ? 'Wireless and Cellular Networks' : `${d.shortName} Professional Elective I`,
+        code: `${d.code}26E01`,
+        type: 'Theory',
+        cat: 'PE',
+        vertical: 'Vertical A - Advanced Domain Systems',
+        l: 3, t: 0, p: 0, c: 3.0,
+      },
+      {
+        sem: 6,
+        name: `Open Elective I - Interdisciplinary Technology & Innovation`,
+        code: `${d.code}26O01`,
+        type: 'Theory',
+        cat: 'OE',
+        l: 3, t: 0, p: 0, c: 3.0,
+      },
+
+      // Sem 7 (3 subjects)
+      {
+        sem: 7,
+        name: isCSE ? 'Cloud Computing and Virtualization' : isECE ? 'Microwave and Optical Communication' : isMECH ? 'Robotics and Industrial Automation' : `Smart Systems & IoT Integration in ${d.shortName}`,
+        code: `${d.code}26721`,
+        type: 'Lab-Oriented Theory',
+        cat: 'PC',
+        l: 3, t: 0, p: 2, c: 4.0,
+      },
+      {
+        sem: 7,
+        name: isCSE ? 'Natural Language Processing' : isECE ? 'Deep Learning for Computer Vision' : `${d.shortName} Professional Elective II`,
+        code: `${d.code}26E02`,
+        type: 'Theory',
+        cat: 'PE',
+        vertical: 'Vertical B - Specialized Technologies',
+        l: 3, t: 0, p: 0, c: 3.0,
+      },
+      {
+        sem: 7,
+        name: `Design Project / Phase I`,
+        code: `${d.code}26731`,
+        type: 'Project',
+        cat: 'EEC',
+        l: 0, t: 0, p: 6, c: 3.0,
+      },
+
+      // Sem 8 (3 subjects)
+      {
+        sem: 8,
+        name: isCSE ? 'Information Security and Cryptography' : isECE ? 'Satellite and Space Communication' : `${d.shortName} Professional Elective III`,
+        code: `${d.code}26E03`,
+        type: 'Theory',
+        cat: 'PE',
+        vertical: 'Vertical C - Future Emerging Paradigms',
+        l: 3, t: 0, p: 0, c: 3.0,
+      },
+      {
+        sem: 8,
+        name: `Open Elective II - Sustainable Industrial Systems`,
+        code: `${d.code}26O02`,
+        type: 'Theory',
+        cat: 'OE',
+        l: 3, t: 0, p: 0, c: 3.0,
+      },
+      {
+        sem: 8,
+        name: `Capstone Project Work / Phase II`,
+        code: `${d.code}26831`,
+        type: 'Project',
+        cat: 'EEC',
+        l: 0, t: 0, p: 12, c: 6.0,
+      },
+    ];
+  };
+
+  console.log('Seeding 18 Departments, HoDs, Faculty, and 25 Approved Subjects per department...');
+
+  for (const d of departmentsData) {
+    const hodEmail = `hod.${d.shortName.toLowerCase()}@rajalakshmi.edu.in`;
+    const facultyEmail = `faculty.${d.shortName.toLowerCase()}@rajalakshmi.edu.in`;
+
+    // 1. Create HoD User
+    const hodUser = await prisma.user.create({
       data: {
-        departmentId: cseDept.id,
-        regulationId: reg26.id,
-        poKey: item.poKey,
-        statement: item.statement,
+        email: hodEmail,
+        userCode: `${d.code}101`,
+        password: defaultPasswordHash,
+        name: `Dr. HoD ${d.shortName}`,
+        role: 'HOD',
+        active: true,
       },
     });
-  }
 
-  // Seed 3 Program Specific Outcomes (PSOs) for CSE
-  const psoStatementsList = [
-    { psoKey: 'PSO1', statement: 'Professional Software Systems: Analyze, design, implement, and verify scalable software architectures, algorithmic frameworks, and database solutions.' },
-    { psoKey: 'PSO2', statement: 'Cloud, AI and Distributed Computing: Apply cutting-edge artificial intelligence, machine learning, cloud virtualization, and distributed systems to address real-world challenges.' },
-    { psoKey: 'PSO3', statement: 'Secure Computing & Innovation: Formulate cyber security protocols, secure coding practices, and employ modern developer toolchains for innovative engineering products.' },
-  ];
-
-  for (const item of psoStatementsList) {
-    await prisma.programSpecificOutcomeStatement.create({
+    // 2. Create Faculty User
+    const facultyUser = await prisma.user.create({
       data: {
-        departmentId: cseDept.id,
-        regulationId: reg26.id,
-        psoKey: item.psoKey,
-        statement: item.statement,
+        email: facultyEmail,
+        userCode: `${d.code}F01`,
+        password: defaultPasswordHash,
+        name: `Prof. Faculty ${d.shortName}`,
+        role: 'FACULTY',
+        active: true,
       },
     });
-  }
 
-  // 9. Seed 26 Approved Demo Subjects in CSE:
-  // - 7 Theory Subjects
-  // - 6 Lab Subjects
-  // - 7 Lab-Oriented Theory (LOT) Subjects
-  // - 3 Project Subjects
-  // - 3 Professional Elective Subjects
-  const demoSubjects = [
-    // ----------------------------------------------------
-    // 1. 7 THEORY SUBJECTS (Category: PC, Type: Theory)
-    // ----------------------------------------------------
-    {
-      name: 'Data Structures',
-      code: 'CS26301',
-      type: 'Theory',
-      category: 'PC',
-      sem: 3,
-      l: 3, t: 0, p: 0, c: 3.0,
-      desc: 'Linear and non-linear data structures, trees, graphs, hashing, and complexity analysis.',
-    },
-    {
-      name: 'Object Oriented Programming Paradigms',
-      code: 'CS26302',
-      type: 'Theory',
-      category: 'PC',
-      sem: 3,
-      l: 3, t: 0, p: 0, c: 3.0,
-      desc: 'OOP concepts, encapsulation, polymorphism, inheritance, generics, and modern design patterns.',
-    },
-    {
-      name: 'Database Management Systems',
-      code: 'CS26401',
-      type: 'Theory',
-      category: 'PC',
-      sem: 4,
-      l: 3, t: 0, p: 0, c: 3.0,
-      desc: 'Relational data model, SQL, normalization, transaction processing, concurrency, and indexing.',
-    },
-    {
-      name: 'Operating Systems',
-      code: 'CS26402',
-      type: 'Theory',
-      category: 'PC',
-      sem: 4,
-      l: 3, t: 0, p: 0, c: 3.0,
-      desc: 'Process management, thread scheduling, synchronization, memory management, virtual memory, and file systems.',
-    },
-    {
-      name: 'Computer Networks',
-      code: 'CS26501',
-      type: 'Theory',
-      category: 'PC',
-      sem: 5,
-      l: 3, t: 0, p: 0, c: 3.0,
-      desc: 'OSI and TCP/IP protocol architectures, routing algorithms, transport protocols, and socket programming.',
-    },
-    {
-      name: 'Theory of Computation',
-      code: 'CS26502',
-      type: 'Theory',
-      category: 'PC',
-      sem: 5,
-      l: 3, t: 1, p: 0, c: 4.0,
-      desc: 'Automata theory, regular expressions, context-free grammars, Turing machines, decidability, and complexity classes.',
-    },
-    {
-      name: 'Compiler Design',
-      code: 'CS26601',
-      type: 'Theory',
-      category: 'PC',
-      sem: 6,
-      l: 3, t: 0, p: 0, c: 3.0,
-      desc: 'Lexical analysis, syntax analysis, syntax-directed translation, intermediate code generation, and optimization.',
-    },
-
-    // ----------------------------------------------------
-    // 2. 6 LAB SUBJECTS (Category: PC, Type: Lab)
-    // ----------------------------------------------------
-    {
-      name: 'Data Structures and Algorithms Laboratory',
-      code: 'CS26311',
-      type: 'Lab',
-      category: 'PC',
-      sem: 3,
-      l: 0, t: 0, p: 4, c: 2.0,
-      desc: 'Implementation of stacks, queues, linked lists, binary trees, heaps, graph traversal, and sorting algorithms.',
-    },
-    {
-      name: 'Object Oriented Programming Laboratory',
-      code: 'CS26312',
-      type: 'Lab',
-      category: 'PC',
-      sem: 3,
-      l: 0, t: 0, p: 4, c: 2.0,
-      desc: 'Hands-on practice on class hierarchy, interfaces, exception handling, multithreading, and GUI programming.',
-    },
-    {
-      name: 'Database Management Systems Laboratory',
-      code: 'CS26411',
-      type: 'Lab',
-      category: 'PC',
-      sem: 4,
-      l: 0, t: 0, p: 4, c: 2.0,
-      desc: 'DDL/DML queries, nested queries, joins, triggers, procedures, views, and full-stack database application development.',
-    },
-    {
-      name: 'Operating Systems Laboratory',
-      code: 'CS26412',
-      type: 'Lab',
-      category: 'PC',
-      sem: 4,
-      l: 0, t: 0, p: 4, c: 2.0,
-      desc: 'UNIX/Linux system calls, process creation, CPU scheduling simulation, semaphores, and page replacement algorithms.',
-    },
-    {
-      name: 'Computer Networks Laboratory',
-      code: 'CS26511',
-      type: 'Lab',
-      category: 'PC',
-      sem: 5,
-      l: 0, t: 0, p: 4, c: 2.0,
-      desc: 'Network packet analysis using Wireshark, socket programming (TCP/UDP), NS2/NS3 network simulation, and routing protocols.',
-    },
-    {
-      name: 'Compiler Design and System Software Laboratory',
-      code: 'CS26611',
-      type: 'Lab',
-      category: 'PC',
-      sem: 6,
-      l: 0, t: 0, p: 4, c: 2.0,
-      desc: 'Implementation of lexical analyzer using LEX, syntax analyzer using YACC, DAG generation, and three-address code generator.',
-    },
-
-    // ----------------------------------------------------
-    // 3. 7 LAB-ORIENTED THEORY (LOT) SUBJECTS (Category: PC, Type: Lab-Oriented Theory)
-    // ----------------------------------------------------
-    {
-      name: 'Design and Analysis of Algorithms',
-      code: 'CS26421',
-      type: 'Lab-Oriented Theory',
-      category: 'PC',
-      sem: 4,
-      l: 3, t: 0, p: 2, c: 4.0,
-      desc: 'Divide-and-conquer, greedy algorithms, dynamic programming, backtracking, branch-and-bound with integrated laboratory implementation.',
-    },
-    {
-      name: 'Web Application Development',
-      code: 'CS26521',
-      type: 'Lab-Oriented Theory',
-      category: 'PC',
-      sem: 5,
-      l: 3, t: 0, p: 2, c: 4.0,
-      desc: 'Full-stack web architecture, React, Node.js, Express, RESTful APIs, responsive design, and practical end-to-end web deployment.',
-    },
-    {
-      name: 'Microprocessors and Interfacing',
-      code: 'CS26522',
-      type: 'Lab-Oriented Theory',
-      category: 'PC',
-      sem: 5,
-      l: 3, t: 0, p: 2, c: 4.0,
-      desc: '8086 architecture, assembly language programming, peripheral interfacing chips, timers, and hardware lab experiments.',
-    },
-    {
-      name: 'Artificial Intelligence and Machine Learning',
-      code: 'CS26621',
-      type: 'Lab-Oriented Theory',
-      category: 'PC',
-      sem: 6,
-      l: 3, t: 0, p: 2, c: 4.0,
-      desc: 'Search algorithms, supervised and unsupervised learning, neural networks, deep learning models with Python Scikit-Learn/PyTorch experiments.',
-    },
-    {
-      name: 'Cloud Computing and Virtualization',
-      code: 'CS26622',
-      type: 'Lab-Oriented Theory',
-      category: 'PC',
-      sem: 6,
-      l: 3, t: 0, p: 2, c: 4.0,
-      desc: 'Hypervisors, containers, Kubernetes, AWS/Azure cloud deployment models, microservices, and serverless architectures.',
-    },
-    {
-      name: 'Mobile Application Development',
-      code: 'CS26721',
-      type: 'Lab-Oriented Theory',
-      category: 'PC',
-      sem: 7,
-      l: 3, t: 0, p: 2, c: 4.0,
-      desc: 'Cross-platform mobile apps with Flutter/React Native, UI components, background services, SQLite storage, and mobile sensor APIs.',
-    },
-    {
-      name: 'Internet of Things and Embedded Systems',
-      code: 'CS26722',
-      type: 'Lab-Oriented Theory',
-      category: 'PC',
-      sem: 7,
-      l: 3, t: 0, p: 2, c: 4.0,
-      desc: 'Sensors, actuators, Raspberry Pi, ESP32, MQTT/CoAP protocols, edge computing, and real-time IoT cloud telemetry dashboards.',
-    },
-
-    // ----------------------------------------------------
-    // 4. 3 PROJECT SUBJECTS (Category: EEC, Type: Project)
-    // ----------------------------------------------------
-    {
-      name: 'Mini Project / Socially Relevant Project',
-      code: 'CS26531',
-      type: 'Project',
-      category: 'EEC',
-      sem: 5,
-      l: 0, t: 0, p: 4, c: 2.0,
-      desc: 'Problem identification, requirement analysis, prototype formulation, and field testing for societal or community challenges.',
-    },
-    {
-      name: 'Design Project / Phase I',
-      code: 'CS26731',
-      type: 'Project',
-      category: 'EEC',
-      sem: 7,
-      l: 0, t: 0, p: 6, c: 3.0,
-      desc: 'Comprehensive engineering literature review, feasibility study, architectural design, component selection, and initial milestone demo.',
-    },
-    {
-      name: 'Capstone Project Work / Phase II',
-      code: 'CS26831',
-      type: 'Project',
-      category: 'EEC',
-      sem: 8,
-      l: 0, t: 0, p: 12, c: 6.0,
-      desc: 'Full-scale system implementation, hardware/software integration, rigorous testing, benchmarking, research publication, and thesis defense.',
-    },
-
-    // ----------------------------------------------------
-    // 5. 3 PROFESSIONAL ELECTIVE SUBJECTS (Category: PE, Type: Theory, with vertical)
-    // ----------------------------------------------------
-    {
-      name: 'Distributed Systems and Blockchain',
-      code: 'CS26E01',
-      type: 'Theory',
-      category: 'PE',
-      sem: 6,
-      vertical: 'Vertical A - Systems and Networks',
-      l: 3, t: 0, p: 0, c: 3.0,
-      desc: 'Distributed consensus, Paxos, Raft, peer-to-peer architectures, smart contracts, Ethereum, and decentralized finance protocols.',
-    },
-    {
-      name: 'Natural Language Processing',
-      code: 'CS26E02',
-      type: 'Theory',
-      category: 'PE',
-      sem: 7,
-      vertical: 'Vertical B - Data Science & AI',
-      l: 3, t: 0, p: 0, c: 3.0,
-      desc: 'Text tokenization, morphological analysis, POS tagging, word embeddings, transformer models, LLMs, and sentiment analysis.',
-    },
-    {
-      name: 'Information Security and Cryptography',
-      code: 'CS26E03',
-      type: 'Theory',
-      category: 'PE',
-      sem: 7,
-      vertical: 'Vertical C - Cybersecurity',
-      l: 3, t: 0, p: 0, c: 3.0,
-      desc: 'Symmetric and asymmetric ciphers, DES, AES, RSA, digital signatures, hash functions, zero-knowledge proofs, and vulnerability assessment.',
-    },
-  ];
-
-  console.log(`Seeding ${demoSubjects.length} approved CSE subjects with complete syllabus data...`);
-
-  for (const subjData of demoSubjects) {
-    const subjectTypeId = subjectTypesMap[subjData.type] || subjectTypesMap['Theory'];
-    const subjectCategoryId = categoriesMap[subjData.category] || categoriesMap['PC'];
-
-    const subject = await prisma.subject.create({
+    // 3. Create Department
+    const dept = await prisma.department.create({
       data: {
-        departmentId: cseDept.id,
+        programmeType: 'UG',
+        programmeName: d.programmeName,
+        shortName: d.shortName,
+        departmentCode: d.code,
+        semesters: 8,
+        hodId: hodUser.id,
+        active: true,
+      },
+    });
+
+    // 4. Link HoD and Faculty to Department
+    await prisma.user.update({
+      where: { id: hodUser.id },
+      data: { departmentId: dept.id },
+    });
+
+    await prisma.user.update({
+      where: { id: facultyUser.id },
+      data: { departmentId: dept.id },
+    });
+
+    // 5. PO & PSO Configuration (Locked by default)
+    await prisma.pOConfiguration.create({
+      data: {
+        departmentId: dept.id,
+        regulationId: reg26.id,
+        poCount: 12,
+        isLocked: true,
+        lockedAt: new Date('2026-08-20T09:00:00Z'),
+      },
+    });
+
+    await prisma.pSOConfiguration.create({
+      data: {
+        departmentId: dept.id,
+        regulationId: reg26.id,
+        psoCount: 3,
+        isLocked: true,
+        lockedAt: new Date('2026-08-20T09:00:00Z'),
+      },
+    });
+
+    // 6. PO Statements (12 NBA POs)
+    for (const item of poStatementsList) {
+      await prisma.programOutcomeStatement.create({
+        data: {
+          departmentId: dept.id,
+          regulationId: reg26.id,
+          poKey: item.poKey,
+          statement: item.statement,
+        },
+      });
+    }
+
+    // 7. PSO Statements (3 tailored PSOs)
+    const psoStatements = [
+      { psoKey: 'PSO1', statement: `Professional Engineering: Analyze, design, and implement scalable technical solutions in ${d.programmeName}.` },
+      { psoKey: 'PSO2', statement: `Modern Toolchains & Analysis: Apply state-of-the-art computational methods, simulation platforms, and emerging domain technologies.` },
+      { psoKey: 'PSO3', statement: `Industrial Innovation & Research: Formulate sustainable engineering designs, ethical practices, and multidisciplinary projects.` },
+    ];
+
+    for (const item of psoStatements) {
+      await prisma.programSpecificOutcomeStatement.create({
+        data: {
+          departmentId: dept.id,
+          regulationId: reg26.id,
+          psoKey: item.psoKey,
+          statement: item.statement,
+        },
+      });
+    }
+
+    // 8. Approved Department Curriculum Bundle
+    await prisma.departmentCurriculumBundle.create({
+      data: {
+        departmentId: dept.id,
         regulationId: reg26.id,
         academicYearId: ay2026.id,
-        semester: subjData.sem,
-        vertical: (subjData as any).vertical || null,
-        subjectTypeId,
-        subjectCategoryId,
-        subjectName: subjData.name,
-        subjectCode: subjData.code,
-        lecture: subjData.l,
-        tutorial: subjData.t,
-        practical: subjData.p,
-        credits: subjData.c,
-        status: 'ASSIGNED',
-        assignedFacultyId: facultyUser.id,
-        assignedAt: new Date('2026-08-20T10:00:00Z'),
-        createdById: hodUser.id,
-        syllabusStatus: 'APPROVED',
-        finalizedAt: new Date('2026-08-25T12:00:00Z'),
-      },
-    });
-
-    const isLabOnly = subjData.type === 'Lab';
-    const isProject = subjData.type === 'Project';
-    const isLot = subjData.type === 'Lab-Oriented Theory';
-
-    const unitHours = 9;
-    const theoryContactHours = isLabOnly || isProject ? 0 : 5 * unitHours;
-    const labContactHours = isLabOnly ? subjData.p * 15 : isLot ? 30 : 0;
-    const totalContactHours = (subjData.l + subjData.t + subjData.p) * 15;
-
-    // Create approved SyllabusSubmission
-    const submission = await prisma.syllabusSubmission.create({
-      data: {
-        subjectId: subject.id,
-        facultyId: facultyUser.id,
-        version: 1,
-        unitContactHours: isLabOnly || isProject ? null : unitHours,
-        theoryContactHours,
-        labContactHours,
-        totalContactHours,
+        status: 'APPROVED',
+        submittedById: hodUser.id,
+        submittedAt: new Date('2026-08-25T10:00:00Z'),
         approvedById: dean.id,
-        approvedAt: new Date('2026-08-28T14:30:00Z'),
+        approvedAt: new Date('2026-08-29T16:00:00Z'),
       },
     });
 
-    // 5 Objectives
-    for (let i = 1; i <= 5; i++) {
-      await prisma.objective.create({
+    // 9. Seed 25 Approved Subjects with complete syllabi
+    const subjectsToCreate = buildDepartmentSubjects(d);
+
+    for (const subjData of subjectsToCreate) {
+      const subjectTypeId = subjectTypesMap[subjData.type] || subjectTypesMap['Theory'];
+      const subjectCategoryId = categoriesMap[subjData.cat] || categoriesMap['PC'];
+
+      const isLabOnly = subjData.type === 'Lab';
+      const isProject = subjData.type === 'Project';
+      const isLot = subjData.type === 'Lab-Oriented Theory';
+
+      const unitHours = 9;
+      const theoryContactHours = isLabOnly || isProject ? 0 : 5 * unitHours;
+      const labContactHours = isLabOnly ? subjData.p * 15 : isLot ? 30 : 0;
+      const totalContactHours = (subjData.l + subjData.t + subjData.p) * 15;
+
+      // Nested subject and syllabus submission creation for optimal speed
+      await prisma.subject.create({
         data: {
-          syllabusId: submission.id,
-          order: i,
-          description: `Understand and apply foundational principles and engineering methodologies of ${subjData.name} (Objective ${i}).`,
+          departmentId: dept.id,
+          regulationId: reg26.id,
+          academicYearId: ay2026.id,
+          semester: subjData.sem,
+          vertical: (subjData as any).vertical || null,
+          subjectTypeId,
+          subjectCategoryId,
+          subjectName: subjData.name,
+          subjectCode: subjData.code,
+          lecture: subjData.l,
+          tutorial: subjData.t,
+          practical: subjData.p,
+          credits: subjData.c,
+          status: 'ASSIGNED',
+          assignedFacultyId: facultyUser.id,
+          assignedAt: new Date('2026-08-20T10:00:00Z'),
+          createdById: hodUser.id,
+          syllabusStatus: 'APPROVED',
+          finalizedAt: new Date('2026-08-25T12:00:00Z'),
+          submission: {
+            create: {
+              facultyId: facultyUser.id,
+              version: 1,
+              unitContactHours: isLabOnly || isProject ? null : unitHours,
+              theoryContactHours,
+              labContactHours,
+              totalContactHours,
+              approvedById: dean.id,
+              approvedAt: new Date('2026-08-28T14:30:00Z'),
+              objectives: {
+                create: [1, 2, 3, 4, 5].map((i) => ({
+                  order: i,
+                  description: `Understand and apply foundational principles and engineering methodologies of ${subjData.name} (Objective ${i}).`,
+                })),
+              },
+              ...(!isLabOnly && !isProject
+                ? {
+                    syllabusUnits: {
+                      create: [
+                        { unitNumber: 1, unitName: 'Foundational Principles and Concepts', content: `Fundamental theories, laws, and mathematical formulation of ${subjData.name}.` },
+                        { unitNumber: 2, unitName: 'Core Modeling and Design Architectures', content: `Structural breakdown, analytical modeling, and process frameworks.` },
+                        { unitNumber: 3, unitName: 'System Implementations and Algorithms', content: `Computational tools, algorithms, and practical engineering implementations.` },
+                        { unitNumber: 4, unitName: 'Verification, Testing and Analysis', content: `Performance benchmarks, validation strategies, and case study evaluations.` },
+                        { unitNumber: 5, unitName: 'Industrial Applications and Emerging Standards', content: `State-of-the-art developments, environmental impact, and industrial solutions.` },
+                      ],
+                    },
+                  }
+                : {}),
+              ...(isLabOnly || isLot
+                ? {
+                    experiments: {
+                      create: Array.from({ length: isLabOnly ? 8 : 4 }, (_, idx) => ({
+                        experimentNumber: idx + 1,
+                        title: `Practical Experiment ${idx + 1}: Hands-on verification and testing of ${subjData.name} module ${idx + 1}.`,
+                      })),
+                    },
+                  }
+                : {}),
+              courseOutcomes: {
+                create: [
+                  { coNumber: 1, cognitiveLevel: 'K2', description: `Explain the fundamental concepts and theoretical frameworks of ${subjData.name}.` },
+                  { coNumber: 2, cognitiveLevel: 'K3', description: `Apply appropriate techniques to solve complex problems in ${subjData.name}.` },
+                  { coNumber: 3, cognitiveLevel: 'K3', description: `Analyze experimental data and design models relevant to ${subjData.name}.` },
+                  { coNumber: 4, cognitiveLevel: 'K4', description: `Formulate, optimize and evaluate engineering solutions in ${subjData.name}.` },
+                  { coNumber: 5, cognitiveLevel: 'K5', description: `Synthesize comprehensive projects complying with modern industrial standards.` },
+                ],
+              },
+              textbooks: {
+                create: [
+                  { order: 1, title: `Principles of ${subjData.name}`, authors: 'J. L. Hennessy and D. A. Patterson', edition: '5th Edition', publisher: 'Pearson Education', year: '2022' },
+                  { order: 2, title: `Modern Engineering Foundations of ${subjData.name}`, authors: 'R. S. Pressman and B. R. Maxim', edition: '8th Edition', publisher: 'McGraw-Hill', year: '2023' },
+                ],
+              },
+              references: {
+                create: [
+                  { order: 1, title: `IEEE Standards and Benchmarks for ${subjData.name}`, authors: 'IEEE Technical Taskforce', publisher: 'IEEE Press', year: '2024' },
+                  { order: 2, title: `National Academy Guidelines in ${subjData.name}`, authors: 'Engineering Education Council', publisher: 'Technical Publications', year: '2024' },
+                ],
+              },
+              coPoMappings: {
+                create: [
+                  { coNumber: 1, poKey: 'PO1', correlation: 3 },
+                  { coNumber: 2, poKey: 'PO2', correlation: 3 },
+                  { coNumber: 3, poKey: 'PO3', correlation: 3 },
+                  { coNumber: 4, poKey: 'PO5', correlation: 2 },
+                  { coNumber: 5, poKey: 'PO12', correlation: 3 },
+                ],
+              },
+              sdgMappings: {
+                create: [
+                  { coNumber: 1, sdgNumber: 4, topic: `${subjData.name} Foundational Curriculum & Quality Education` },
+                  { coNumber: 3, sdgNumber: 9, topic: `${subjData.name} Industrial Innovation & Technological Infrastructure` },
+                ],
+              },
+            },
+          },
         },
       });
     }
 
-    // Units (for Theory, LOT, Elective)
-    if (!isLabOnly && !isProject) {
-      const unitNames = [
-        'Introduction and Foundational Concepts',
-        'Architectural Core and Methodological Frameworks',
-        'Advanced Design Paradigms and Protocols',
-        'System Integration and Performance Optimization',
-        'Emerging Trends, Standards, and Industrial Applications',
-      ];
-      for (let u = 1; u <= 5; u++) {
-        await prisma.syllabusUnit.create({
-          data: {
-            syllabusId: submission.id,
-            unitNumber: u,
-            unitName: unitNames[u - 1],
-            content: `In-depth study of Unit ${u} concepts for ${subjData.name}: mathematical modeling, state-of-the-art algorithms, comparative case studies, and engineering implementations.`,
-          },
-        });
-      }
-    }
-
-    // Experiments (for Lab & LOT)
-    if (isLabOnly || isLot) {
-      const expCount = isLabOnly ? 10 : 6;
-      for (let e = 1; e <= expCount; e++) {
-        await prisma.experiment.create({
-          data: {
-            syllabusId: submission.id,
-            experimentNumber: e,
-            title: `Laboratory Experiment ${e}: Practical implementation and benchmarking of ${subjData.name} module ${e}.`,
-          },
-        });
-      }
-    }
-
-    // 5 Course Outcomes (CO1 to CO5)
-    const bloomLevels = ['K2', 'K3', 'K3', 'K4', 'K5'];
-    for (let c = 1; c <= 5; c++) {
-      await prisma.courseOutcome.create({
-        data: {
-          syllabusId: submission.id,
-          coNumber: c,
-          cognitiveLevel: bloomLevels[c - 1],
-          description: `Formulate, evaluate, and demonstrate comprehensive competency in ${subjData.name} to solve engineering challenges (CO${c}).`,
-        },
-      });
-    }
-
-    // Textbooks
-    await prisma.textbook.create({
-      data: {
-        syllabusId: submission.id,
-        order: 1,
-        title: `Core Principles and Practices of ${subjData.name}`,
-        authors: 'Thomas H. Cormen, Charles E. Leiserson',
-        edition: '4th Edition',
-        publisher: 'MIT Press / McGraw-Hill',
-        year: '2022',
-      },
-    });
-
-    await prisma.textbook.create({
-      data: {
-        syllabusId: submission.id,
-        order: 2,
-        title: `Modern Engineering Foundations of ${subjData.name}`,
-        authors: 'Andrew S. Tanenbaum, David J. Wetherall',
-        edition: '6th Edition',
-        publisher: 'Pearson Education',
-        year: '2023',
-      },
-    });
-
-    // References
-    await prisma.reference.create({
-      data: {
-        syllabusId: submission.id,
-        order: 1,
-        title: `IEEE Standard Framework and Benchmarks for ${subjData.name}`,
-        authors: 'IEEE Computer Society Technical Committee',
-        publisher: 'IEEE Press',
-        year: '2024',
-      },
-    });
-
-    await prisma.reference.create({
-      data: {
-        syllabusId: submission.id,
-        order: 2,
-        title: `ACM Computing Curricula & Advanced Practice in ${subjData.name}`,
-        authors: 'ACM Curriculum Guidelines Task Group',
-        publisher: 'ACM Digital Library',
-        year: '2024',
-      },
-    });
-
-    // CO-PO Mappings & Justifications (CO1-CO5 to PO1, PO2, PO3, PO5, PO12)
-    const poTargets = ['PO1', 'PO2', 'PO3', 'PO5', 'PO12'];
-    for (let coNum = 1; coNum <= 5; coNum++) {
-      for (const poKey of poTargets) {
-        await prisma.cOPOMapping.create({
-          data: {
-            syllabusId: submission.id,
-            coNumber: coNum,
-            poKey,
-            correlation: 3, // Strong correlation
-          },
-        });
-
-        await prisma.cOPOJustification.create({
-          data: {
-            syllabusId: submission.id,
-            coNumber: coNum,
-            poKey,
-            justification: `Substantial correlation: Rigorous analytical concepts in CO${coNum} directly reinforce ${poKey} principles through systematic design exercises.`,
-          },
-        });
-      }
-    }
-
-    // SDG Mapping (Quality Education SDG 4, Industry & Innovation SDG 9)
-    await prisma.syllabusSDGMapping.create({
-      data: {
-        syllabusId: submission.id,
-        coNumber: 1,
-        sdgNumber: 4,
-        topic: `${subjData.name} Core Principles & Quality Education Modules`,
-      },
-    });
-
-    await prisma.syllabusSDGMapping.create({
-      data: {
-        syllabusId: submission.id,
-        coNumber: 3,
-        sdgNumber: 9,
-        topic: `${subjData.name} Applied Engineering & Industry 4.0 Infrastructure`,
-      },
-    });
+    console.log(`✓ Seeded ${d.shortName} (${d.code}): HoD ${hodEmail}, Faculty ${facultyEmail}, 25 Approved Subjects.`);
   }
 
-  // 10. Seed Approved Department Curriculum Bundle for CSE
-  await prisma.departmentCurriculumBundle.create({
-    data: {
-      departmentId: cseDept.id,
-      regulationId: reg26.id,
-      academicYearId: ay2026.id,
-      status: 'APPROVED',
-      submittedById: hodUser.id,
-      submittedAt: new Date('2026-08-25T10:00:00Z'),
-      approvedById: dean.id,
-      approvedAt: new Date('2026-08-29T16:00:00Z'),
-    },
-  });
-
-  // 11. Academic Stages (4 Official Stages)
-  // Stage 1 is COMPLETED, Stage 2 is ACTIVE with startDate in the past so Step 2 Programme Planning is unlocked
+  // 10. Academic Stages (4 Official Stages)
   await prisma.academicStage.create({
     data: {
       id: 'stage-1-creation',
@@ -877,11 +730,14 @@ async function main() {
     },
   });
 
-  console.log('Successfully seeded 18 engineering departments, 26 demo subjects with approved syllabi, and 4 academic stages!');
+  console.log('\n================================================================');
+  console.log('Successfully seeded complete institutional dataset!');
+  console.log('18 Departments, 18 HoDs, 18 Faculty, 450 Approved Subjects, 4 Stages');
   console.log('MasterAdmin: 231701042@rajalakshmi.edu.in (ADM01)');
   console.log('SuperAdmin:  dean@rajalakshmi.edu.in (DEAN01)');
-  console.log('HoD Admin:   hod.cse@rajalakshmi.edu.in (CS101)');
-  console.log('Faculty:     alan.turing@rajalakshmi.edu.in (CSF01)');
+  console.log('HoD Sample:  hod.cse@rajalakshmi.edu.in (CS101)');
+  console.log('Faculty:     faculty.cse@rajalakshmi.edu.in (CSF01)');
+  console.log('================================================================\n');
 }
 
 main()
