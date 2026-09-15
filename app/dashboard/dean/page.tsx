@@ -73,6 +73,15 @@ export default function DeanDashboard() {
   // Hover state for Overall Completion Status Split-up
   const [showCompletionHover, setShowCompletionHover] = useState(false);
 
+  // Step 2: Programme Planning Progress State
+  const [progPlanningData, setProgPlanningData] = useState<any>(null);
+  const [inspectingPlanDept, setInspectingPlanDept] = useState<any>(null);
+  const [showProgReturnModal, setShowProgReturnModal] = useState<boolean>(false);
+  const [progReturnReason, setProgReturnReason] = useState<string>('');
+  const [targetReturnDeptId, setTargetReturnDeptId] = useState<string>('');
+  const [submittingReview, setSubmittingReview] = useState<boolean>(false);
+  const [activePlanSemester, setActivePlanSemester] = useState<number>(1);
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -80,11 +89,12 @@ export default function DeanDashboard() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [resOverview, resStages, resExt, resBundles] = await Promise.all([
+      const [resOverview, resStages, resExt, resBundles, resProg] = await Promise.all([
         fetch('/api/dean/overview'),
         fetch('/api/dean/stage'),
         fetch('/api/dean/extensions'),
         fetch('/api/dean/bundle-review'),
+        fetch('/api/dean/programme-planning'),
       ]);
 
       if (resOverview.ok) {
@@ -103,10 +113,79 @@ export default function DeanDashboard() {
         const data = await resBundles.json();
         setBundles(data.bundles || []);
       }
+      if (resProg.ok) {
+        const pData = await resProg.json();
+        setProgPlanningData(pData);
+      }
     } catch (err: any) {
       setError('Failed to load Dean dashboard metrics.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleApproveProgPlan = async (departmentId: string) => {
+    if (!confirm('Are you sure you want to approve this Department Programme Curriculum Book?')) return;
+    setSubmittingReview(true);
+    try {
+      const res = await fetch('/api/dean/programme-planning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'APPROVE', departmentId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to approve programme book.');
+        return;
+      }
+      alert('✓ Programme Curriculum Book approved successfully!');
+      fetchData();
+      if (inspectingPlanDept?.department?.id === departmentId) {
+        setInspectingPlanDept(null);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Error approving programme curriculum book.');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const handleReturnProgPlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!progReturnReason.trim()) {
+      alert('Please enter revision remarks.');
+      return;
+    }
+    setSubmittingReview(true);
+    try {
+      const res = await fetch('/api/dean/programme-planning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'RETURN',
+          departmentId: targetReturnDeptId,
+          correctionReason: progReturnReason,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to return programme book.');
+        return;
+      }
+      alert('Programme Curriculum Book returned for correction with feedback.');
+      setShowProgReturnModal(false);
+      setProgReturnReason('');
+      setTargetReturnDeptId('');
+      fetchData();
+      if (inspectingPlanDept?.department?.id === targetReturnDeptId) {
+        setInspectingPlanDept(null);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Error returning programme curriculum book.');
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -530,32 +609,400 @@ export default function DeanDashboard() {
               </div>
             )}
 
-            {/* TAB 3: DEPARTMENTS & PROGRAMMES DEDICATED PAGE */}
-            {activeTab === 'departments' && (
-              <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900">Departments & Academic Programmes Directory</h3>
-                  <p className="text-xs text-desc">Select a department to view its complete subject list and semester details.</p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {overview?.deptSummaries?.map((d: any) => (
-                    <div key={d.id} className="p-5 border border-purple-100 rounded-2xl bg-purple-50/20 space-y-3 flex items-center justify-between">
-                      <div>
-                        <span className="text-[10px] font-bold text-brand-700 uppercase bg-purple-100 px-2 py-0.5 rounded">
-                          {d.programmeType} | Code: {d.departmentCode}
-                        </span>
-                        <h4 className="text-sm font-bold text-slate-900 mt-1">{d.programmeName}</h4>
-                        <p className="text-xs text-desc mt-0.5">HoD: {d.hodName} | {d.totalSubjects} Subjects</p>
-                      </div>
-                      <button
-                        onClick={() => setSelectedDeptSummary(d)}
-                        className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs"
-                      >
-                        Inspect Department →
-                      </button>
+            {/* TAB 3: PROGRAMME PLANNING PROGRESS DEDICATED PAGE (STEP 2) */}
+            {activeTab === 'programme_planning_progress' && (
+              <div className="space-y-6">
+                <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b pb-4">
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900 flex items-center">
+                        <Layers className="w-4 h-4 mr-2 text-brand-600" />
+                        Step 2: Programme Planning Progress & Governance Review
+                      </h3>
+                      <p className="text-xs text-desc mt-0.5">
+                        Monitor 8-semester curriculum planning, verify MasterAdmin academic governance constraints, and review submitted Programme Curriculum Books.
+                      </p>
                     </div>
-                  ))}
+                    <div className="flex items-center space-x-2">
+                      <span className={`px-3 py-1 rounded-full text-xs font-extrabold ${
+                        progPlanningData?.isStep2Unlocked
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}>
+                        {progPlanningData?.isStep2Unlocked ? '● Step 2 Active (Unlocked)' : '🔒 Step 2 Locked'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Summary Metric Counters */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 text-center">
+                      <span className="text-[10px] font-bold uppercase text-slate-500 block">Total Programmes</span>
+                      <span className="text-xl font-black text-brand-700">{progPlanningData?.departmentPlans?.length || 0}</span>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-100 text-center">
+                      <span className="text-[10px] font-bold uppercase text-slate-500 block">Awaiting Approval</span>
+                      <span className="text-xl font-black text-blue-700">
+                        {progPlanningData?.departmentPlans?.filter((p: any) => p.submission?.status === 'SUBMITTED').length || 0}
+                      </span>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 text-center">
+                      <span className="text-[10px] font-bold uppercase text-slate-500 block">Approved Books</span>
+                      <span className="text-xl font-black text-emerald-700">
+                        {progPlanningData?.departmentPlans?.filter((p: any) => p.submission?.status === 'APPROVED').length || 0}
+                      </span>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-rose-50/50 border border-rose-100 text-center">
+                      <span className="text-[10px] font-bold uppercase text-slate-500 block">Revisions Requested</span>
+                      <span className="text-xl font-black text-rose-700">
+                        {progPlanningData?.departmentPlans?.filter((p: any) => p.submission?.status === 'RETURNED_FOR_CORRECTION').length || 0}
+                      </span>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Department Programme Planning Cards */}
+                <div className="grid grid-cols-1 gap-4">
+                  {progPlanningData?.departmentPlans?.map((plan: any) => {
+                    const status = plan.submission?.status || 'DRAFT';
+                    const isSubmitted = status === 'SUBMITTED';
+                    const isApproved = status === 'APPROVED';
+                    const isReturned = status === 'RETURNED_FOR_CORRECTION';
+
+                    return (
+                      <div
+                        key={plan.department.id}
+                        className={`p-6 rounded-3xl border transition-all ${
+                          isSubmitted
+                            ? 'bg-amber-50/20 border-amber-300 shadow-sm'
+                            : isApproved
+                            ? 'bg-emerald-50/20 border-emerald-200'
+                            : 'bg-white border-purple-100 shadow-sm'
+                        } space-y-4`}
+                      >
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b pb-3">
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-[10px] font-extrabold uppercase bg-purple-100 text-brand-700 px-2.5 py-0.5 rounded-full">
+                                {plan.department.programmeType} | Code: {plan.department.departmentCode}
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-500">
+                                {plan.department.semesters || 8} Semesters
+                              </span>
+                            </div>
+                            <h4 className="text-base font-extrabold text-slate-900 mt-1">
+                              {plan.department.programmeName}
+                            </h4>
+                            <p className="text-xs text-desc">HoD: {plan.department.hod?.name || 'Unassigned'}</p>
+                          </div>
+
+                          <div className="flex items-center space-x-3">
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-extrabold tracking-wide uppercase ${
+                                isApproved
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : isSubmitted
+                                  ? 'bg-amber-100 text-amber-800 animate-pulse'
+                                  : isReturned
+                                  ? 'bg-rose-100 text-rose-800'
+                                  : 'bg-slate-100 text-slate-700'
+                              }`}
+                            >
+                              {isApproved
+                                ? '✓ Approved'
+                                : isSubmitted
+                                ? '● Awaiting Dean Approval'
+                                : isReturned
+                                ? '↺ Needs Revision'
+                                : 'Draft Planning'}
+                            </span>
+
+                            <button
+                              onClick={() => {
+                                setInspectingPlanDept(plan);
+                                setActivePlanSemester(1);
+                              }}
+                              className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center space-x-1"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Inspect Programme Book →</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Metrics Bar */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                          <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                            <span className="text-[10px] font-bold text-slate-500 block">Total Planned Credits</span>
+                            <span className="text-sm font-black text-slate-900">
+                              {plan.totalCredits} C{' '}
+                              <span className="text-[10px] text-slate-500 font-normal">
+                                (Target: {progPlanningData?.creditConfig?.minTotalCredits}–{progPlanningData?.creditConfig?.maxTotalCredits} C)
+                              </span>
+                            </span>
+                          </div>
+                          <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                            <span className="text-[10px] font-bold text-slate-500 block">Planned Subjects</span>
+                            <span className="text-sm font-black text-slate-900">{plan.plannedSubjectsCount} Courses</span>
+                          </div>
+                          <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                            <span className="text-[10px] font-bold text-slate-500 block">Total Laboratories</span>
+                            <span className="text-sm font-black text-slate-900">
+                              {plan.totalLabs} / {progPlanningData?.creditConfig?.maxLabTotal} Max
+                            </span>
+                          </div>
+                          <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                            <span className="text-[10px] font-bold text-slate-500 block">Governance Rules Status</span>
+                            <span
+                              className={`text-xs font-bold ${
+                                plan.isValid ? 'text-emerald-700' : 'text-amber-700'
+                              }`}
+                            >
+                              {plan.isValid ? '✅ Satisfied' : '⚠️ Incomplete / Violations'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Quick Approve / Return Buttons for Submitted Books */}
+                        {isSubmitted && (
+                          <div className="pt-2 flex items-center justify-end space-x-2 border-t border-amber-200">
+                            <button
+                              disabled={submittingReview}
+                              onClick={() => {
+                                setTargetReturnDeptId(plan.department.id);
+                                setProgReturnReason('');
+                                setShowProgReturnModal(true);
+                              }}
+                              className="px-4 py-2 border border-rose-300 text-rose-700 hover:bg-rose-50 font-bold text-xs rounded-xl transition-all flex items-center space-x-1"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span>Return for Correction</span>
+                            </button>
+                            <button
+                              disabled={submittingReview}
+                              onClick={() => handleApproveProgPlan(plan.department.id)}
+                              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center space-x-1"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Approve Programme Book</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {(!progPlanningData?.departmentPlans || progPlanningData?.departmentPlans.length === 0) && (
+                    <div className="p-12 text-center bg-slate-50 rounded-3xl border border-dashed text-desc text-xs">
+                      No departments found.
+                    </div>
+                  )}
+                </div>
+
+                {/* MODAL: INSPECT DEPARTMENT PROGRAMME CURRICULUM BOOK */}
+                {inspectingPlanDept && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+                    <div className="bg-white rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-6 border border-purple-100">
+                      <div className="flex items-center justify-between border-b pb-4">
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-[10px] font-extrabold uppercase bg-purple-100 text-brand-700 px-2 py-0.5 rounded">
+                              {inspectingPlanDept.department.programmeType} | Code: {inspectingPlanDept.department.departmentCode}
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-500">
+                              {inspectingPlanDept.department.semesters || 8} Semesters
+                            </span>
+                          </div>
+                          <h3 className="text-lg font-extrabold text-slate-900 mt-1">
+                            {inspectingPlanDept.department.programmeName} — Programme Curriculum Book
+                          </h3>
+                        </div>
+                        <button
+                          onClick={() => setInspectingPlanDept(null)}
+                          className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+
+                      {/* Semester Tabs */}
+                      <div className="flex items-center space-x-2 border-b pb-3 overflow-x-auto">
+                        {Array.from({ length: inspectingPlanDept.department.semesters || 8 }, (_, i) => i + 1).map((sem) => (
+                          <button
+                            key={sem}
+                            onClick={() => setActivePlanSemester(sem)}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                              activePlanSemester === sem
+                                ? 'bg-brand-600 text-white shadow-xs'
+                                : 'text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            Semester {sem} ({inspectingPlanDept.semCreditsMap[sem] || 0} C)
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Semester Subjects Table */}
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-bold text-slate-800">
+                            Semester {activePlanSemester} Courses ({inspectingPlanDept.semCreditsMap[activePlanSemester] || 0} Credits)
+                          </h4>
+                          <span className="text-xs text-desc">
+                            Labs in Sem {activePlanSemester}: {inspectingPlanDept.semLabsMap[activePlanSemester] || 0}
+                          </span>
+                        </div>
+
+                        {(() => {
+                          const semItems = inspectingPlanDept.plannedItems.filter(
+                            (p: any) => p.semester === activePlanSemester
+                          );
+
+                          if (semItems.length === 0) {
+                            return (
+                              <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed text-desc text-xs">
+                                No subjects planned in Semester {activePlanSemester} yet.
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="overflow-x-auto">
+                              <table className="w-full text-xs text-left">
+                                <thead className="bg-purple-50 text-slate-700 font-semibold">
+                                  <tr>
+                                    <th className="p-3">Course Code</th>
+                                    <th className="p-3">Course Title</th>
+                                    <th className="p-3">Offered By</th>
+                                    <th className="p-3 text-center">Type</th>
+                                    <th className="p-3 text-center">Category</th>
+                                    <th className="p-3 text-center">L - T - P</th>
+                                    <th className="p-3 text-center">Credits</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                  {semItems.map((item: any) => (
+                                    <tr key={item.id} className="hover:bg-slate-50">
+                                      <td className="p-3 font-mono font-bold text-brand-700">{item.subject.subjectCode}</td>
+                                      <td className="p-3 font-bold text-slate-900">{item.subject.subjectName}</td>
+                                      <td className="p-3 text-slate-600">{item.subject.department?.shortName || 'Dept'}</td>
+                                      <td className="p-3 text-center">
+                                        <span className="px-2 py-0.5 bg-slate-100 rounded text-[10px] font-semibold text-slate-700">
+                                          {item.subject.subjectType?.name}
+                                        </span>
+                                      </td>
+                                      <td className="p-3 text-center">
+                                        <span className="px-2 py-0.5 bg-purple-100 rounded text-[10px] font-bold text-brand-700">
+                                          {item.subject.subjectCategory?.code}
+                                        </span>
+                                      </td>
+                                      <td className="p-3 text-center text-slate-700">
+                                        {item.subject.lecture} - {item.subject.tutorial} - {item.subject.practical}
+                                      </td>
+                                      <td className="p-3 text-center font-bold text-slate-900">{item.subject.credits} C</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Review Actions inside Modal */}
+                      <div className="border-t pt-4 flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-700">
+                          Total Programme Credits: <strong className="text-brand-700">{inspectingPlanDept.totalCredits} C</strong>
+                        </span>
+
+                        <div className="flex items-center space-x-2">
+                          {inspectingPlanDept.submission?.status === 'SUBMITTED' && (
+                            <>
+                              <button
+                                disabled={submittingReview}
+                                onClick={() => {
+                                  setTargetReturnDeptId(inspectingPlanDept.department.id);
+                                  setProgReturnReason('');
+                                  setShowProgReturnModal(true);
+                                }}
+                                className="px-4 py-2 border border-rose-300 text-rose-700 hover:bg-rose-50 font-bold text-xs rounded-xl transition-all"
+                              >
+                                Return for Revision
+                              </button>
+                              <button
+                                disabled={submittingReview}
+                                onClick={() => handleApproveProgPlan(inspectingPlanDept.department.id)}
+                                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center space-x-1"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Approve Programme Book</span>
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => setInspectingPlanDept(null)}
+                            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl"
+                          >
+                            Close
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* MODAL: RETURN PROGRAMME BOOK FOR REVISION */}
+                {showProgReturnModal && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+                    <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-rose-200">
+                      <div className="flex items-center justify-between border-b pb-3">
+                        <h3 className="text-sm font-bold text-rose-900 flex items-center">
+                          <RotateCcw className="w-4 h-4 mr-1.5 text-rose-600" />
+                          Return Programme Curriculum Book for Revision
+                        </h3>
+                        <button
+                          onClick={() => setShowProgReturnModal(false)}
+                          className="text-slate-400 hover:text-slate-600"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <form onSubmit={handleReturnProgPlan} className="space-y-4">
+                        <div>
+                          <label className="text-xs font-bold text-slate-700 block mb-1">
+                            Revision Remarks & Required Adjustments:
+                          </label>
+                          <textarea
+                            required
+                            rows={4}
+                            value={progReturnReason}
+                            onChange={(e) => setProgReturnReason(e.target.value)}
+                            placeholder="Specify credit violations, prerequisite changes, or semester restructuring required..."
+                            className="w-full text-xs p-3 border rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-hidden"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-end space-x-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowProgReturnModal(false)}
+                            className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={submittingReview}
+                            className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-xs"
+                          >
+                            Send Revision Remarks
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

@@ -104,6 +104,17 @@ export default function HoDDashboard() {
   // Subject Quick Details Modal State
   const [selectedDetailsSubject, setSelectedDetailsSubject] = useState<any>(null);
 
+  // Step 2: Programme Planning State
+  const [progPlanData, setProgPlanData] = useState<any>(null);
+  const [loadingProgPlan, setLoadingProgPlan] = useState<boolean>(false);
+  const [activeProgSemester, setActiveProgSemester] = useState<number>(1);
+  const [showAddSubjectModal, setShowAddSubjectModal] = useState<boolean>(false);
+  const [selectedModalDeptId, setSelectedModalDeptId] = useState<string>('');
+  const [approvedSubjectsData, setApprovedSubjectsData] = useState<any>(null);
+  const [loadingApprovedSubjects, setLoadingApprovedSubjects] = useState<boolean>(false);
+  const [submittingAddSubject, setSubmittingAddSubject] = useState<boolean>(false);
+  const [submittingProgCurriculum, setSubmittingProgCurriculum] = useState<boolean>(false);
+
   // Live 1-second countdown ticker for active stage deadline
   const [now, setNow] = useState(Date.now());
 
@@ -256,6 +267,127 @@ export default function HoDDashboard() {
       setError('Failed to load department curriculum data.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'planning' || activeTab === 'programme_book') {
+      fetchProgPlan();
+    }
+  }, [activeTab]);
+
+  const fetchProgPlan = async () => {
+    setLoadingProgPlan(true);
+    try {
+      const res = await fetch('/api/hod/programme-planning');
+      if (res.ok) {
+        const data = await res.json();
+        setProgPlanData(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingProgPlan(false);
+    }
+  };
+
+  const fetchApprovedSubjects = async (deptId?: string) => {
+    setLoadingApprovedSubjects(true);
+    try {
+      const url = deptId
+        ? `/api/hod/programme-planning/approved-subjects?departmentId=${deptId}`
+        : '/api/hod/programme-planning/approved-subjects';
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setApprovedSubjectsData(data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingApprovedSubjects(false);
+    }
+  };
+
+  const handleAddSubjectToSemester = async (subjectId: string) => {
+    setSubmittingAddSubject(true);
+    try {
+      const res = await fetch('/api/hod/programme-planning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'ADD_SUBJECT',
+          semester: activeProgSemester,
+          subjectId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to add subject.');
+        return;
+      }
+      await fetchProgPlan();
+      setShowAddSubjectModal(false);
+    } catch (e) {
+      console.error(e);
+      alert('Error adding subject.');
+    } finally {
+      setSubmittingAddSubject(false);
+    }
+  };
+
+  const handleRemoveSubjectFromPlan = async (id: string) => {
+    if (!confirm('Are you sure you want to remove this subject from the programme plan?')) return;
+    try {
+      const res = await fetch('/api/hod/programme-planning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'REMOVE_SUBJECT',
+          id,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to remove subject.');
+        return;
+      }
+      await fetchProgPlan();
+    } catch (e) {
+      console.error(e);
+      alert('Error removing subject.');
+    }
+  };
+
+  const handleSubmitProgrammeCurriculum = async () => {
+    if (!progPlanData?.constraints?.isValidProgramme) {
+      alert('Cannot submit: Not all MasterAdmin academic governance constraints are satisfied.');
+      return;
+    }
+    if (!confirm('Are you sure you want to submit the complete Programme Curriculum Book to the Dean for approval?')) {
+      return;
+    }
+    setSubmittingProgCurriculum(true);
+    try {
+      const res = await fetch('/api/hod/programme-planning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'SUBMIT_CURRICULUM',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to submit programme curriculum.');
+        return;
+      }
+      alert('✓ Programme Curriculum Book successfully submitted to Dean!');
+      await fetchProgPlan();
+    } catch (e) {
+      console.error(e);
+      alert('Error submitting programme curriculum.');
+    } finally {
+      setSubmittingProgCurriculum(false);
     }
   };
 
@@ -1258,70 +1390,574 @@ export default function HoDDashboard() {
           </div>
         )}
 
-        {/* TAB: DEPARTMENT CURRICULUM BOOK DEDICATED PAGE */}
-        {activeTab === 'department_book' && (
-          <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
-              <div>
-                <span className="text-[10px] font-black uppercase text-brand-700 bg-purple-100 px-2.5 py-1 rounded-md">
-                  Merged Official Document
-                </span>
-                <h2 className="text-xl font-black text-slate-900 tracking-tight mt-1">
-                  Department Curriculum & Syllabus Book
-                </h2>
-                <p className="text-xs text-desc mt-0.5">
-                  Consolidated PDF compilation of POs, PSOs, Scheme of Instruction table, and all approved subject syllabi for {department?.programmeName}.
+        {/* ========================================================================= */}
+        {/* STEP 2: PROGRAMME PLANNING SECTION (PAGE 1: PLANNING)                      */}
+        {/* ========================================================================= */}
+        {activeTab === 'planning' && (
+          <div className="space-y-6">
+            {/* 1. Locked State Check */}
+            {progPlanData && !progPlanData.isStep2Unlocked ? (
+              <div className="bg-white rounded-3xl border border-purple-100 p-10 text-center shadow-sm space-y-4">
+                <div className="w-16 h-16 bg-purple-100 text-brand-600 rounded-full flex items-center justify-center mx-auto shadow-xs">
+                  <Lock className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">
+                  Programme Planning (Step 2) is Locked
+                </h3>
+                <p className="text-xs text-desc max-w-md mx-auto leading-relaxed">
+                  Programme Planning unlocks automatically once <strong>Step 1 (Curriculum & Syllabus Creation)</strong> is completed and the scheduled start time for <strong>Step 2 (Curriculum & Syllabus Formation)</strong> is reached.
+                </p>
+                <div className="inline-flex flex-wrap items-center justify-center gap-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200 mt-2">
+                  <span>
+                    Step 1 Status:{' '}
+                    <strong className={progPlanData?.isStage1Completed ? 'text-emerald-700' : 'text-amber-700'}>
+                      {progPlanData?.stage1?.status || 'IN_PROGRESS'}
+                    </strong>
+                  </span>
+                  <span className="text-slate-300">•</span>
+                  <span>
+                    Step 2 Start Date:{' '}
+                    <strong className={progPlanData?.isStage2TimeStarted ? 'text-emerald-700' : 'text-amber-700'}>
+                      {progPlanData?.stage2?.startDate ? formatIST(progPlanData.stage2.startDate) : 'To be set by Dean'}
+                    </strong>
+                  </span>
+                </div>
+              </div>
+            ) : (
+              /* 2. Unlocked Programme Planning Workspace */
+              <div className="space-y-6">
+                {/* Header */}
+                <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b pb-4">
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-brand-700 bg-purple-100 px-2.5 py-1 rounded-md">
+                        Step 2: Programme Planning
+                      </span>
+                      <h2 className="text-xl font-black text-slate-900 tracking-tight mt-1">
+                        {department?.programmeName} — 8-Semester Programme Planning
+                      </h2>
+                      <p className="text-xs text-desc mt-0.5">
+                        Plan subjects semester-by-semester by selecting Dean-approved courses across all departments and satisfying MasterAdmin academic governance constraints.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className={`px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wide ${
+                          progPlanData?.submission?.status === 'APPROVED'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : progPlanData?.submission?.status === 'SUBMITTED'
+                            ? 'bg-amber-100 text-amber-800 animate-pulse'
+                            : progPlanData?.submission?.status === 'RETURNED_FOR_CORRECTION'
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        {progPlanData?.submission?.status === 'APPROVED'
+                          ? '✓ Dean Approved'
+                          : progPlanData?.submission?.status === 'SUBMITTED'
+                          ? '● Submitted to Dean'
+                          : progPlanData?.submission?.status === 'RETURNED_FOR_CORRECTION'
+                          ? '↺ Returned for Correction'
+                          : 'Planning in Progress'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* AUTOMATED REAL-TIME CONSTRAINT VALIDATION ENGINE DASHBOARD */}
+                  {progPlanData?.constraints && (
+                    <div className="p-5 border rounded-2xl bg-purple-50/30 border-purple-200/80 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center space-x-2">
+                          <Sparkles className="w-5 h-5 text-brand-600" />
+                          <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wide">
+                            Automated MasterAdmin Governance Constraint Engine
+                          </h3>
+                        </div>
+                        <span className="text-xs font-bold text-slate-700">
+                          Total Programme Credits:{' '}
+                          <strong className="text-brand-700 text-sm">
+                            {progPlanData.constraints.totalCredits} C
+                          </strong>{' '}
+                          <span className="text-[11px] font-normal text-slate-500">
+                            (Target: {progPlanData.creditConfig?.minTotalCredits}–{progPlanData.creditConfig?.maxTotalCredits} C)
+                          </span>
+                        </span>
+                      </div>
+
+                      {/* Health Banner */}
+                      {progPlanData.constraints.isValidProgramme ? (
+                        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-bold flex items-center">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 mr-2 shrink-0" />
+                          <span>
+                            ✅ <strong>Valid Programme Curriculum:</strong> All credit limits, semester distribution caps, and category percentage compositions satisfy MasterAdmin rules!
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-900 space-y-1">
+                          <span className="font-bold text-amber-900 flex items-center">
+                            <AlertCircle className="w-4 h-4 text-amber-600 mr-1.5 shrink-0" />
+                            ⚠️ {progPlanData.constraints.violations.length} Governance Constraint(s) to Resolve:
+                          </span>
+                          <ul className="list-disc list-inside text-[11px] pl-4 space-y-0.5 text-amber-800">
+                            {progPlanData.constraints.violations.map((v: string, idx: number) => (
+                              <li key={idx}>{v}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* 1. Semester Credit Distribution Pills */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                          <span>
+                            1. Semester Credit Distribution (Allowed: {progPlanData.creditConfig?.minSemCredits} –{' '}
+                            {progPlanData.creditConfig?.maxSemCredits} Credits/Sem)
+                          </span>
+                          <span className="text-[11px] text-desc font-normal">
+                            Max Labs/Sem: {progPlanData.creditConfig?.maxLabPerSem}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2">
+                          {Array.from({ length: department?.semesters || 8 }, (_, i) => i + 1).map((sem) => {
+                            const semCred = progPlanData.constraints.semCreditsMap[sem] || 0;
+                            const semLabs = progPlanData.constraints.semLabsMap[sem] || 0;
+                            const isValidSem =
+                              semCred === 0 ||
+                              (semCred >= progPlanData.creditConfig?.minSemCredits &&
+                                semCred <= progPlanData.creditConfig?.maxSemCredits &&
+                                semLabs <= progPlanData.creditConfig?.maxLabPerSem);
+
+                            return (
+                              <div
+                                key={sem}
+                                onClick={() => setActiveProgSemester(sem)}
+                                className={`p-2.5 rounded-xl border text-center space-y-0.5 cursor-pointer transition-all ${
+                                  activeProgSemester === sem
+                                    ? 'ring-2 ring-brand-600 shadow-xs'
+                                    : ''
+                                } ${
+                                  isValidSem
+                                    ? 'bg-white border-purple-200 text-slate-900 hover:bg-purple-50/50'
+                                    : 'bg-rose-50 border-rose-300 text-rose-900'
+                                }`}
+                              >
+                                <span className="text-[10px] font-bold text-slate-500 uppercase block">Sem {sem}</span>
+                                <span className="text-xs font-black block">{semCred} C</span>
+                                <span className="text-[10px] font-semibold text-slate-500 block">{semLabs} Labs</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* 2. Subject Category Credit Composition % Breakdown */}
+                      <div className="space-y-2 pt-2 border-t border-purple-100">
+                        <span className="text-xs font-bold text-slate-800 block">
+                          2. Subject Category Credit Composition Breakdown (% Targets) — Total Labs:{' '}
+                          <strong>
+                            {progPlanData.constraints.totalLabsCount} / {progPlanData.creditConfig?.maxLabTotal}
+                          </strong>
+                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+                          {[
+                            { code: 'PC', label: 'Prof. Core' },
+                            { code: 'PE', label: 'Prof. Elective' },
+                            { code: 'OE', label: 'Open Elective' },
+                            { code: 'HS', label: 'Humanities' },
+                            { code: 'BS', label: 'Basic Sciences' },
+                            { code: 'ES', label: 'Engg Sciences' },
+                            { code: 'EEC', label: 'Employability' },
+                          ].map((cat) => {
+                            const data = progPlanData.constraints.categoryBreakdown?.[cat.code] || {
+                              credits: 0,
+                              targetPct: 0,
+                              expectedCredits: 0,
+                              isValid: true,
+                            };
+
+                            return (
+                              <div
+                                key={cat.code}
+                                className={`p-2.5 rounded-xl border space-y-1 text-center ${
+                                  data.isValid
+                                    ? 'bg-white border-purple-200'
+                                    : 'bg-rose-50 border-rose-300 text-rose-900'
+                                }`}
+                              >
+                                <span className="text-[10px] font-bold text-slate-600 block uppercase">{cat.code}</span>
+                                <span className="text-xs font-black block">{data.credits} C</span>
+                                <span
+                                  className={`text-[10px] font-bold block ${
+                                    data.isValid ? 'text-brand-700' : 'text-rose-700'
+                                  }`}
+                                >
+                                  {data.targetPct}% (Req: {data.expectedCredits} C)
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Semester Subjects Workspace */}
+                <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
+                    <div>
+                      <h3 className="text-base font-extrabold text-slate-900">
+                        Semester {activeProgSemester} Course Structure
+                      </h3>
+                      <p className="text-xs text-desc">
+                        Current credits in Semester {activeProgSemester}:{' '}
+                        <strong>{progPlanData?.constraints?.semCreditsMap?.[activeProgSemester] || 0} C</strong> |{' '}
+                        Labs: <strong>{progPlanData?.constraints?.semLabsMap?.[activeProgSemester] || 0}</strong>
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setSelectedModalDeptId('');
+                        setShowAddSubjectModal(true);
+                        fetchApprovedSubjects();
+                      }}
+                      className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center space-x-1.5 transition-all"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Add Subject to Semester {activeProgSemester}</span>
+                    </button>
+                  </div>
+
+                  {/* Planned Subjects Table for Active Semester */}
+                  {(() => {
+                    const semItems =
+                      progPlanData?.plannedItems?.filter((p: any) => p.semester === activeProgSemester) || [];
+
+                    if (semItems.length === 0) {
+                      return (
+                        <div className="p-10 text-center bg-slate-50 rounded-2xl border border-dashed text-desc text-xs space-y-2">
+                          <p>No subjects added to Semester {activeProgSemester} yet.</p>
+                          <button
+                            onClick={() => {
+                              setSelectedModalDeptId('');
+                              setShowAddSubjectModal(true);
+                              fetchApprovedSubjects();
+                            }}
+                            className="px-4 py-2 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-xs"
+                          >
+                            + Add First Subject
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead className="bg-purple-50 text-slate-700 font-semibold">
+                            <tr>
+                              <th className="p-3">Course Code</th>
+                              <th className="p-3">Course Title</th>
+                              <th className="p-3">Offered By</th>
+                              <th className="p-3 text-center">Type</th>
+                              <th className="p-3 text-center">Category</th>
+                              <th className="p-3 text-center">L - T - P</th>
+                              <th className="p-3 text-center">Credits</th>
+                              <th className="p-3 text-right">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {semItems.map((item: any) => (
+                              <tr key={item.id} className="hover:bg-slate-50">
+                                <td className="p-3 font-mono font-bold text-brand-700">{item.subject?.subjectCode}</td>
+                                <td className="p-3 font-bold text-slate-900">{item.subject?.subjectName}</td>
+                                <td className="p-3 text-slate-600">{item.subject?.department?.shortName || 'Dept'}</td>
+                                <td className="p-3 text-center">
+                                  <span className="px-2 py-0.5 bg-slate-100 rounded text-[10px] font-semibold text-slate-700">
+                                    {item.subject?.subjectType?.name}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-center">
+                                  <span className="px-2 py-0.5 bg-purple-100 rounded text-[10px] font-bold text-brand-700">
+                                    {item.subject?.subjectCategory?.code}
+                                  </span>
+                                </td>
+                                <td className="p-3 text-center text-slate-700">
+                                  {item.subject?.lecture} - {item.subject?.tutorial} - {item.subject?.practical}
+                                </td>
+                                <td className="p-3 text-center font-bold text-slate-900">{item.subject?.credits} C</td>
+                                <td className="p-3 text-right">
+                                  <button
+                                    onClick={() => handleRemoveSubjectFromPlan(item.id)}
+                                    className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-all"
+                                    title="Remove from semester"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* STEP 2: PROGRAMME PLANNING SECTION (PAGE 2: PROGRAMME CURRICULUM BOOK)    */}
+        {/* ========================================================================= */}
+        {activeTab === 'programme_book' && (
+          <div className="space-y-6">
+            {progPlanData && !progPlanData.isStep2Unlocked ? (
+              <div className="bg-white rounded-3xl border border-purple-100 p-10 text-center shadow-sm space-y-4">
+                <div className="w-16 h-16 bg-purple-100 text-brand-600 rounded-full flex items-center justify-center mx-auto shadow-xs">
+                  <Lock className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">
+                  Programme Curriculum Book is Locked
+                </h3>
+                <p className="text-xs text-desc max-w-md mx-auto leading-relaxed">
+                  Programme Planning unlocks automatically once Step 1 is completed and Step 2 starts.
                 </p>
               </div>
+            ) : (
+              <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-brand-700 bg-purple-100 px-2.5 py-1 rounded-md">
+                      Step 2 Consolidated Document
+                    </span>
+                    <h2 className="text-xl font-black text-slate-900 tracking-tight mt-1">
+                      Programme Curriculum & Syllabus Book
+                    </h2>
+                    <p className="text-xs text-desc mt-0.5">
+                      Merged compilation of Vision, Mission, POs, PSOs, 8-Semester Scheme of Instruction, and all approved course syllabi for {department?.programmeName}.
+                    </p>
+                  </div>
 
-              <div className="flex items-center space-x-3">
-                {bundle?.status === 'APPROVED' ? (
-                  <span className="px-5 py-2 bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold text-xs rounded-xl flex items-center">
-                    <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-600" /> Dean Approved
-                  </span>
-                ) : bundle?.status === 'SUBMITTED' ? (
-                  <span className="px-5 py-2 bg-amber-100 border border-amber-300 text-amber-900 font-bold text-xs rounded-xl flex items-center">
-                    <Clock className="w-4 h-4 mr-1.5 text-amber-600" /> Submitted to Dean
-                  </span>
-                ) : (
-                  <button
-                    onClick={handleSubmitBundleToDean}
-                    disabled={!canSubmitBundle || submittingBundle}
-                    className={`px-5 py-2 font-bold text-xs rounded-xl shadow-md transition-all flex items-center space-x-1.5 ${
-                      canSubmitBundle && !submittingBundle
-                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
-                        : 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                    }`}
-                  >
-                    <Send className="w-4 h-4" />
-                    <span>{submittingBundle ? 'Submitting...' : 'Submit Bundle to Academic Dean'}</span>
-                  </button>
+                  <div className="flex items-center space-x-3">
+                    {progPlanData?.submission?.status === 'APPROVED' ? (
+                      <span className="px-5 py-2 bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold text-xs rounded-xl flex items-center">
+                        <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-600" /> Dean Approved
+                      </span>
+                    ) : progPlanData?.submission?.status === 'SUBMITTED' ? (
+                      <span className="px-5 py-2 bg-amber-100 border border-amber-300 text-amber-900 font-bold text-xs rounded-xl flex items-center">
+                        <Clock className="w-4 h-4 mr-1.5 text-amber-600" /> Submitted to Dean
+                      </span>
+                    ) : (
+                      <button
+                        onClick={handleSubmitProgrammeCurriculum}
+                        disabled={!progPlanData?.constraints?.isValidProgramme || submittingProgCurriculum}
+                        className={`px-5 py-2 font-bold text-xs rounded-xl shadow-md transition-all flex items-center space-x-1.5 ${
+                          progPlanData?.constraints?.isValidProgramme && !submittingProgCurriculum
+                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
+                            : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                        }`}
+                      >
+                        <Send className="w-4 h-4" />
+                        <span>{submittingProgCurriculum ? 'Submitting...' : 'Submit Programme Book to Dean'}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {progPlanData?.submission?.status === 'RETURNED_FOR_CORRECTION' && (
+                  <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 space-y-1">
+                    <span className="font-bold text-rose-900 flex items-center">
+                      <ShieldAlert className="w-4 h-4 mr-1.5 text-rose-600" /> Returned by Dean for Correction:
+                    </span>
+                    <p className="italic">"{progPlanData.submission.correctionReason}"</p>
+                  </div>
                 )}
+
+                {!progPlanData?.constraints?.isValidProgramme &&
+                  progPlanData?.submission?.status !== 'SUBMITTED' &&
+                  progPlanData?.submission?.status !== 'APPROVED' && (
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+                      * All MasterAdmin governance constraints (overall credits, semester credits, and category compositions) must be satisfied before you can submit the Programme Curriculum Book to the Dean.
+                    </div>
+                  )}
+
+                <DepartmentCurriculumPDFGenerator
+                  department={department}
+                  poStatements={Object.entries(poStatements).map(([key, stmt]) => ({ poKey: key, statement: stmt }))}
+                  psoStatements={Object.entries(psoStatements).map(([key, stmt]) => ({ psoKey: key, statement: stmt }))}
+                  subjects={(progPlanData?.plannedItems || []).map((p: any) => ({
+                    ...p.subject,
+                    semester: p.semester,
+                  }))}
+                  documentTitle={`${department?.shortName || 'Programme'} Curriculum & Syllabi Handbook`}
+                />
               </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* MODAL: ADD SUBJECT TO SEMESTER (STEP 1: SELECT DEPT -> STEP 2: SELECT SUBJ)*/}
+        {/* ========================================================================= */}
+        {showAddSubjectModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs">
+            <div className="bg-white rounded-3xl max-w-4xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto border border-purple-100">
+              <div className="flex items-center justify-between border-b pb-3">
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    Add Subject to Semester {activeProgSemester}
+                  </h3>
+                  <p className="text-xs text-desc">
+                    {selectedModalDeptId
+                      ? 'Select an approved subject to add into this semester'
+                      : 'Step 1: Choose offering department to view Dean-approved subjects'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowAddSubjectModal(false)}
+                  className="text-slate-400 hover:text-slate-600 p-2"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* STEP 1: SELECT DEPARTMENT */}
+              {!selectedModalDeptId ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {approvedSubjectsData?.departments?.map((dept: any) => (
+                      <div
+                        key={dept.id}
+                        onClick={() => {
+                          setSelectedModalDeptId(dept.id);
+                          fetchApprovedSubjects(dept.id);
+                        }}
+                        className="p-4 rounded-2xl border border-purple-100 bg-purple-50/20 hover:bg-brand-50 hover:border-brand-300 cursor-pointer transition-all space-y-2 group"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-extrabold uppercase bg-purple-100 text-brand-700 px-2 py-0.5 rounded">
+                            {dept.programmeType} | {dept.departmentCode}
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-500">
+                            {dept._count?.subjects || 0} Approved
+                          </span>
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-900 group-hover:text-brand-700 transition-colors">
+                          {dept.programmeName}
+                        </h4>
+                        <span className="text-[11px] text-brand-600 font-semibold block">
+                          View Approved Courses →
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {(!approvedSubjectsData?.departments || approvedSubjectsData.departments.length === 0) && (
+                    <div className="p-8 text-center text-xs text-desc bg-slate-50 rounded-2xl border border-dashed">
+                      {loadingApprovedSubjects ? 'Loading departments...' : 'No departments found.'}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* STEP 2: SELECT APPROVED SUBJECT OF THAT DEPARTMENT */
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                    <button
+                      onClick={() => setSelectedModalDeptId('')}
+                      className="text-xs font-bold text-brand-600 hover:text-brand-800 flex items-center space-x-1"
+                    >
+                      <span>← Back to All Departments</span>
+                    </button>
+                    <span className="text-xs text-slate-600 font-medium">
+                      Showing approved subjects for:{' '}
+                      <strong>
+                        {approvedSubjectsData?.departments?.find((d: any) => d.id === selectedModalDeptId)?.programmeName}
+                      </strong>
+                    </span>
+                  </div>
+
+                  {(() => {
+                    const deptSubjects = approvedSubjectsData?.subjects || [];
+                    const plannedSubjectIds = new Set(
+                      progPlanData?.plannedItems?.map((p: any) => p.subject?.id)
+                    );
+
+                    if (deptSubjects.length === 0) {
+                      return (
+                        <div className="p-8 text-center text-xs text-desc bg-slate-50 rounded-2xl border border-dashed">
+                          {loadingApprovedSubjects
+                            ? 'Loading approved subjects...'
+                            : 'No Dean-approved subjects found for this department.'}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs text-left">
+                          <thead className="bg-purple-50 text-slate-700 font-semibold">
+                            <tr>
+                              <th className="p-3">Code</th>
+                              <th className="p-3">Title</th>
+                              <th className="p-3 text-center">Type</th>
+                              <th className="p-3 text-center">Category</th>
+                              <th className="p-3 text-center">L - T - P</th>
+                              <th className="p-3 text-center">Credits</th>
+                              <th className="p-3 text-right">Action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {deptSubjects.map((s: any) => {
+                              const alreadyAdded = plannedSubjectIds.has(s.id);
+
+                              return (
+                                <tr key={s.id} className="hover:bg-slate-50">
+                                  <td className="p-3 font-mono font-bold text-brand-700">{s.subjectCode}</td>
+                                  <td className="p-3 font-bold text-slate-900">{s.subjectName}</td>
+                                  <td className="p-3 text-center">
+                                    <span className="px-2 py-0.5 bg-slate-100 rounded text-[10px] font-semibold text-slate-700">
+                                      {s.subjectType?.name}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    <span className="px-2 py-0.5 bg-purple-100 rounded text-[10px] font-bold text-brand-700">
+                                      {s.subjectCategory?.code}
+                                    </span>
+                                  </td>
+                                  <td className="p-3 text-center text-slate-700">
+                                    {s.lecture} - {s.tutorial} - {s.practical}
+                                  </td>
+                                  <td className="p-3 text-center font-bold text-slate-900">{s.credits} C</td>
+                                  <td className="p-3 text-right">
+                                    {alreadyAdded ? (
+                                      <span className="px-3 py-1 bg-slate-100 text-slate-500 font-bold text-[10px] rounded-lg">
+                                        Already Added
+                                      </span>
+                                    ) : (
+                                      <button
+                                        disabled={submittingAddSubject}
+                                        onClick={() => handleAddSubjectToSemester(s.id)}
+                                        className="px-3 py-1 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-lg shadow-xs transition-all"
+                                      >
+                                        + Add to Sem {activeProgSemester}
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
-
-            {bundle?.status === 'RETURNED_FOR_CORRECTION' && (
-              <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-800 space-y-1">
-                <span className="font-bold text-red-900 flex items-center">
-                  <ShieldAlert className="w-4 h-4 mr-1.5 text-red-600" /> Returned by Dean for Correction:
-                </span>
-                <p className="italic">"{bundle.correctionReason}"</p>
-              </div>
-            )}
-
-            {!canSubmitBundle && bundle?.status !== 'SUBMITTED' && bundle?.status !== 'APPROVED' && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
-                * All created department subjects must reach <strong>HOD Approved</strong> status before you can submit the Department Bundle to the Dean.
-              </div>
-            )}
-
-            <DepartmentCurriculumPDFGenerator
-              department={department}
-              poStatements={Object.entries(poStatements).map(([key, stmt]) => ({ poKey: key, statement: stmt }))}
-              psoStatements={Object.entries(psoStatements).map(([key, stmt]) => ({ psoKey: key, statement: stmt }))}
-              subjects={subjects}
-              documentTitle={`${department?.shortName || 'Department'} Curriculum & Syllabus Book`}
-            />
           </div>
         )}
 

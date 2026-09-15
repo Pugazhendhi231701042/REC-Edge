@@ -17,7 +17,14 @@ export async function GET() {
     orderBy: { order: 'asc' },
   });
 
-  return NextResponse.json({ stages });
+  const stage1 = stages.find((s) => s.order === 1);
+  const stage2 = stages.find((s) => s.order === 2);
+  const now = new Date();
+  const isStage1Completed = stage1?.status === 'COMPLETED';
+  const isStage2TimeStarted = stage2?.startDate ? now >= new Date(stage2.startDate) : false;
+  const isStep2Unlocked = Boolean(isStage1Completed && isStage2TimeStarted);
+
+  return NextResponse.json({ stages, isStep2Unlocked, isStage1Completed, isStage2TimeStarted });
 }
 
 export async function POST(req: Request) {

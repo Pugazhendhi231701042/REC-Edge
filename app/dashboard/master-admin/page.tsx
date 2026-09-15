@@ -127,8 +127,29 @@ export default function MasterAdminDashboard() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isUnauthorized, setIsUnauthorized] = useState(false);
 
+  // Step 2 Governance Constraints State
+  const [minTotalCredits, setMinTotalCredits] = useState<number>(160);
+  const [maxTotalCredits, setMaxTotalCredits] = useState<number>(165);
+  const [minSemCredits, setMinSemCredits] = useState<number>(20);
+  const [maxSemCredits, setMaxSemCredits] = useState<number>(24);
+  const [maxLabPerSem, setMaxLabPerSem] = useState<number>(2);
+  const [maxLabTotal, setMaxLabTotal] = useState<number>(8);
+  const [maxLabOrientedPerSem, setMaxLabOrientedPerSem] = useState<number>(2);
+  const [categoryTargets, setCategoryTargets] = useState<Record<string, number>>({
+    PC: 45,
+    PE: 15,
+    OE: 6,
+    HS: 7,
+    BS: 15,
+    ES: 9,
+    EEC: 3,
+  });
+  const [governanceSaveMsg, setGovernanceSaveMsg] = useState<string>('');
+  const [savingGovernance, setSavingGovernance] = useState<boolean>(false);
+  const [simulatedCredits, setSimulatedCredits] = useState<number>(163);
+
   // Academic Config Sub-tab State
-  const [academicSubTab, setAcademicSubTab] = useState<'regulations' | 'credit' | 'popso' | 'sdgs'>('regulations');
+  const [academicSubTab, setAcademicSubTab] = useState<'regulations' | 'credit' | 'popso' | 'sdgs' | 'governance'>('regulations');
 
   // Regulation Create / Edit Modal State
   const [showRegModal, setShowRegModal] = useState(false);
@@ -228,6 +249,21 @@ export default function MasterAdminDashboard() {
           setHoursPerCredit(data.config.hoursPerCredit ?? 15);
           if (data.config.customPrefixes) {
             setCustomPrefixes(data.config.customPrefixes);
+          }
+          if (data.config.minTotalCredits !== undefined) setMinTotalCredits(data.config.minTotalCredits);
+          if (data.config.maxTotalCredits !== undefined) setMaxTotalCredits(data.config.maxTotalCredits);
+          if (data.config.minSemCredits !== undefined) setMinSemCredits(data.config.minSemCredits);
+          if (data.config.maxSemCredits !== undefined) setMaxSemCredits(data.config.maxSemCredits);
+          if (data.config.maxLabPerSem !== undefined) setMaxLabPerSem(data.config.maxLabPerSem);
+          if (data.config.maxLabTotal !== undefined) setMaxLabTotal(data.config.maxLabTotal);
+          if (data.config.maxLabOrientedPerSem !== undefined) setMaxLabOrientedPerSem(data.config.maxLabOrientedPerSem);
+          if (data.config.categoryComposition) {
+            try {
+              const parsed = JSON.parse(data.config.categoryComposition);
+              if (typeof parsed === 'object') {
+                setCategoryTargets((prev) => ({ ...prev, ...parsed }));
+              }
+            } catch (e) {}
           }
         }
       }
@@ -534,6 +570,45 @@ export default function MasterAdminDashboard() {
       }
     } catch (err) {
       console.error('Failed to update credit weights');
+    }
+  };
+
+  const handleSaveGovernanceConstraints = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingGovernance(true);
+    setGovernanceSaveMsg('');
+    try {
+      const res = await fetch('/api/master-admin/credit-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          calculationMethod,
+          lWeight,
+          tWeight,
+          pWeight,
+          hoursPerCredit,
+          customPrefixes,
+          minTotalCredits,
+          maxTotalCredits,
+          minSemCredits,
+          maxSemCredits,
+          maxLabPerSem,
+          maxLabTotal,
+          maxLabOrientedPerSem,
+          categoryComposition: categoryTargets,
+        }),
+      });
+      if (res.ok) {
+        setGovernanceSaveMsg('✓ Step 2 Programme Planning governance constraints saved and active for all HoDs!');
+      } else {
+        const d = await res.json();
+        alert(d.error || 'Failed to save governance constraints.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error saving governance constraints.');
+    } finally {
+      setSavingGovernance(false);
     }
   };
 
@@ -1523,6 +1598,18 @@ export default function MasterAdminDashboard() {
                   <Globe className="w-3.5 h-3.5" />
                   <span>4. Global SDGs Master</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setAcademicSubTab('governance')}
+                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center space-x-2 ${
+                    academicSubTab === 'governance'
+                      ? 'bg-brand-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                  <span>5. Programme Governance & Constraints</span>
+                </button>
               </div>
             </div>
 
@@ -1845,6 +1932,293 @@ export default function MasterAdminDashboard() {
                   ))}
                 </div>
               </div>
+            )}
+
+            {/* SUB-SECTION 5: PROGRAMME PLANNING GOVERNANCE & CONSTRAINTS */}
+            {academicSubTab === 'governance' && (
+              <form onSubmit={handleSaveGovernanceConstraints} className="space-y-6">
+                <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-6">
+                  <div className="border-b pb-4">
+                    <span className="text-[10px] font-black uppercase text-brand-700 bg-purple-100 px-2.5 py-1 rounded-md">
+                      Step 2 Governance Engine
+                    </span>
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight mt-1">
+                      Academic Governance & Programme Planning Constraints Master
+                    </h3>
+                    <p className="text-xs text-desc mt-0.5">
+                      Configure institutional rules enforced during Step 2 (Programme Planning) across all college departments. Every department's curriculum must satisfy these criteria before submission to the Dean.
+                    </p>
+                  </div>
+
+                  {governanceSaveMsg && (
+                    <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs font-bold text-emerald-800 flex items-center">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 mr-2 shrink-0" />
+                      <span>{governanceSaveMsg}</span>
+                    </div>
+                  )}
+
+                  {/* 1. Overall Programme Credit Limits */}
+                  <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                    <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wide">
+                      1. Overall Programme Credit Limits (All 8 Semesters)
+                    </h4>
+                    <p className="text-[11px] text-desc">
+                      Defines the mandatory minimum and maximum total credits allowed for completing the degree programme.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                          Minimum Programme Credits (Min):
+                        </label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          value={minTotalCredits}
+                          onChange={(e) => setMinTotalCredits(parseFloat(e.target.value) || 0)}
+                          className="w-full p-2.5 text-xs font-bold border rounded-xl bg-white"
+                        />
+                        <span className="text-[10px] text-slate-500">Default: 160.0 Credits</span>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                          Maximum Programme Credits (Max):
+                        </label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          value={maxTotalCredits}
+                          onChange={(e) => setMaxTotalCredits(parseFloat(e.target.value) || 0)}
+                          className="w-full p-2.5 text-xs font-bold border rounded-xl bg-white"
+                        />
+                        <span className="text-[10px] text-slate-500">Default: 165.0 Credits</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. Per-Semester Credit Limits */}
+                  <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                    <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wide">
+                      2. Per-Semester Credit Limits
+                    </h4>
+                    <p className="text-[11px] text-desc">
+                      Controls the academic workload allowed per semester for regular course offerings.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                          Min Credits Per Semester:
+                        </label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          value={minSemCredits}
+                          onChange={(e) => setMinSemCredits(parseFloat(e.target.value) || 0)}
+                          className="w-full p-2.5 text-xs font-bold border rounded-xl bg-white"
+                        />
+                        <span className="text-[10px] text-slate-500">Default: 20.0 Credits/Sem</span>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                          Max Credits Per Semester:
+                        </label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          value={maxSemCredits}
+                          onChange={(e) => setMaxSemCredits(parseFloat(e.target.value) || 0)}
+                          className="w-full p-2.5 text-xs font-bold border rounded-xl bg-white"
+                        />
+                        <span className="text-[10px] text-slate-500">Default: 24.0 Credits/Sem</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. Course Type & Laboratory Limits */}
+                  <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                    <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wide">
+                      3. Course Type & Laboratory Course Constraints
+                    </h4>
+                    <p className="text-[11px] text-desc">
+                      Enforces caps on laboratory-heavy courses per semester and across the entire degree.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                          Max Lab-Oriented Theory / Sem:
+                        </label>
+                        <input
+                          type="number"
+                          value={maxLabOrientedPerSem}
+                          onChange={(e) => setMaxLabOrientedPerSem(parseInt(e.target.value) || 0)}
+                          className="w-full p-2.5 text-xs font-bold border rounded-xl bg-white"
+                        />
+                        <span className="text-[10px] text-slate-500">Default: 2 courses/sem</span>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                          Max Laboratory Courses / Sem:
+                        </label>
+                        <input
+                          type="number"
+                          value={maxLabPerSem}
+                          onChange={(e) => setMaxLabPerSem(parseInt(e.target.value) || 0)}
+                          className="w-full p-2.5 text-xs font-bold border rounded-xl bg-white"
+                        />
+                        <span className="text-[10px] text-slate-500">Default: 2 pure labs/sem</span>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 block mb-1">
+                          Max Total Labs (All Semesters):
+                        </label>
+                        <input
+                          type="number"
+                          value={maxLabTotal}
+                          onChange={(e) => setMaxLabTotal(parseInt(e.target.value) || 0)}
+                          className="w-full p-2.5 text-xs font-bold border rounded-xl bg-white"
+                        />
+                        <span className="text-[10px] text-slate-500">Default: 8 total labs</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 4. Subject Category Target Composition (% Targets) */}
+                  <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wide">
+                        4. Subject Category Target Composition Breakdown (% Targets)
+                      </h4>
+                      {(() => {
+                        const totalPct = Object.values(categoryTargets).reduce((a, b) => a + b, 0);
+                        return (
+                          <span
+                            className={`text-xs font-bold px-3 py-1 rounded-full ${
+                              totalPct === 100
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            Total: {totalPct}% {totalPct === 100 ? '✅ 100%' : '(Must sum to 100%)'}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    <p className="text-[11px] text-desc">
+                      Percentage distribution of credits across subject categories. In Programme Planning, the required credits for each category will equal <code>round(Total Programme Credits × Category %)</code>.
+                    </p>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
+                      {[
+                        { code: 'PC', label: 'Professional Core' },
+                        { code: 'PE', label: 'Prof. Elective' },
+                        { code: 'OE', label: 'Open Elective' },
+                        { code: 'HS', label: 'Humanities' },
+                        { code: 'BS', label: 'Basic Sciences' },
+                        { code: 'ES', label: 'Engg Sciences' },
+                        { code: 'EEC', label: 'Employability' },
+                      ].map((cat) => (
+                        <div key={cat.code} className="p-3 rounded-xl bg-white border border-purple-100 space-y-1">
+                          <label className="text-[10px] font-extrabold text-brand-700 uppercase block">
+                            {cat.code} ({cat.label})
+                          </label>
+                          <div className="flex items-center space-x-1">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              value={categoryTargets[cat.code] ?? 0}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value) || 0;
+                                setCategoryTargets((prev) => ({ ...prev, [cat.code]: val }));
+                              }}
+                              className="w-full p-1.5 text-xs font-bold border rounded-lg text-center"
+                            />
+                            <span className="text-xs font-bold text-slate-500">%</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 5. Live Interactive Credit Calculator & Simulator */}
+                  <div className="p-5 rounded-2xl bg-purple-50/40 border border-purple-200/80 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div>
+                        <h4 className="text-xs font-extrabold text-brand-900 uppercase tracking-wide flex items-center">
+                          <Sparkles className="w-4 h-4 text-brand-600 mr-1.5" />
+                          Live Interactive Constraint Simulator
+                        </h4>
+                        <p className="text-[11px] text-slate-600 mt-0.5">
+                          Test how your percentage rules will automatically calculate required credits for any given programme credit total.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <label className="text-xs font-bold text-slate-700 shrink-0">Test Programme Credits:</label>
+                        <input
+                          type="number"
+                          value={simulatedCredits}
+                          onChange={(e) => setSimulatedCredits(parseFloat(e.target.value) || 0)}
+                          className="w-20 p-1.5 text-xs font-black text-center border border-purple-300 rounded-xl bg-white"
+                        />
+                        <span className="text-xs font-bold text-slate-700">C</span>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto pt-1">
+                      <table className="w-full text-xs text-left bg-white rounded-xl overflow-hidden border border-purple-100">
+                        <thead className="bg-purple-100/60 text-brand-900 font-bold">
+                          <tr>
+                            <th className="p-2.5">Category Code</th>
+                            <th className="p-2.5">Category Name</th>
+                            <th className="p-2.5 text-center">Target %</th>
+                            <th className="p-2.5 text-center">Exact Formula</th>
+                            <th className="p-2.5 text-center">Required Credits</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-purple-50">
+                          {[
+                            { code: 'PC', label: 'Professional Core' },
+                            { code: 'PE', label: 'Professional Elective' },
+                            { code: 'OE', label: 'Open Elective' },
+                            { code: 'HS', label: 'Humanities & Social Sciences' },
+                            { code: 'BS', label: 'Basic Sciences' },
+                            { code: 'ES', label: 'Engineering Sciences' },
+                            { code: 'EEC', label: 'Employability Enhancement' },
+                          ].map((cat) => {
+                            const pct = categoryTargets[cat.code] || 0;
+                            const required = Math.round(simulatedCredits * (pct / 100));
+                            return (
+                              <tr key={cat.code} className="hover:bg-purple-50/20">
+                                <td className="p-2.5 font-bold text-brand-700">{cat.code}</td>
+                                <td className="p-2.5 text-slate-800">{cat.label}</td>
+                                <td className="p-2.5 text-center font-bold text-slate-700">{pct}%</td>
+                                <td className="p-2.5 text-center font-mono text-[11px] text-slate-500">
+                                  round({simulatedCredits} × {pct}%)
+                                </td>
+                                <td className="p-2.5 text-center font-black text-brand-700 bg-purple-50/50">
+                                  {required} Credits
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Save Button */}
+                  <div className="flex items-center justify-end pt-3 border-t">
+                    <button
+                      type="submit"
+                      disabled={savingGovernance}
+                      className="px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-extrabold text-xs rounded-2xl shadow-lg hover:shadow-xl transition-all flex items-center space-x-2"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{savingGovernance ? 'Saving Rules...' : 'Save All Governance Constraints'}</span>
+                    </button>
+                  </div>
+                </div>
+              </form>
             )}
           </div>
         )}

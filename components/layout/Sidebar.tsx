@@ -53,8 +53,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       title: 'ACADEMIC GOVERNANCE',
       items: [
         { id: 'stages', label: 'Academic Stages', icon: <Layers className="w-4 h-4" /> },
-        { id: 'departments', label: 'Departments & Programmes', icon: <Building2 className="w-4 h-4" /> },
-        { id: 'progress', label: 'Department Progress', icon: <CheckCircle2 className="w-4 h-4" /> },
+        { id: 'programme_planning_progress', label: 'Programme Planning Progress', icon: <FileCheck className="w-4 h-4" /> },
+        { id: 'progress', label: 'Department Syllabus Progress', icon: <CheckCircle2 className="w-4 h-4" /> },
       ],
     },
     {
@@ -124,10 +124,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {
       title: 'CURRICULUM & FACULTY',
       items: [
-        { id: 'curriculum', label: 'Department Curriculum', icon: <Building2 className="w-4 h-4" /> },
+        { id: 'curriculum', label: 'Department Subjects', icon: <Building2 className="w-4 h-4" /> },
         { id: 'po_pso', label: 'PO & PSO Statements', icon: <BookOpen className="w-4 h-4" /> },
-        { id: 'department_book', label: 'Department Curriculum Book', icon: <BookOpen className="w-4 h-4" /> },
         { id: 'assignments', label: 'Faculty Assignments', icon: <Users className="w-4 h-4" /> },
+      ],
+    },
+    {
+      title: 'PROGRAMME PLANNING',
+      items: [
+        { id: 'planning', label: 'Planning', icon: <Layers className="w-4 h-4" /> },
+        { id: 'programme_book', label: 'Programme Curriculum Book', icon: <BookOpen className="w-4 h-4" /> },
       ],
     },
     {

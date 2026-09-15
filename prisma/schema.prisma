@@ -32,6 +32,8 @@ model User {
   approvedSubmissions SyllabusSubmission[] @relation("ApprovedBySubmissions")
   submittedBundles    DepartmentCurriculumBundle[] @relation("BundleSubmittedBy")
   approvedBundles     DepartmentCurriculumBundle[] @relation("BundleApprovedBy")
+  submittedProgPlans  ProgrammeCurriculumSubmission[] @relation("ProgPlanSubmittedBy")
+  approvedProgPlans   ProgrammeCurriculumSubmission[] @relation("ProgPlanApprovedBy")
   notifications       Notification[]       @relation("UserNotifications")
   auditLogs           AuditLog[]           @relation("UserAuditLogs")
 }
@@ -58,6 +60,8 @@ model Department {
   programSpecificOutcomeStatements ProgramSpecificOutcomeStatement[]
   programEducationalObjectiveStatements ProgramEducationalObjectiveStatement[]
   curriculumBundles DepartmentCurriculumBundle[]
+  programmeSubjectPlans ProgrammeSubjectPlan[]
+  programmeCurriculumSubmissions ProgrammeCurriculumSubmission[]
 }
 
 model Regulation {
@@ -76,6 +80,8 @@ model Regulation {
   programSpecificOutcomeStatements ProgramSpecificOutcomeStatement[]
   programEducationalObjectiveStatements ProgramEducationalObjectiveStatement[]
   curriculumBundles DepartmentCurriculumBundle[]
+  programmeSubjectPlans ProgrammeSubjectPlan[]
+  programmeCurriculumSubmissions ProgrammeCurriculumSubmission[]
 }
 
 model AcademicYear {
@@ -87,6 +93,8 @@ model AcademicYear {
 
   subjects Subject[]
   curriculumBundles DepartmentCurriculumBundle[]
+  programmeSubjectPlans ProgrammeSubjectPlan[]
+  programmeCurriculumSubmissions ProgrammeCurriculumSubmission[]
 }
 
 model AcademicStage {
@@ -155,7 +163,18 @@ model CreditConfig {
   pWeight           Float    @default(0.5)
   hoursPerCredit    Int      @default(15) // 15 contact hours per credit standard
   customPrefixes    String?  @default("GE, PH, HS, MC, CS, EC, EE, ME, CE, AI, CB, IT")
-  updatedAt         DateTime @updatedAt
+
+  // Step 2 Governance Constraints (MasterAdmin Configurable)
+  minTotalCredits      Float    @default(160.0) // Min overall programme credits
+  maxTotalCredits      Float    @default(165.0) // Max overall programme credits
+  minSemCredits        Float    @default(20.0)  // Min credits per semester
+  maxSemCredits        Float    @default(24.0)  // Max credits per semester
+  maxLabPerSem         Int      @default(2)     // Max laboratory courses allowed per semester
+  maxLabTotal          Int      @default(8)     // Max laboratory courses allowed across programme
+  maxLabOrientedPerSem Int      @default(2)     // Max Lab-oriented theory courses allowed per semester
+  categoryComposition  String?  @default("{\"PC\":45,\"PE\":15,\"OE\":6,\"HS\":7,\"BS\":15,\"ES\":9,\"EEC\":3}")
+
+  updatedAt            DateTime @updatedAt
 }
 
 model SDGGoal {
@@ -223,6 +242,7 @@ model Subject {
   assignedFaculty User?               @relation("FacultyAssignedSubjects", fields: [assignedFacultyId], references: [id])
   createdBy       User                @relation("SubjectCreator", fields: [createdById], references: [id])
   submission      SyllabusSubmission?
+  programmeSubjectPlans ProgrammeSubjectPlan[]
 
   @@unique([departmentId, regulationId, semester, subjectTypeId, subjectCode])
 }
@@ -450,3 +470,47 @@ model AuditLog {
 
   user User @relation("UserAuditLogs", fields: [userId], references: [id])
 }
+
+model ProgrammeSubjectPlan {
+  id             String       @id @default(uuid())
+  departmentId   String       // The programme department (e.g. CSE)
+  regulationId   String
+  academicYearId String
+  semester       Int          // Semester 1 to N
+  subjectId      String       // The Dean-approved subject added to this semester
+  order          Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  department     Department   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  regulation     Regulation   @relation(fields: [regulationId], references: [id], onDelete: Cascade)
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  subject        Subject      @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([departmentId, regulationId, academicYearId, semester, subjectId])
+}
+
+model ProgrammeCurriculumSubmission {
+  id               String       @id @default(uuid())
+  departmentId     String
+  regulationId     String
+  academicYearId   String
+  status           String       @default("DRAFT") // DRAFT, SUBMITTED, APPROVED, RETURNED_FOR_CORRECTION
+  totalCredits     Float        @default(0)
+  submittedAt      DateTime?
+  submittedById    String?
+  approvedAt       DateTime?
+  approvedById     String?
+  correctionReason String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  department       Department   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  regulation       Regulation   @relation(fields: [regulationId], references: [id], onDelete: Cascade)
+  academicYear     AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  submittedBy      User?        @relation("ProgPlanSubmittedBy", fields: [submittedById], references: [id])
+  approvedBy       User?        @relation("ProgPlanApprovedBy", fields: [approvedById], references: [id])
+
+  @@unique([departmentId, regulationId, academicYearId])
+}
+
