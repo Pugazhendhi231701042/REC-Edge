@@ -194,10 +194,23 @@ export default function DeanDashboard() {
     }
   };
 
+  const toLocalDatetimeString = (dateInput: Date | string | null | undefined): string => {
+    if (!dateInput) return '';
+    const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+    if (isNaN(d.getTime())) return '';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const year = d.getFullYear();
+    const month = pad(d.getMonth() + 1);
+    const day = pad(d.getDate());
+    const hours = pad(d.getHours());
+    const minutes = pad(d.getMinutes());
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
+
   const handleOpenEditStageModal = (stg: any) => {
     setEditingStage(stg);
-    setStageStartDate(stg.startDate ? new Date(stg.startDate).toISOString().slice(0, 10) : '');
-    setStageDeadline(stg.deadline ? new Date(stg.deadline).toISOString().slice(0, 10) : '');
+    setStageStartDate(stg.startDate ? toLocalDatetimeString(stg.startDate) : '');
+    setStageDeadline(stg.deadline ? toLocalDatetimeString(stg.deadline) : '');
     setStageStatus(stg.status || 'ACTIVE');
     setStageVenue(stg.venue || 'Main Boardroom');
   };
@@ -206,11 +219,11 @@ export default function DeanDashboard() {
     e.preventDefault();
     if (!editingStage) return;
     if (!stageStartDate || !stageDeadline) {
-      alert('Both Start Date and Deadline Date are required.');
+      alert('Both Start Date & Time and Deadline Date & Time are required.');
       return;
     }
     if (new Date(stageDeadline).getTime() <= new Date(stageStartDate).getTime()) {
-      alert('Deadline Date must be strictly after Start Date.');
+      alert('Deadline Date & Time must be strictly after Start Date & Time.');
       return;
     }
 
@@ -1507,9 +1520,9 @@ export default function DeanDashboard() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-semibold mb-1 text-slate-700">Start Date *</label>
+                    <label className="block font-semibold mb-1 text-slate-700">Start Date & Time *</label>
                     <input
-                      type="date"
+                      type="datetime-local"
                       required
                       value={stageStartDate}
                       onChange={(e) => setStageStartDate(e.target.value)}
@@ -1517,9 +1530,9 @@ export default function DeanDashboard() {
                     />
                   </div>
                   <div>
-                    <label className="block font-semibold mb-1 text-slate-700">Deadline Date *</label>
+                    <label className="block font-semibold mb-1 text-slate-700">Deadline Date & Time *</label>
                     <input
-                      type="date"
+                      type="datetime-local"
                       required
                       value={stageDeadline}
                       onChange={(e) => setStageDeadline(e.target.value)}
