@@ -32,6 +32,16 @@ import {
   Edit,
   FileCheck,
   GripVertical,
+  LayoutGrid,
+  List,
+  ChevronDown,
+  ChevronUp,
+  Layers,
+  SlidersHorizontal,
+  Check,
+  MoveRight,
+  GraduationCap,
+  Scale,
 } from 'lucide-react';
 
 const AVAILABLE_CORRECTION_SECTIONS = [
@@ -121,6 +131,8 @@ export default function HoDDashboard() {
   const [submittingProgCurriculum, setSubmittingProgCurriculum] = useState<boolean>(false);
 
   // Drag & Drop and Planning Filter States
+  const [planningViewMode, setPlanningViewMode] = useState<'semester' | 'matrix'>('semester');
+  const [showDetailedConstraints, setShowDetailedConstraints] = useState<boolean>(false);
   const [draggedPlanId, setDraggedPlanId] = useState<string | null>(null);
   const [dragOverSem, setDragOverSem] = useState<number | null>(null);
   const [modalCatFilter, setModalCatFilter] = useState<string>('ALL');
@@ -128,6 +140,7 @@ export default function HoDDashboard() {
   const [modalSearchQuery, setModalSearchQuery] = useState<string>('');
   const [semCourseSearch, setSemCourseSearch] = useState<string>('');
   const [semCatFilter, setSemCatFilter] = useState<string>('ALL');
+  const [semTypeFilter, setSemTypeFilter] = useState<string>('ALL');
 
   // Approved Syllabi Directory Filter States
   const [approvedSearchQuery, setApprovedSearchQuery] = useState<string>('');
@@ -326,6 +339,16 @@ export default function HoDDashboard() {
     } finally {
       setLoadingApprovedSubjects(false);
     }
+  };
+
+  const openAddModalForSemester = (sem: number) => {
+    setActiveProgSemester(sem);
+    setSelectedModalDeptId('');
+    setModalSearchQuery('');
+    setModalCatFilter('ALL');
+    setModalTypeFilter('ALL');
+    setShowAddSubjectModal(true);
+    fetchApprovedSubjects();
   };
 
   const handleAddSubjectToSemester = async (subjectId: string) => {
@@ -1607,382 +1630,844 @@ export default function HoDDashboard() {
             ) : (
               /* 2. Unlocked Programme Planning Workspace */
               <div className="space-y-6">
-                {/* Header */}
+                {/* 1. Header & View Switcher */}
                 <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-4">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b pb-4">
-                    <div>
-                      <span className="text-[10px] font-black uppercase text-brand-700 bg-purple-100 px-2.5 py-1 rounded-md">
-                        Step 2: Programme Planning
-                      </span>
-                      <h2 className="text-xl font-black text-slate-900 tracking-tight mt-1">
-                        {department?.programmeName} — 8-Semester Programme Planning
-                      </h2>
-                      <p className="text-xs text-desc mt-0.5">
-                        Plan subjects semester-by-semester by selecting Dean-approved courses across all departments and satisfying MasterAdmin academic governance constraints.
-                      </p>
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                      <span
-                        className={`px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wide ${
-                          progPlanData?.submission?.status === 'APPROVED'
-                            ? 'bg-emerald-100 text-emerald-800'
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-purple-100 pb-4">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] font-black uppercase text-brand-700 bg-purple-100 px-2.5 py-1 rounded-md">
+                          Stage 2 • Programme Planning
+                        </span>
+                        <span
+                          className={`px-3 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wide ${
+                            progPlanData?.submission?.status === 'APPROVED'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : progPlanData?.submission?.status === 'SUBMITTED'
+                              ? 'bg-amber-100 text-amber-800 animate-pulse'
+                              : progPlanData?.submission?.status === 'RETURNED_FOR_CORRECTION'
+                              ? 'bg-rose-100 text-rose-800'
+                              : 'bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {progPlanData?.submission?.status === 'APPROVED'
+                            ? '✓ Dean Approved'
                             : progPlanData?.submission?.status === 'SUBMITTED'
-                            ? 'bg-amber-100 text-amber-800 animate-pulse'
+                            ? '● Submitted to Dean'
                             : progPlanData?.submission?.status === 'RETURNED_FOR_CORRECTION'
-                            ? 'bg-rose-100 text-rose-800'
-                            : 'bg-slate-100 text-slate-700'
-                        }`}
-                      >
-                        {progPlanData?.submission?.status === 'APPROVED'
-                          ? '✓ Dean Approved'
-                          : progPlanData?.submission?.status === 'SUBMITTED'
-                          ? '● Submitted to Dean'
-                          : progPlanData?.submission?.status === 'RETURNED_FOR_CORRECTION'
-                          ? '↺ Returned for Correction'
-                          : 'Planning in Progress'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* AUTOMATED REAL-TIME CONSTRAINT VALIDATION ENGINE DASHBOARD */}
-                  {progPlanData?.constraints && (
-                    <div className="p-5 border rounded-2xl bg-purple-50/30 border-purple-200/80 space-y-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div className="flex items-center space-x-2">
-                          <Sparkles className="w-5 h-5 text-brand-600" />
-                          <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wide">
-                            Automated MasterAdmin Governance Constraint Engine
-                          </h3>
-                        </div>
-                        <span className="text-xs font-bold text-slate-700">
-                          Total Programme Credits:{' '}
-                          <strong className="text-brand-700 text-sm">
-                            {progPlanData.constraints.totalCredits} C
-                          </strong>{' '}
-                          <span className="text-[11px] font-normal text-slate-500">
-                            (Target: {progPlanData.creditConfig?.minTotalCredits}–{progPlanData.creditConfig?.maxTotalCredits} C)
-                          </span>
+                            ? '↺ Returned for Correction'
+                            : 'Draft In Progress'}
                         </span>
                       </div>
-
-                      {/* Health Banner */}
-                      {progPlanData.constraints.isValidProgramme ? (
-                        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-bold flex items-center">
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600 mr-2 shrink-0" />
-                          <span>
-                            ✅ <strong>Valid Programme Curriculum:</strong> All credit limits, semester distribution caps, and category percentage compositions satisfy MasterAdmin rules!
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-900 space-y-1">
-                          <span className="font-bold text-amber-900 flex items-center">
-                            <AlertCircle className="w-4 h-4 text-amber-600 mr-1.5 shrink-0" />
-                            ⚠️ {progPlanData.constraints.violations.length} Governance Constraint(s) to Resolve:
-                          </span>
-                          <ul className="list-disc list-inside text-[11px] pl-4 space-y-0.5 text-amber-800">
-                            {progPlanData.constraints.violations.map((v: string, idx: number) => (
-                              <li key={idx}>{v}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {/* 1. Semester Credit Distribution Pills */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-                          <span>
-                            1. Semester Credit Distribution (Allowed: {progPlanData.creditConfig?.minSemCredits} –{' '}
-                            {progPlanData.creditConfig?.maxSemCredits} Credits/Sem)
-                          </span>
-                          <span className="text-[11px] text-desc font-normal">
-                            Max Labs/Sem: {progPlanData.creditConfig?.maxLabPerSem}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2">
-                          {Array.from({ length: department?.semesters || 8 }, (_, i) => i + 1).map((sem) => {
-                            const semCred = progPlanData.constraints.semCreditsMap[sem] || 0;
-                            const semLabs = progPlanData.constraints.semLabsMap[sem] || 0;
-                            const isValidSem =
-                              semCred === 0 ||
-                              (semCred >= progPlanData.creditConfig?.minSemCredits &&
-                                semCred <= progPlanData.creditConfig?.maxSemCredits &&
-                                semLabs <= progPlanData.creditConfig?.maxLabPerSem);
-
-                            const isDragTarget = dragOverSem === sem;
-
-                            return (
-                              <div
-                                key={sem}
-                                onClick={() => setActiveProgSemester(sem)}
-                                onDragOver={(e) => {
-                                  e.preventDefault();
-                                  e.dataTransfer.dropEffect = 'move';
-                                }}
-                                onDragEnter={() => setDragOverSem(sem)}
-                                onDragLeave={() => setDragOverSem(null)}
-                                onDrop={async (e) => {
-                                  e.preventDefault();
-                                  setDragOverSem(null);
-                                  const planId = e.dataTransfer.getData('text/plain');
-                                  if (planId) {
-                                    await handleMoveSubjectToSemester(planId, sem);
-                                  }
-                                }}
-                                className={`p-2.5 rounded-xl border text-center space-y-0.5 cursor-pointer transition-all ${
-                                  isDragTarget
-                                    ? 'ring-2 ring-brand-500 bg-brand-50 scale-105 shadow-md'
-                                    : activeProgSemester === sem
-                                    ? 'ring-2 ring-brand-600 shadow-xs'
-                                    : ''
-                                } ${
-                                  isValidSem
-                                    ? 'bg-white border-purple-200 text-slate-900 hover:bg-purple-50/50'
-                                    : 'bg-rose-50 border-rose-300 text-rose-900'
-                                }`}
-                              >
-                                <span className="text-[10px] font-bold text-slate-500 uppercase block">Sem {sem}</span>
-                                <span className="text-xs font-black block">{semCred} C</span>
-                                <span className="text-[10px] font-semibold text-slate-500 block">{semLabs} Labs</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* 2. Subject Category Credit Composition % Breakdown (DYNAMIC) */}
-                      <div className="space-y-2 pt-2 border-t border-purple-100">
-                        <span className="text-xs font-bold text-slate-800 block">
-                          2. Subject Category Credit Composition Breakdown (% Targets) — Total Labs:{' '}
-                          <strong>
-                            {progPlanData.constraints.totalLabsCount} / {progPlanData.creditConfig?.maxLabTotal}
-                          </strong>
-                        </span>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-                          {Object.entries(progPlanData.constraints.categoryBreakdown || {}).map(([catCode, data]: [string, any]) => (
-                            <div
-                              key={catCode}
-                              className={`p-2.5 rounded-xl border space-y-1 text-center ${
-                                data.isValid
-                                  ? 'bg-white border-purple-200'
-                                  : 'bg-rose-50 border-rose-300 text-rose-900'
-                              }`}
-                            >
-                              <span className="text-[10px] font-bold text-slate-600 block uppercase">{catCode}</span>
-                              <span className="text-xs font-black block">{data.credits} C</span>
-                              <span
-                                className={`text-[10px] font-bold block ${
-                                  data.isValid ? 'text-brand-700' : 'text-rose-700'
-                                }`}
-                              >
-                                {data.targetPct}% (Req: {data.expectedCredits} C)
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Semester Subjects Workspace */}
-                <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4">
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <h3 className="text-base font-extrabold text-slate-900">
-                          Semester {activeProgSemester} Course Structure
-                        </h3>
-                        <span className="text-[10px] font-semibold bg-purple-100 text-brand-700 px-2 py-0.5 rounded-md flex items-center">
-                          <GripVertical className="w-3 h-3 mr-0.5" /> Drag & Drop Enabled
-                        </span>
-                      </div>
-                      <p className="text-xs text-desc mt-0.5">
-                        Current credits in Semester {activeProgSemester}:{' '}
-                        <strong>{progPlanData?.constraints?.semCreditsMap?.[activeProgSemester] || 0} C</strong> |{' '}
-                        Labs: <strong>{progPlanData?.constraints?.semLabsMap?.[activeProgSemester] || 0}</strong>
-                        {' '}&bull; Drag courses to any semester pill above or use the semester selector to reassign.
+                      <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                        {department?.programmeName} ({department?.departmentCode}) — 8-Semester Curriculum Planning
+                      </h2>
+                      <p className="text-xs text-desc max-w-3xl">
+                        Design the 4-year curriculum structure semester-by-semester using Dean-approved course syllabi from all 18 engineering departments while satisfying MasterAdmin institutional credit governance rules.
                       </p>
                     </div>
 
-                    <button
-                      onClick={() => {
-                        setSelectedModalDeptId('');
-                        setModalSearchQuery('');
-                        setModalCatFilter('ALL');
-                        setModalTypeFilter('ALL');
-                        setShowAddSubjectModal(true);
-                        fetchApprovedSubjects();
-                      }}
-                      className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center space-x-1.5 transition-all self-start sm:self-auto"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Subject to Semester {activeProgSemester}</span>
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-center">
+                      {/* View Switcher Toggle */}
+                      <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200">
+                        <button
+                          type="button"
+                          onClick={() => setPlanningViewMode('semester')}
+                          className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                            planningViewMode === 'semester'
+                              ? 'bg-white text-brand-700 shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <List className="w-3.5 h-3.5" />
+                          <span>Semester Focus</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPlanningViewMode('matrix')}
+                          className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                            planningViewMode === 'matrix'
+                              ? 'bg-white text-brand-700 shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <LayoutGrid className="w-3.5 h-3.5" />
+                          <span>8-Semester Matrix</span>
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => openAddModalForSemester(activeProgSemester)}
+                        className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center space-x-1.5 transition-all"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add Course</span>
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Planned Subjects Table for Active Semester */}
-                  {(() => {
-                    const allSemItems =
-                      progPlanData?.plannedItems?.filter((p: any) => p.semester === activeProgSemester) || [];
+                  {/* 2. Executive Governance KPI Bar */}
+                  {progPlanData?.constraints && (() => {
+                    const totalCred = progPlanData.constraints.totalCredits || 0;
+                    const minTotal = progPlanData.creditConfig?.minTotalCredits ?? 160;
+                    const maxTotal = progPlanData.creditConfig?.maxTotalCredits ?? 165;
+                    const minSem = progPlanData.creditConfig?.minSemCredits ?? 20;
+                    const maxSem = progPlanData.creditConfig?.maxSemCredits ?? 24;
+                    const maxLabSem = progPlanData.creditConfig?.maxLabPerSem ?? 2;
+                    const maxLabTot = progPlanData.creditConfig?.maxLabTotal ?? 8;
+                    const totalLabs = progPlanData.constraints.totalLabsCount || 0;
 
-                    const semItems = allSemItems.filter((p: any) => {
-                      if (semCourseSearch.trim()) {
-                        const q = semCourseSearch.toLowerCase();
-                        const matchCode = p.subject?.subjectCode?.toLowerCase().includes(q);
-                        const matchName = p.subject?.subjectName?.toLowerCase().includes(q);
-                        if (!matchCode && !matchName) return false;
-                      }
-                      if (semCatFilter !== 'ALL' && p.subject?.subjectCategory?.code !== semCatFilter) {
-                        return false;
-                      }
-                      return true;
-                    });
+                    const numSemesters = department?.semesters || 8;
+                    const balancedSemCount = Array.from({ length: numSemesters }, (_, i) => i + 1).filter((s) => {
+                      const c = progPlanData.constraints.semCreditsMap[s] || 0;
+                      const l = progPlanData.constraints.semLabsMap[s] || 0;
+                      return c >= minSem && c <= maxSem && l <= maxLabSem;
+                    }).length;
 
-                    if (allSemItems.length === 0) {
-                      return (
-                        <div className="p-10 text-center bg-slate-50 rounded-2xl border border-dashed text-desc text-xs space-y-2">
-                          <p>No subjects added to Semester {activeProgSemester} yet.</p>
-                          <button
-                            onClick={() => {
-                              setSelectedModalDeptId('');
-                              setModalSearchQuery('');
-                              setModalCatFilter('ALL');
-                              setModalTypeFilter('ALL');
-                              setShowAddSubjectModal(true);
-                              fetchApprovedSubjects();
-                            }}
-                            className="px-4 py-2 bg-brand-600 text-white font-bold text-xs rounded-xl shadow-xs"
-                          >
-                            + Add First Subject
-                          </button>
-                        </div>
-                      );
-                    }
+                    const isCredValid = totalCred >= minTotal && totalCred <= maxTotal;
+                    const violationsCount = progPlanData.constraints.violations?.length || 0;
 
                     return (
-                      <div className="space-y-3">
-                        {/* Semester Quick Filter & Search Bar */}
-                        <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <div className="relative">
-                              <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                              <input
-                                type="text"
-                                placeholder="Search this semester..."
-                                value={semCourseSearch}
-                                onChange={(e) => setSemCourseSearch(e.target.value)}
-                                className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-hidden focus:ring-1 focus:ring-brand-500 w-44"
-                              />
-                              {semCourseSearch && (
-                                <button
-                                  onClick={() => setSemCourseSearch('')}
-                                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              )}
+                      <div className="rounded-2xl border border-purple-200/80 bg-purple-50/30 p-4 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-purple-100 pb-3">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-7 h-7 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center">
+                              <Sparkles className="w-4 h-4" />
                             </div>
-
-                            <select
-                              value={semCatFilter}
-                              onChange={(e) => setSemCatFilter(e.target.value)}
-                              className="py-1.5 px-2 text-xs border border-slate-200 rounded-lg bg-white text-slate-700 font-medium"
-                            >
-                              <option value="ALL">All Categories</option>
-                              {subjectCategories.map((c: any) => (
-                                <option key={c.id} value={c.code}>{c.code} - {c.name}</option>
-                              ))}
-                            </select>
+                            <div>
+                              <h3 className="text-xs font-black uppercase text-slate-900 tracking-wider">
+                                Institutional Credit Governance & Rules
+                              </h3>
+                              <p className="text-[11px] text-slate-500">
+                                Dynamic MasterAdmin validation rules for Regulation 26 curriculum
+                              </p>
+                            </div>
                           </div>
 
-                          <span className="text-[11px] text-slate-500 font-medium">
-                            Showing {semItems.length} of {allSemItems.length} courses in Semester {activeProgSemester}
-                          </span>
+                          <div className="flex items-center space-x-2">
+                            {progPlanData.constraints.isValidProgramme ? (
+                              <span className="px-3 py-1 bg-emerald-100 border border-emerald-300 text-emerald-800 font-extrabold text-xs rounded-xl flex items-center space-x-1.5 shadow-xs">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Fully Compliant</span>
+                              </span>
+                            ) : (
+                              <span className="px-3 py-1 bg-amber-100 border border-amber-300 text-amber-900 font-extrabold text-xs rounded-xl flex items-center space-x-1.5 shadow-xs">
+                                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                                <span>{violationsCount} Governance Notice{violationsCount > 1 ? 's' : ''}</span>
+                              </span>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => setShowDetailedConstraints(!showDetailedConstraints)}
+                              className="px-3 py-1 bg-white hover:bg-purple-50 text-brand-700 border border-purple-200 rounded-xl text-xs font-bold flex items-center space-x-1 transition-all shadow-xs"
+                            >
+                              <span>{showDetailedConstraints ? 'Hide Breakdown' : 'View Rules & Breakdown'}</span>
+                              {showDetailedConstraints ? (
+                                <ChevronUp className="w-3.5 h-3.5 text-brand-600" />
+                              ) : (
+                                <ChevronDown className="w-3.5 h-3.5 text-brand-600" />
+                              )}
+                            </button>
+                          </div>
                         </div>
 
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-xs text-left">
-                            <thead className="bg-purple-50 text-slate-700 font-semibold">
-                              <tr>
-                                <th className="p-3 w-8"></th>
-                                <th className="p-3">Course Code</th>
-                                <th className="p-3">Course Title</th>
-                                <th className="p-3">Offered By</th>
-                                <th className="p-3 text-center">Type</th>
-                                <th className="p-3 text-center">Category</th>
-                                <th className="p-3 text-center">L - T - P</th>
-                                <th className="p-3 text-center">Credits</th>
-                                <th className="p-3 text-right">Move / Remove</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                              {semItems.map((item: any) => (
-                                <tr
-                                  key={item.id}
-                                  draggable={true}
-                                  onDragStart={(e) => {
-                                    e.dataTransfer.setData('text/plain', item.id);
-                                    setDraggedPlanId(item.id);
-                                  }}
-                                  onDragEnd={() => {
-                                    setDraggedPlanId(null);
-                                    setDragOverSem(null);
-                                  }}
-                                  className={`hover:bg-slate-50 group transition-all ${
-                                    draggedPlanId === item.id ? 'opacity-40 bg-purple-50' : ''
-                                  }`}
-                                >
-                                  <td className="p-3 pr-0 cursor-grab active:cursor-grabbing text-slate-400 group-hover:text-brand-600">
-                                    <GripVertical className="w-4 h-4" />
-                                  </td>
-                                  <td className="p-3 font-mono font-bold text-brand-700">{item.subject?.subjectCode}</td>
-                                  <td className="p-3 font-bold text-slate-900">{item.subject?.subjectName}</td>
-                                  <td className="p-3 text-slate-600">{item.subject?.department?.shortName || 'Dept'}</td>
-                                  <td className="p-3 text-center">
-                                    <span className="px-2 py-0.5 bg-slate-100 rounded text-[10px] font-semibold text-slate-700">
-                                      {item.subject?.subjectType?.name}
-                                    </span>
-                                  </td>
-                                  <td className="p-3 text-center">
-                                    <span className="px-2 py-0.5 bg-purple-100 rounded text-[10px] font-bold text-brand-700">
-                                      {item.subject?.subjectCategory?.code}
-                                    </span>
-                                  </td>
-                                  <td className="p-3 text-center text-slate-700">
-                                    {item.subject?.lecture} - {item.subject?.tutorial} - {item.subject?.practical}
-                                  </td>
-                                  <td className="p-3 text-center font-bold text-slate-900">{item.subject?.credits} C</td>
-                                  <td className="p-3 text-right">
-                                    <div className="flex items-center justify-end space-x-1.5">
-                                      <select
-                                        value={item.semester}
-                                        onChange={(e) => handleMoveSubjectToSemester(item.id, Number(e.target.value))}
-                                        className="text-[10px] py-1 px-1.5 border border-slate-200 rounded-lg bg-white text-slate-700 font-bold focus:ring-1 focus:ring-brand-500"
-                                        title="Move to another semester"
-                                      >
-                                        {Array.from({ length: department?.semesters || 8 }, (_, i) => i + 1).map((s) => (
-                                          <option key={s} value={s}>Sem {s}</option>
-                                        ))}
-                                      </select>
-                                      <button
-                                        onClick={() => handleRemoveSubjectFromPlan(item.id)}
-                                        className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-all"
-                                        title="Remove from semester"
-                                      >
-                                        <Trash2 className="w-4 h-4" />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+                        {/* 3 Executive Stat Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          {/* Card 1: Degree Total Credits */}
+                          <div className="p-3.5 bg-white rounded-xl border border-purple-100 shadow-xs space-y-2">
+                            <div className="flex items-center justify-between text-xs font-bold text-slate-600">
+                              <span className="flex items-center space-x-1.5">
+                                <GraduationCap className="w-4 h-4 text-brand-600" />
+                                <span className="uppercase text-[10px] tracking-wider font-extrabold">Total Degree Credits</span>
+                              </span>
+                              <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                                isCredValid
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : totalCred < minTotal
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-rose-100 text-rose-800'
+                              }`}>
+                                {isCredValid ? 'Target Met' : totalCred < minTotal ? `Need +${minTotal - totalCred} C` : `Over +${totalCred - maxTotal} C`}
+                              </span>
+                            </div>
+                            <div className="flex items-baseline space-x-2">
+                              <span className="text-2xl font-black text-slate-900">{totalCred}</span>
+                              <span className="text-xs text-slate-500 font-semibold">/ {minTotal}–{maxTotal} Credits Target</span>
+                            </div>
+                            {/* Progress bar */}
+                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full transition-all duration-300 rounded-full ${
+                                  isCredValid ? 'bg-emerald-500' : totalCred < minTotal ? 'bg-amber-500' : 'bg-rose-500'
+                                }`}
+                                style={{ width: `${Math.min(100, Math.round((totalCred / maxTotal) * 100))}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Card 2: Semester Credit Balance */}
+                          <div className="p-3.5 bg-white rounded-xl border border-purple-100 shadow-xs space-y-2">
+                            <div className="flex items-center justify-between text-xs font-bold text-slate-600">
+                              <span className="flex items-center space-x-1.5">
+                                <Scale className="w-4 h-4 text-brand-600" />
+                                <span className="uppercase text-[10px] tracking-wider font-extrabold">Semester Balance</span>
+                              </span>
+                              <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                                balancedSemCount === numSemesters ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                              }`}>
+                                {balancedSemCount === numSemesters ? 'All Balanced' : `${numSemesters - balancedSemCount} Unbalanced`}
+                              </span>
+                            </div>
+                            <div className="flex items-baseline space-x-2">
+                              <span className="text-2xl font-black text-slate-900">{balancedSemCount}</span>
+                              <span className="text-xs text-slate-500 font-semibold">/ {numSemesters} Semesters in {minSem}–{maxSem} C</span>
+                            </div>
+                            <p className="text-[10px] text-slate-500">
+                              Standard: {minSem} to {maxSem} C per semester (Max {maxLabSem} labs)
+                            </p>
+                          </div>
+
+                          {/* Card 3: Practical & Lab Courses */}
+                          <div className="p-3.5 bg-white rounded-xl border border-purple-100 shadow-xs space-y-2">
+                            <div className="flex items-center justify-between text-xs font-bold text-slate-600">
+                              <span className="flex items-center space-x-1.5">
+                                <Layers className="w-4 h-4 text-brand-600" />
+                                <span className="uppercase text-[10px] tracking-wider font-extrabold">Practical & Labs</span>
+                              </span>
+                              <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                                totalLabs <= maxLabTot ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                              }`}>
+                                {totalLabs <= maxLabTot ? 'Within Cap' : `Exceeds Cap`}
+                              </span>
+                            </div>
+                            <div className="flex items-baseline space-x-2">
+                              <span className="text-2xl font-black text-slate-900">{totalLabs}</span>
+                              <span className="text-xs text-slate-500 font-semibold">/ {maxLabTot} Maximum Total Labs</span>
+                            </div>
+                            <p className="text-[10px] text-slate-500">
+                              Institution cap: max {maxLabSem} labs per semester
+                            </p>
+                          </div>
                         </div>
+
+                        {/* Expandable Breakdown Drawer */}
+                        {showDetailedConstraints && (
+                          <div className="pt-2 border-t border-purple-200/80 space-y-4 animate-in fade-in duration-200">
+                            {/* Governance Violations Alert List */}
+                            {violationsCount > 0 ? (
+                              <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-xs text-amber-900 space-y-2">
+                                <span className="font-bold text-amber-950 flex items-center space-x-1.5">
+                                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                                  <span>The following {violationsCount} governance rule(s) must be resolved:</span>
+                                </span>
+                                <ul className="grid grid-cols-1 md:grid-cols-2 gap-1.5 pl-6 list-disc text-[11px] text-amber-800">
+                                  {progPlanData.constraints.violations.map((v: string, idx: number) => (
+                                    <li key={idx} className="leading-snug">{v}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : (
+                              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-bold flex items-center space-x-2">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                <span>All MasterAdmin institutional governance constraints are satisfied! This curriculum plan is eligible for final submission to Dean.</span>
+                              </div>
+                            )}
+
+                            {/* Subject Category Breakdown Cards */}
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-black uppercase text-slate-800 tracking-wider">
+                                  Subject Category Target Composition (% Targets)
+                                </span>
+                                <span className="text-[11px] text-slate-500">
+                                  Dynamic targets configured by MasterAdmin
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2">
+                                {Object.entries(progPlanData.constraints.categoryBreakdown || {}).map(([catCode, data]: [string, any]) => (
+                                  <div
+                                    key={catCode}
+                                    className={`p-3 rounded-xl border space-y-1.5 transition-all ${
+                                      data.isValid
+                                        ? 'bg-white border-purple-200 shadow-2xs'
+                                        : 'bg-rose-50/70 border-rose-300 text-rose-900 shadow-2xs'
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[11px] font-black uppercase text-slate-700">{catCode}</span>
+                                      <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded ${
+                                        data.isValid ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                                      }`}>
+                                        {data.isValid ? '✓ Met' : data.diff < 0 ? `+${Math.abs(data.diff)}` : `-${data.diff}`}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-baseline justify-between">
+                                      <span className="text-sm font-black text-slate-900">{data.credits} C</span>
+                                      <span className="text-[10px] font-semibold text-slate-500">
+                                        Req: {data.expectedCredits} C
+                                      </span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                      <div
+                                        className={`h-full rounded-full ${data.isValid ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                                        style={{
+                                          width: `${Math.min(100, Math.round((data.credits / Math.max(1, data.expectedCredits)) * 100))}%`,
+                                        }}
+                                      />
+                                    </div>
+                                    <span className="text-[10px] text-slate-500 block text-right font-medium">
+                                      Target: {data.targetPct}%
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
                 </div>
+
+                {/* 3. Semester Timeline Navigator (Interactive Pills) */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 flex items-center space-x-1.5">
+                      <span>Semester Timeline Navigator</span>
+                      <span className="text-[11px] font-medium text-slate-400">
+                        (Click to focus, or drag any course onto a pill to reassign)
+                      </span>
+                    </span>
+                    <span className="text-[11px] text-brand-600 font-bold hidden sm:inline">
+                      Active: Semester {activeProgSemester}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2.5">
+                    {Array.from({ length: department?.semesters || 8 }, (_, i) => i + 1).map((sem) => {
+                      const semCred = progPlanData?.constraints?.semCreditsMap?.[sem] || 0;
+                      const semLabs = progPlanData?.constraints?.semLabsMap?.[sem] || 0;
+                      const semItemsCount = (progPlanData?.plannedItems || []).filter((p: any) => p.semester === sem).length;
+
+                      const minSem = progPlanData?.creditConfig?.minSemCredits ?? 20;
+                      const maxSem = progPlanData?.creditConfig?.maxSemCredits ?? 24;
+                      const maxLabSem = progPlanData?.creditConfig?.maxLabPerSem ?? 2;
+
+                      const isValidSem =
+                        semCred === 0 ||
+                        (semCred >= minSem && semCred <= maxSem && semLabs <= maxLabSem);
+
+                      const isDragTarget = dragOverSem === sem;
+                      const isActive = activeProgSemester === sem;
+
+                      return (
+                        <div
+                          key={sem}
+                          onClick={() => setActiveProgSemester(sem)}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'move';
+                          }}
+                          onDragEnter={() => setDragOverSem(sem)}
+                          onDragLeave={() => setDragOverSem(null)}
+                          onDrop={async (e) => {
+                            e.preventDefault();
+                            setDragOverSem(null);
+                            const planId = e.dataTransfer.getData('text/plain');
+                            if (planId) {
+                              await handleMoveSubjectToSemester(planId, sem);
+                            }
+                          }}
+                          className={`p-3 rounded-2xl border text-center cursor-pointer transition-all space-y-1 relative group ${
+                            isDragTarget
+                              ? 'ring-2 ring-brand-500 bg-brand-50 scale-105 shadow-md z-10'
+                              : isActive
+                              ? 'ring-2 ring-brand-600 bg-white shadow-xs border-brand-300'
+                              : 'bg-white hover:bg-purple-50/50 border-purple-100 hover:border-purple-200 shadow-2xs'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className={`text-[10px] font-black uppercase tracking-wider ${
+                              isActive ? 'text-brand-700' : 'text-slate-500'
+                            }`}>
+                              Sem {sem}
+                            </span>
+                            {isActive && (
+                              <span className="w-1.5 h-1.5 rounded-full bg-brand-600 animate-ping" />
+                            )}
+                          </div>
+
+                          <div className="pt-0.5">
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded-md text-xs font-black ${
+                                semCred === 0
+                                  ? 'bg-slate-100 text-slate-600'
+                                  : isValidSem
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : semCred < minSem
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-rose-100 text-rose-800'
+                              }`}
+                            >
+                              {semCred} C
+                            </span>
+                          </div>
+
+                          <div className="text-[10px] text-slate-500 font-semibold space-x-1">
+                            <span>{semItemsCount} {semItemsCount === 1 ? 'sub' : 'subs'}</span>
+                            <span>•</span>
+                            <span className={semLabs > maxLabSem ? 'text-rose-600 font-bold' : ''}>
+                              {semLabs} {semLabs === 1 ? 'lab' : 'labs'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 4. VIEW MODE A: SEMESTER FOCUS VIEW */}
+                {planningViewMode === 'semester' && (
+                  <div className="bg-white rounded-3xl border border-purple-100 p-6 shadow-sm space-y-5">
+                    {/* Semester Header & Stats */}
+                    {(() => {
+                      const allSemItems =
+                        progPlanData?.plannedItems?.filter((p: any) => p.semester === activeProgSemester) || [];
+
+                      const semItems = allSemItems.filter((p: any) => {
+                        if (semCourseSearch.trim()) {
+                          const q = semCourseSearch.toLowerCase();
+                          const matchCode = p.subject?.subjectCode?.toLowerCase().includes(q);
+                          const matchName = p.subject?.subjectName?.toLowerCase().includes(q);
+                          if (!matchCode && !matchName) return false;
+                        }
+                        if (semCatFilter !== 'ALL' && p.subject?.subjectCategory?.code !== semCatFilter) {
+                          return false;
+                        }
+                        if (semTypeFilter !== 'ALL') {
+                          const t = (p.subject?.subjectType?.name || '').toLowerCase();
+                          if (semTypeFilter === 'THEORY' && !t.includes('theory')) return false;
+                          if (semTypeFilter === 'LAB' && (!t.includes('lab') || t.includes('oriented'))) return false;
+                          if (semTypeFilter === 'LOT' && !t.includes('oriented')) return false;
+                          if (semTypeFilter === 'PROJECT' && !t.includes('project')) return false;
+                        }
+                        return true;
+                      });
+
+                      const semCredits = progPlanData?.constraints?.semCreditsMap?.[activeProgSemester] || 0;
+                      const semLabs = progPlanData?.constraints?.semLabsMap?.[activeProgSemester] || 0;
+
+                      let totalL = 0, totalT = 0, totalP = 0;
+                      allSemItems.forEach((item: any) => {
+                        totalL += item.subject?.lecture || 0;
+                        totalT += item.subject?.tutorial || 0;
+                        totalP += item.subject?.practical || 0;
+                      });
+
+                      return (
+                        <div className="space-y-4">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-purple-100 pb-4">
+                            <div>
+                              <div className="flex items-center space-x-2">
+                                <h3 className="text-base font-black text-slate-900">
+                                  Semester {activeProgSemester} Course Plan
+                                </h3>
+                                <span className="text-[10px] font-bold bg-purple-100 text-brand-700 px-2.5 py-0.5 rounded-md flex items-center">
+                                  <GripVertical className="w-3 h-3 mr-1" /> Drag & Drop Enabled
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mt-1">
+                                <span className="font-bold text-slate-800">{allSemItems.length} Subjects</span>
+                                <span>•</span>
+                                <span className="font-bold text-brand-700">{semCredits} Credits</span>
+                                <span>•</span>
+                                <span>{semLabs} Labs</span>
+                                <span>•</span>
+                                <span className="font-medium">Total Contact: {totalL}L + {totalT}T + {totalP}P hrs</span>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => openAddModalForSemester(activeProgSemester)}
+                              className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center space-x-1.5 transition-all self-start sm:self-auto"
+                            >
+                              <Plus className="w-4 h-4" />
+                              <span>Add Subject to Sem {activeProgSemester}</span>
+                            </button>
+                          </div>
+
+                          {allSemItems.length === 0 ? (
+                            <div className="p-12 text-center bg-slate-50/60 rounded-3xl border border-dashed border-slate-300 text-slate-600 space-y-3">
+                              <div className="w-12 h-12 bg-purple-100 text-brand-600 rounded-full flex items-center justify-center mx-auto shadow-xs">
+                                <BookOpen className="w-6 h-6" />
+                              </div>
+                              <h4 className="text-sm font-bold text-slate-900">
+                                No courses assigned to Semester {activeProgSemester} yet
+                              </h4>
+                              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                                Select approved course syllabi across any department to plan this semester, or drag existing courses from other semesters above.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => openAddModalForSemester(activeProgSemester)}
+                                className="px-5 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs inline-flex items-center space-x-1.5 transition-all"
+                              >
+                                <Plus className="w-4 h-4" />
+                                <span>Add First Course</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              {/* Filter & Search Toolbar */}
+                              <div className="flex flex-wrap items-center justify-between gap-2.5 p-3 bg-slate-50/80 rounded-2xl border border-slate-200 text-xs">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <div className="relative">
+                                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                    <input
+                                      type="text"
+                                      placeholder="Search code or title..."
+                                      value={semCourseSearch}
+                                      onChange={(e) => setSemCourseSearch(e.target.value)}
+                                      className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-xl bg-white focus:outline-hidden focus:ring-1 focus:ring-brand-500 w-44"
+                                    />
+                                    {semCourseSearch && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setSemCourseSearch('')}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  <select
+                                    value={semCatFilter}
+                                    onChange={(e) => setSemCatFilter(e.target.value)}
+                                    className="py-1.5 px-2.5 text-xs border border-slate-200 rounded-xl bg-white text-slate-700 font-medium"
+                                  >
+                                    <option value="ALL">All Categories</option>
+                                    {subjectCategories.map((c: any) => (
+                                      <option key={c.id} value={c.code}>{c.code} - {c.name}</option>
+                                    ))}
+                                  </select>
+
+                                  <select
+                                    value={semTypeFilter}
+                                    onChange={(e) => setSemTypeFilter(e.target.value)}
+                                    className="py-1.5 px-2.5 text-xs border border-slate-200 rounded-xl bg-white text-slate-700 font-medium"
+                                  >
+                                    <option value="ALL">All Types</option>
+                                    <option value="THEORY">Theory</option>
+                                    <option value="LAB">Laboratory</option>
+                                    <option value="LOT">Lab-Oriented Theory (LOT)</option>
+                                    <option value="PROJECT">Project / Practical</option>
+                                  </select>
+
+                                  {(semCourseSearch || semCatFilter !== 'ALL' || semTypeFilter !== 'ALL') && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSemCourseSearch('');
+                                        setSemCatFilter('ALL');
+                                        setSemTypeFilter('ALL');
+                                      }}
+                                      className="text-xs text-brand-600 hover:underline font-semibold px-1"
+                                    >
+                                      Reset Filters
+                                    </button>
+                                  )}
+                                </div>
+
+                                <span className="text-[11px] text-slate-500 font-medium">
+                                  Showing {semItems.length} of {allSemItems.length} courses in Semester {activeProgSemester}
+                                </span>
+                              </div>
+
+                              {/* Course Plan Table */}
+                              <div className="overflow-x-auto border border-purple-100 rounded-2xl">
+                                <table className="w-full text-xs text-left">
+                                  <thead className="bg-purple-50/70 text-slate-700 font-bold border-b border-purple-100">
+                                    <tr>
+                                      <th className="p-3 w-8"></th>
+                                      <th className="p-3">Course Code</th>
+                                      <th className="p-3">Course Title</th>
+                                      <th className="p-3">Offered By</th>
+                                      <th className="p-3 text-center">Type</th>
+                                      <th className="p-3 text-center">Category</th>
+                                      <th className="p-3 text-center">L - T - P</th>
+                                      <th className="p-3 text-center">Credits</th>
+                                      <th className="p-3 text-right">Reassign / Remove</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-100 bg-white">
+                                    {semItems.map((item: any) => (
+                                      <tr
+                                        key={item.id}
+                                        draggable={true}
+                                        onDragStart={(e) => {
+                                          e.dataTransfer.setData('text/plain', item.id);
+                                          setDraggedPlanId(item.id);
+                                        }}
+                                        onDragEnd={() => {
+                                          setDraggedPlanId(null);
+                                          setDragOverSem(null);
+                                        }}
+                                        className={`hover:bg-purple-50/30 group transition-all ${
+                                          draggedPlanId === item.id ? 'opacity-40 bg-purple-50' : ''
+                                        }`}
+                                      >
+                                        <td className="p-3 pr-0 cursor-grab active:cursor-grabbing text-slate-400 group-hover:text-brand-600" title="Drag to reassign semester">
+                                          <GripVertical className="w-4 h-4" />
+                                        </td>
+                                        <td className="p-3 font-mono font-bold text-brand-700">{item.subject?.subjectCode}</td>
+                                        <td className="p-3 font-bold text-slate-900">{item.subject?.subjectName}</td>
+                                        <td className="p-3 text-slate-600 font-medium">
+                                          <span className="px-2 py-0.5 bg-slate-100 rounded-md text-[10px]">
+                                            {item.subject?.department?.shortName || item.subject?.department?.departmentCode || 'Dept'}
+                                          </span>
+                                        </td>
+                                        <td className="p-3 text-center">
+                                          <span className="px-2 py-0.5 bg-slate-100 rounded-md text-[10px] font-semibold text-slate-700">
+                                            {item.subject?.subjectType?.name}
+                                          </span>
+                                        </td>
+                                        <td className="p-3 text-center">
+                                          <span className="px-2.5 py-0.5 bg-purple-100 rounded-md text-[10px] font-bold text-brand-700">
+                                            {item.subject?.subjectCategory?.code}
+                                          </span>
+                                        </td>
+                                        <td className="p-3 text-center font-mono text-slate-700">
+                                          {item.subject?.lecture} - {item.subject?.tutorial} - {item.subject?.practical}
+                                        </td>
+                                        <td className="p-3 text-center font-black text-slate-900">
+                                          {item.subject?.credits} C
+                                        </td>
+                                        <td className="p-3 text-right">
+                                          <div className="flex items-center justify-end space-x-2">
+                                            <select
+                                              value={item.semester}
+                                              onChange={(e) => handleMoveSubjectToSemester(item.id, Number(e.target.value))}
+                                              className="text-[10px] py-1 px-2 border border-slate-200 rounded-lg bg-white text-slate-700 font-bold focus:ring-1 focus:ring-brand-500 shadow-2xs"
+                                              title="Move course to another semester"
+                                            >
+                                              {Array.from({ length: department?.semesters || 8 }, (_, i) => i + 1).map((s) => (
+                                                <option key={s} value={s}>Sem {s}</option>
+                                              ))}
+                                            </select>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleRemoveSubjectFromPlan(item.id)}
+                                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-all"
+                                              title="Remove course from curriculum"
+                                            >
+                                              <Trash2 className="w-4 h-4" />
+                                            </button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* 5. VIEW MODE B: 8-SEMESTER CURRICULUM MATRIX BOARD */}
+                {planningViewMode === 'matrix' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between px-1">
+                      <div>
+                        <h3 className="text-base font-black text-slate-900">
+                          Complete 8-Semester Curriculum Matrix Board
+                        </h3>
+                        <p className="text-xs text-desc">
+                          Interactive 4-year degree overview. Drag and drop course cards across semester columns to balance credits.
+                        </p>
+                      </div>
+                      <span className="text-[11px] font-semibold text-slate-500 bg-white border border-purple-100 px-3 py-1 rounded-xl shadow-2xs">
+                        Total Planned: {(progPlanData?.plannedItems || []).length} Courses
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                      {Array.from({ length: department?.semesters || 8 }, (_, i) => i + 1).map((sem) => {
+                        const semItems = (progPlanData?.plannedItems || []).filter((p: any) => p.semester === sem);
+                        const semCred = progPlanData?.constraints?.semCreditsMap?.[sem] || 0;
+                        const semLabs = progPlanData?.constraints?.semLabsMap?.[sem] || 0;
+
+                        const minSem = progPlanData?.creditConfig?.minSemCredits ?? 20;
+                        const maxSem = progPlanData?.creditConfig?.maxSemCredits ?? 24;
+                        const maxLabSem = progPlanData?.creditConfig?.maxLabPerSem ?? 2;
+
+                        const isValidSem =
+                          semCred === 0 ||
+                          (semCred >= minSem && semCred <= maxSem && semLabs <= maxLabSem);
+
+                        const isDropTarget = dragOverSem === sem;
+
+                        return (
+                          <div
+                            key={sem}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              e.dataTransfer.dropEffect = 'move';
+                            }}
+                            onDragEnter={() => setDragOverSem(sem)}
+                            onDragLeave={() => setDragOverSem(null)}
+                            onDrop={async (e) => {
+                              e.preventDefault();
+                              setDragOverSem(null);
+                              const planId = e.dataTransfer.getData('text/plain');
+                              if (planId) {
+                                await handleMoveSubjectToSemester(planId, sem);
+                              }
+                            }}
+                            className={`flex flex-col bg-white rounded-3xl border transition-all shadow-xs ${
+                              isDropTarget
+                                ? 'ring-2 ring-brand-500 border-brand-500 bg-brand-50/30'
+                                : 'border-purple-100 hover:border-purple-200'
+                            }`}
+                          >
+                            {/* Column Header */}
+                            <div className="p-4 border-b border-purple-100 flex items-center justify-between bg-purple-50/40 rounded-t-3xl">
+                              <div>
+                                <div className="flex items-center space-x-2">
+                                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                                    Semester {sem}
+                                  </h4>
+                                  <span
+                                    className={`px-2 py-0.5 rounded-md text-[10px] font-black ${
+                                      semCred === 0
+                                        ? 'bg-slate-100 text-slate-600'
+                                        : isValidSem
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : semCred < minSem
+                                        ? 'bg-amber-100 text-amber-800'
+                                        : 'bg-rose-100 text-rose-800'
+                                    }`}
+                                  >
+                                    {semCred} C
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-slate-500 font-medium mt-0.5">
+                                  {semItems.length} courses &bull; {semLabs} labs
+                                </div>
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={() => openAddModalForSemester(sem)}
+                                className="w-7 h-7 bg-white hover:bg-brand-50 text-brand-600 border border-purple-200 rounded-lg flex items-center justify-center transition-all shadow-2xs"
+                                title={`Add course to Semester ${sem}`}
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
+                            </div>
+
+                            {/* Course Cards Container */}
+                            <div className="p-3 flex-1 space-y-2 min-h-[220px] max-h-[500px] overflow-y-auto">
+                              {semItems.length === 0 ? (
+                                <div className="h-full flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 space-y-2">
+                                  <p className="text-[11px] font-semibold">Drop courses here</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => openAddModalForSemester(sem)}
+                                    className="text-[10px] font-bold text-brand-600 hover:underline"
+                                  >
+                                    + Add Course
+                                  </button>
+                                </div>
+                              ) : (
+                                semItems.map((item: any) => (
+                                  <div
+                                    key={item.id}
+                                    draggable={true}
+                                    onDragStart={(e) => {
+                                      e.dataTransfer.setData('text/plain', item.id);
+                                      setDraggedPlanId(item.id);
+                                    }}
+                                    onDragEnd={() => {
+                                      setDraggedPlanId(null);
+                                      setDragOverSem(null);
+                                    }}
+                                    className={`p-3 rounded-2xl border bg-white space-y-2 cursor-grab active:cursor-grabbing hover:shadow-md transition-all group ${
+                                      draggedPlanId === item.id
+                                        ? 'opacity-40 border-brand-300'
+                                        : 'border-slate-200 hover:border-purple-300'
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-mono font-bold text-xs text-brand-700">
+                                        {item.subject?.subjectCode}
+                                      </span>
+                                      <span className="px-2 py-0.5 bg-purple-100 rounded text-[10px] font-bold text-brand-700">
+                                        {item.subject?.subjectCategory?.code}
+                                      </span>
+                                    </div>
+
+                                    <h5 className="text-xs font-bold text-slate-900 line-clamp-2 leading-snug">
+                                      {item.subject?.subjectName}
+                                    </h5>
+
+                                    <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[10px]">
+                                      <div className="flex items-center space-x-1.5 text-slate-500 font-semibold">
+                                        <span className="font-bold text-slate-800">{item.subject?.credits} C</span>
+                                        <span>•</span>
+                                        <span>{item.subject?.department?.shortName || 'Dept'}</span>
+                                      </div>
+
+                                      <div className="flex items-center space-x-1">
+                                        <select
+                                          value={item.semester}
+                                          onChange={(e) => handleMoveSubjectToSemester(item.id, Number(e.target.value))}
+                                          className="text-[9px] py-0.5 px-1 border border-slate-200 rounded bg-white text-slate-600 font-bold"
+                                          title="Reassign semester"
+                                        >
+                                          {Array.from({ length: department?.semesters || 8 }, (_, i) => i + 1).map((s) => (
+                                            <option key={s} value={s}>Sem {s}</option>
+                                          ))}
+                                        </select>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveSubjectFromPlan(item.id)}
+                                          className="p-1 text-slate-400 hover:text-rose-600 rounded transition-all"
+                                          title="Remove from curriculum"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+
+                            {/* Column Footer */}
+                            <div className="p-3 border-t border-purple-100 bg-slate-50/50 rounded-b-3xl">
+                              <button
+                                type="button"
+                                onClick={() => openAddModalForSemester(sem)}
+                                className="w-full py-1.5 bg-white hover:bg-brand-50 text-brand-700 border border-purple-200 font-bold text-xs rounded-xl shadow-2xs transition-all flex items-center justify-center space-x-1"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Add to Sem {sem}</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -2083,39 +2568,78 @@ export default function HoDDashboard() {
         {/* ========================================================================= */}
         {showAddSubjectModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs">
-            <div className="bg-white rounded-3xl max-w-4xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto border border-purple-100">
-              <div className="flex items-center justify-between border-b pb-3">
+            <div className="bg-white rounded-3xl max-w-5xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto border border-purple-100">
+              <div className="flex items-center justify-between border-b border-purple-100 pb-3">
                 <div>
-                  <h3 className="text-base font-extrabold text-slate-900">
-                    Add Subject to Semester {activeProgSemester}
-                  </h3>
+                  <div className="flex items-center space-x-2">
+                    <h3 className="text-base font-black text-slate-900">
+                      Add Course to Semester {activeProgSemester}
+                    </h3>
+                    <span className="text-[10px] font-bold bg-purple-100 text-brand-700 px-2 py-0.5 rounded-md">
+                      Target: Sem {activeProgSemester}
+                    </span>
+                  </div>
                   <p className="text-xs text-desc">
-                    {selectedModalDeptId
-                      ? 'Select an approved subject to add into this semester'
-                      : 'Step 1: Choose offering department to view Dean-approved subjects'}
+                    Search and select Dean-approved courses from all 18 engineering departments to add into this semester.
                   </p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setShowAddSubjectModal(false)}
-                  className="text-slate-400 hover:text-slate-600 p-2"
+                  className="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-slate-100 transition-all"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
+              {/* Category Quick Filter Chips */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                  Quick Category Filter
+                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setModalCatFilter('ALL')}
+                    className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                      modalCatFilter === 'ALL'
+                        ? 'bg-brand-600 text-white shadow-xs'
+                        : 'bg-white text-slate-700 border border-slate-200 hover:bg-purple-50'
+                    }`}
+                  >
+                    All Categories
+                  </button>
+                  {subjectCategories.map((c: any) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setModalCatFilter(c.code)}
+                      className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                        modalCatFilter === c.code
+                          ? 'bg-brand-600 text-white shadow-xs'
+                          : 'bg-white text-slate-700 border border-slate-200 hover:bg-purple-50'
+                      }`}
+                    >
+                      {c.code}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Filter and Search Toolbar */}
               <div className="flex flex-wrap items-center gap-2 p-3 bg-purple-50/40 rounded-2xl border border-purple-100">
-                <div className="relative flex-1 min-w-[200px]">
+                <div className="relative flex-1 min-w-[220px]">
                   <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
-                    placeholder="Search by code or course title..."
+                    placeholder="Search by code, title, or offering dept..."
                     value={modalSearchQuery}
                     onChange={(e) => setModalSearchQuery(e.target.value)}
                     className="w-full pl-9 pr-3 py-1.5 text-xs border border-purple-200 rounded-xl bg-white focus:outline-hidden focus:ring-1 focus:ring-brand-500"
                   />
                   {modalSearchQuery && (
                     <button
+                      type="button"
                       onClick={() => setModalSearchQuery('')}
                       className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                     >
@@ -2132,7 +2656,7 @@ export default function HoDDashboard() {
                     setSelectedModalDeptId(deptId);
                     fetchApprovedSubjects(deptId);
                   }}
-                  className="py-1.5 px-2 text-xs border border-purple-200 rounded-xl bg-white text-slate-700 font-medium"
+                  className="py-1.5 px-2.5 text-xs border border-purple-200 rounded-xl bg-white text-slate-700 font-medium"
                 >
                   <option value="">All Offering Departments</option>
                   {approvedSubjectsData?.departments?.map((d: any) => (
@@ -2142,25 +2666,11 @@ export default function HoDDashboard() {
                   ))}
                 </select>
 
-                {/* Category Filter */}
-                <select
-                  value={modalCatFilter}
-                  onChange={(e) => setModalCatFilter(e.target.value)}
-                  className="py-1.5 px-2 text-xs border border-purple-200 rounded-xl bg-white text-slate-700 font-medium"
-                >
-                  <option value="ALL">All Categories</option>
-                  {(approvedSubjectsData?.subjectCategories || subjectCategories).map((c: any) => (
-                    <option key={c.id} value={c.code}>
-                      {c.code} - {c.name}
-                    </option>
-                  ))}
-                </select>
-
                 {/* Type Filter */}
                 <select
                   value={modalTypeFilter}
                   onChange={(e) => setModalTypeFilter(e.target.value)}
-                  className="py-1.5 px-2 text-xs border border-purple-200 rounded-xl bg-white text-slate-700 font-medium"
+                  className="py-1.5 px-2.5 text-xs border border-purple-200 rounded-xl bg-white text-slate-700 font-medium"
                 >
                   <option value="ALL">All Types</option>
                   {(approvedSubjectsData?.subjectTypes || subjectTypes).map((t: any) => (
@@ -2172,6 +2682,7 @@ export default function HoDDashboard() {
 
                 {(selectedModalDeptId || modalCatFilter !== 'ALL' || modalTypeFilter !== 'ALL' || modalSearchQuery) && (
                   <button
+                    type="button"
                     onClick={() => {
                       setSelectedModalDeptId('');
                       setModalCatFilter('ALL');
@@ -2179,19 +2690,15 @@ export default function HoDDashboard() {
                       setModalSearchQuery('');
                       fetchApprovedSubjects();
                     }}
-                    className="text-xs text-brand-600 hover:underline font-semibold px-1"
+                    className="text-xs text-brand-600 hover:underline font-bold px-1"
                   >
-                    Reset
+                    Reset Filters
                   </button>
                 )}
               </div>
 
               {/* APPROVED SUBJECTS LISTING */}
               {(() => {
-                const plannedSubjectIds = new Set(
-                  progPlanData?.plannedItems?.map((p: any) => p.subject?.id)
-                );
-
                 const deptSubjects = (approvedSubjectsData?.subjects || []).filter((s: any) => {
                   if (selectedModalDeptId && s.departmentId !== selectedModalDeptId && s.department?.id !== selectedModalDeptId) {
                     return false;
@@ -2216,7 +2723,7 @@ export default function HoDDashboard() {
 
                 if (loadingApprovedSubjects) {
                   return (
-                    <div className="p-8 text-center text-xs text-desc bg-slate-50 rounded-2xl border border-dashed">
+                    <div className="p-12 text-center text-xs text-desc bg-slate-50 rounded-2xl border border-dashed">
                       Loading Dean-approved subjects...
                     </div>
                   );
@@ -2224,7 +2731,7 @@ export default function HoDDashboard() {
 
                 if (deptSubjects.length === 0) {
                   return (
-                    <div className="p-8 text-center text-xs text-desc bg-slate-50 rounded-2xl border border-dashed">
+                    <div className="p-12 text-center text-xs text-desc bg-slate-50 rounded-2xl border border-dashed">
                       No Dean-approved subjects match the selected filters.
                     </div>
                   );
@@ -2233,16 +2740,16 @@ export default function HoDDashboard() {
                 return (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
-                      <span>Found <strong>{deptSubjects.length}</strong> Dean-approved subject(s)</span>
-                      <span>Target: Semester {activeProgSemester}</span>
+                      <span>Found <strong>{deptSubjects.length}</strong> Dean-approved course(s)</span>
+                      <span>Adding to: <strong>Semester {activeProgSemester}</strong></span>
                     </div>
 
-                    <div className="overflow-x-auto border border-slate-100 rounded-2xl">
+                    <div className="overflow-x-auto border border-purple-100 rounded-2xl">
                       <table className="w-full text-xs text-left">
-                        <thead className="bg-purple-50 text-slate-700 font-semibold">
+                        <thead className="bg-purple-50/70 text-slate-700 font-bold border-b border-purple-100">
                           <tr>
-                            <th className="p-3">Code</th>
-                            <th className="p-3">Title</th>
+                            <th className="p-3">Course Code</th>
+                            <th className="p-3">Course Title</th>
                             <th className="p-3">Offered By</th>
                             <th className="p-3 text-center">Type</th>
                             <th className="p-3 text-center">Category</th>
@@ -2251,43 +2758,68 @@ export default function HoDDashboard() {
                             <th className="p-3 text-right">Action</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-slate-100 bg-white">
                           {deptSubjects.map((s: any) => {
-                            const alreadyAdded = plannedSubjectIds.has(s.id);
+                            const existingPlan = progPlanData?.plannedItems?.find(
+                              (p: any) => p.subject?.id === s.id
+                            );
 
                             return (
-                              <tr key={s.id} className="hover:bg-slate-50">
+                              <tr key={s.id} className="hover:bg-purple-50/30 transition-all">
                                 <td className="p-3 font-mono font-bold text-brand-700">{s.subjectCode}</td>
                                 <td className="p-3 font-bold text-slate-900">{s.subjectName}</td>
                                 <td className="p-3 text-slate-600 font-medium">
-                                  {s.department?.shortName || s.department?.departmentCode || 'Dept'}
+                                  <span className="px-2 py-0.5 bg-slate-100 rounded-md text-[10px]">
+                                    {s.department?.shortName || s.department?.departmentCode || 'Dept'}
+                                  </span>
                                 </td>
                                 <td className="p-3 text-center">
-                                  <span className="px-2 py-0.5 bg-slate-100 rounded text-[10px] font-semibold text-slate-700">
+                                  <span className="px-2 py-0.5 bg-slate-100 rounded-md text-[10px] font-semibold text-slate-700">
                                     {s.subjectType?.name}
                                   </span>
                                 </td>
                                 <td className="p-3 text-center">
-                                  <span className="px-2 py-0.5 bg-purple-100 rounded text-[10px] font-bold text-brand-700">
+                                  <span className="px-2.5 py-0.5 bg-purple-100 rounded-md text-[10px] font-bold text-brand-700">
                                     {s.subjectCategory?.code}
                                   </span>
                                 </td>
-                                <td className="p-3 text-center text-slate-700">
+                                <td className="p-3 text-center font-mono text-slate-700">
                                   {s.lecture} - {s.tutorial} - {s.practical}
                                 </td>
-                                <td className="p-3 text-center font-bold text-slate-900">{s.credits} C</td>
+                                <td className="p-3 text-center font-black text-slate-900">{s.credits} C</td>
                                 <td className="p-3 text-right">
-                                  {alreadyAdded ? (
-                                    <span className="px-3 py-1 bg-slate-100 text-slate-500 font-bold text-[10px] rounded-lg">
-                                      Already Added
-                                    </span>
+                                  {existingPlan ? (
+                                    existingPlan.semester === activeProgSemester ? (
+                                      <span className="px-3 py-1 bg-slate-100 text-slate-500 font-bold text-[10px] rounded-lg border border-slate-200">
+                                        ✓ In Current Sem
+                                      </span>
+                                    ) : (
+                                      <div className="flex items-center justify-end space-x-1.5">
+                                        <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 font-bold text-[10px] rounded-md">
+                                          In Sem {existingPlan.semester}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          disabled={submittingAddSubject}
+                                          onClick={async () => {
+                                            await handleMoveSubjectToSemester(existingPlan.id, activeProgSemester);
+                                          }}
+                                          className="px-2.5 py-1 bg-brand-600 hover:bg-brand-700 text-white font-bold text-[10px] rounded-lg shadow-2xs transition-all"
+                                          title={`Move this course from Sem ${existingPlan.semester} to Sem ${activeProgSemester}`}
+                                        >
+                                          Move Here
+                                        </button>
+                                      </div>
+                                    )
                                   ) : (
                                     <button
+                                      type="button"
                                       disabled={submittingAddSubject}
                                       onClick={() => handleAddSubjectToSemester(s.id)}
-                                      className="px-3 py-1 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-lg shadow-xs transition-all"
+                                      className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-lg shadow-xs transition-all flex items-center space-x-1 ml-auto"
                                     >
-                                      + Add to Sem {activeProgSemester}
+                                      <Plus className="w-3.5 h-3.5" />
+                                      <span>Add to Sem {activeProgSemester}</span>
                                     </button>
                                   )}
                                 </td>
