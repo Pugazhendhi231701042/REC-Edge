@@ -141,6 +141,8 @@ export default function HoDDashboard() {
   const [semCourseSearch, setSemCourseSearch] = useState<string>('');
   const [semCatFilter, setSemCatFilter] = useState<string>('ALL');
   const [semTypeFilter, setSemTypeFilter] = useState<string>('ALL');
+  const [selectedModalSubjectIds, setSelectedModalSubjectIds] = useState<string[]>([]);
+  const [selectedSemPlanIds, setSelectedSemPlanIds] = useState<string[]>([]);
 
   // Approved Syllabi Directory Filter States
   const [approvedSearchQuery, setApprovedSearchQuery] = useState<string>('');
@@ -347,11 +349,17 @@ export default function HoDDashboard() {
     setModalSearchQuery('');
     setModalCatFilter('ALL');
     setModalTypeFilter('ALL');
+    setSelectedModalSubjectIds([]);
     setShowAddSubjectModal(true);
     fetchApprovedSubjects();
   };
 
-  const handleAddSubjectToSemester = async (subjectId: string) => {
+  const handleAddMultipleSubjectsToSemester = async (subjectIdsToAdd?: string[]) => {
+    const ids = subjectIdsToAdd || selectedModalSubjectIds;
+    if (ids.length === 0) {
+      alert('Please select at least one course to add.');
+      return;
+    }
     setSubmittingAddSubject(true);
     try {
       const res = await fetch('/api/hod/programme-planning', {
@@ -360,22 +368,27 @@ export default function HoDDashboard() {
         body: JSON.stringify({
           action: 'ADD_SUBJECT',
           semester: activeProgSemester,
-          subjectId,
+          subjectIds: ids,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || 'Failed to add subject.');
+        alert(data.error || 'Failed to add course(s).');
         return;
       }
+      setSelectedModalSubjectIds([]);
       await fetchProgPlan();
       setShowAddSubjectModal(false);
     } catch (e) {
       console.error(e);
-      alert('Error adding subject.');
+      alert('Error adding courses.');
     } finally {
       setSubmittingAddSubject(false);
     }
+  };
+
+  const handleAddSubjectToSemester = async (subjectId: string) => {
+    await handleAddMultipleSubjectsToSemester([subjectId]);
   };
 
   const handleRemoveSubjectFromPlan = async (id: string) => {
@@ -421,6 +434,58 @@ export default function HoDDashboard() {
     } catch (e) {
       console.error(e);
       alert('Error moving subject.');
+    }
+  };
+
+  const handleBulkRemoveSubjectsFromPlan = async (idsToRemove?: string[]) => {
+    const ids = idsToRemove || selectedSemPlanIds;
+    if (ids.length === 0) return;
+    if (!confirm(`Are you sure you want to remove ${ids.length} selected course(s) from the programme plan?`)) return;
+    try {
+      const res = await fetch('/api/hod/programme-planning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'REMOVE_SUBJECT',
+          ids,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to remove subjects.');
+        return;
+      }
+      setSelectedSemPlanIds([]);
+      await fetchProgPlan();
+    } catch (e) {
+      console.error(e);
+      alert('Error removing subjects.');
+    }
+  };
+
+  const handleBulkMoveSubjectsToSemester = async (targetSemester: number, idsToMove?: string[]) => {
+    const ids = idsToMove || selectedSemPlanIds;
+    if (ids.length === 0) return;
+    try {
+      const res = await fetch('/api/hod/programme-planning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'MOVE_SUBJECT',
+          ids,
+          targetSemester,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || 'Failed to move subjects.');
+        return;
+      }
+      setSelectedSemPlanIds([]);
+      await fetchProgPlan();
+    } catch (e) {
+      console.error(e);
+      alert('Error moving subjects.');
     }
   };
 
@@ -1661,8 +1726,8 @@ export default function HoDDashboard() {
                       <h2 className="text-xl font-black text-slate-900 tracking-tight">
                         {department?.programmeName} ({department?.departmentCode}) — 8-Semester Curriculum Planning
                       </h2>
-                      <p className="text-xs text-desc max-w-3xl">
-                        Design the 4-year curriculum structure semester-by-semester using Dean-approved course syllabi from all 18 engineering departments while satisfying MasterAdmin institutional credit governance rules.
+                      <p className="text-xs text-desc max-w-2xl">
+                        Allocate Dean-approved course syllabi across 8 semesters to build the curriculum structure while satisfying institutional credit governance rules.
                       </p>
                     </div>
 
@@ -1701,7 +1766,7 @@ export default function HoDDashboard() {
                         className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center space-x-1.5 transition-all"
                       >
                         <Plus className="w-4 h-4" />
-                        <span>Add Course</span>
+                        <span>Add Courses</span>
                       </button>
                     </div>
                   </div>
@@ -1728,30 +1793,23 @@ export default function HoDDashboard() {
                     const violationsCount = progPlanData.constraints.violations?.length || 0;
 
                     return (
-                      <div className="rounded-2xl border border-purple-200/80 bg-purple-50/30 p-4 space-y-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-purple-100 pb-3">
+                      <div className="rounded-2xl border border-purple-200/80 bg-purple-50/20 p-4 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <div className="flex items-center space-x-2">
-                            <div className="w-7 h-7 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center">
-                              <Sparkles className="w-4 h-4" />
-                            </div>
-                            <div>
-                              <h3 className="text-xs font-black uppercase text-slate-900 tracking-wider">
-                                Institutional Credit Governance & Rules
-                              </h3>
-                              <p className="text-[11px] text-slate-500">
-                                Dynamic MasterAdmin validation rules for Regulation 26 curriculum
-                              </p>
-                            </div>
+                            <span className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center space-x-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-brand-600" />
+                              <span>Credit Governance Compliance</span>
+                            </span>
                           </div>
 
                           <div className="flex items-center space-x-2">
                             {progPlanData.constraints.isValidProgramme ? (
-                              <span className="px-3 py-1 bg-emerald-100 border border-emerald-300 text-emerald-800 font-extrabold text-xs rounded-xl flex items-center space-x-1.5 shadow-xs">
+                              <span className="px-3 py-1 bg-emerald-100 border border-emerald-300 text-emerald-800 font-black text-xs rounded-xl flex items-center space-x-1.5 shadow-2xs">
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                                 <span>Fully Compliant</span>
                               </span>
                             ) : (
-                              <span className="px-3 py-1 bg-amber-100 border border-amber-300 text-amber-900 font-extrabold text-xs rounded-xl flex items-center space-x-1.5 shadow-xs">
+                              <span className="px-3 py-1 bg-amber-100 border border-amber-300 text-amber-900 font-black text-xs rounded-xl flex items-center space-x-1.5 shadow-2xs">
                                 <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
                                 <span>{violationsCount} Governance Notice{violationsCount > 1 ? 's' : ''}</span>
                               </span>
@@ -1760,9 +1818,9 @@ export default function HoDDashboard() {
                             <button
                               type="button"
                               onClick={() => setShowDetailedConstraints(!showDetailedConstraints)}
-                              className="px-3 py-1 bg-white hover:bg-purple-50 text-brand-700 border border-purple-200 rounded-xl text-xs font-bold flex items-center space-x-1 transition-all shadow-xs"
+                              className="px-3 py-1 bg-white hover:bg-purple-50 text-brand-700 border border-purple-200 rounded-xl text-xs font-bold flex items-center space-x-1 transition-all shadow-2xs"
                             >
-                              <span>{showDetailedConstraints ? 'Hide Breakdown' : 'View Rules & Breakdown'}</span>
+                              <span>{showDetailedConstraints ? 'Hide Breakdown' : 'Rules & Targets'}</span>
                               {showDetailedConstraints ? (
                                 <ChevronUp className="w-3.5 h-3.5 text-brand-600" />
                               ) : (
@@ -1772,33 +1830,32 @@ export default function HoDDashboard() {
                           </div>
                         </div>
 
-                        {/* 3 Executive Stat Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {/* 4 Compact Stat Cards */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
                           {/* Card 1: Degree Total Credits */}
-                          <div className="p-3.5 bg-white rounded-xl border border-purple-100 shadow-xs space-y-2">
-                            <div className="flex items-center justify-between text-xs font-bold text-slate-600">
-                              <span className="flex items-center space-x-1.5">
-                                <GraduationCap className="w-4 h-4 text-brand-600" />
-                                <span className="uppercase text-[10px] tracking-wider font-extrabold">Total Degree Credits</span>
+                          <div className="p-3 bg-white rounded-xl border border-purple-100 shadow-2xs space-y-1.5">
+                            <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+                              <span className="flex items-center space-x-1">
+                                <GraduationCap className="w-3.5 h-3.5 text-brand-600" />
+                                <span>Total Credits</span>
                               </span>
-                              <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                              <span className={`text-[10px] font-black px-1.5 py-0.2 rounded ${
                                 isCredValid
                                   ? 'bg-emerald-100 text-emerald-800'
                                   : totalCred < minTotal
                                   ? 'bg-amber-100 text-amber-800'
                                   : 'bg-rose-100 text-rose-800'
                               }`}>
-                                {isCredValid ? 'Target Met' : totalCred < minTotal ? `Need +${minTotal - totalCred} C` : `Over +${totalCred - maxTotal} C`}
+                                {isCredValid ? 'Target Met' : totalCred < minTotal ? `+${minTotal - totalCred} C` : `+${totalCred - maxTotal} C`}
                               </span>
                             </div>
-                            <div className="flex items-baseline space-x-2">
-                              <span className="text-2xl font-black text-slate-900">{totalCred}</span>
-                              <span className="text-xs text-slate-500 font-semibold">/ {minTotal}–{maxTotal} Credits Target</span>
+                            <div className="flex items-baseline space-x-1.5">
+                              <span className="text-xl font-black text-slate-900">{totalCred}</span>
+                              <span className="text-[11px] text-slate-500 font-semibold">/ {minTotal}–{maxTotal} C</span>
                             </div>
-                            {/* Progress bar */}
-                            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                               <div
-                                className={`h-full transition-all duration-300 rounded-full ${
+                                className={`h-full rounded-full transition-all duration-300 ${
                                   isCredValid ? 'bg-emerald-500' : totalCred < minTotal ? 'bg-amber-500' : 'bg-rose-500'
                                 }`}
                                 style={{ width: `${Math.min(100, Math.round((totalCred / maxTotal) * 100))}%` }}
@@ -1807,46 +1864,66 @@ export default function HoDDashboard() {
                           </div>
 
                           {/* Card 2: Semester Credit Balance */}
-                          <div className="p-3.5 bg-white rounded-xl border border-purple-100 shadow-xs space-y-2">
-                            <div className="flex items-center justify-between text-xs font-bold text-slate-600">
-                              <span className="flex items-center space-x-1.5">
-                                <Scale className="w-4 h-4 text-brand-600" />
-                                <span className="uppercase text-[10px] tracking-wider font-extrabold">Semester Balance</span>
+                          <div className="p-3 bg-white rounded-xl border border-purple-100 shadow-2xs space-y-1.5">
+                            <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+                              <span className="flex items-center space-x-1">
+                                <Scale className="w-3.5 h-3.5 text-brand-600" />
+                                <span>Sem Balance</span>
                               </span>
-                              <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                              <span className={`text-[10px] font-black px-1.5 py-0.2 rounded ${
                                 balancedSemCount === numSemesters ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
                               }`}>
                                 {balancedSemCount === numSemesters ? 'All Balanced' : `${numSemesters - balancedSemCount} Unbalanced`}
                               </span>
                             </div>
-                            <div className="flex items-baseline space-x-2">
-                              <span className="text-2xl font-black text-slate-900">{balancedSemCount}</span>
-                              <span className="text-xs text-slate-500 font-semibold">/ {numSemesters} Semesters in {minSem}–{maxSem} C</span>
+                            <div className="flex items-baseline space-x-1.5">
+                              <span className="text-xl font-black text-slate-900">{balancedSemCount}</span>
+                              <span className="text-[11px] text-slate-500 font-semibold">/ {numSemesters} Sems ({minSem}–{maxSem} C)</span>
                             </div>
-                            <p className="text-[10px] text-slate-500">
-                              Standard: {minSem} to {maxSem} C per semester (Max {maxLabSem} labs)
-                            </p>
+                            <p className="text-[10px] text-slate-400 font-medium">Cap: {minSem}–{maxSem} C/sem</p>
                           </div>
 
                           {/* Card 3: Practical & Lab Courses */}
-                          <div className="p-3.5 bg-white rounded-xl border border-purple-100 shadow-xs space-y-2">
-                            <div className="flex items-center justify-between text-xs font-bold text-slate-600">
-                              <span className="flex items-center space-x-1.5">
-                                <Layers className="w-4 h-4 text-brand-600" />
-                                <span className="uppercase text-[10px] tracking-wider font-extrabold">Practical & Labs</span>
+                          <div className="p-3 bg-white rounded-xl border border-purple-100 shadow-2xs space-y-1.5">
+                            <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+                              <span className="flex items-center space-x-1">
+                                <Layers className="w-3.5 h-3.5 text-brand-600" />
+                                <span>Labs & Practical</span>
                               </span>
-                              <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                              <span className={`text-[10px] font-black px-1.5 py-0.2 rounded ${
                                 totalLabs <= maxLabTot ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
                               }`}>
                                 {totalLabs <= maxLabTot ? 'Within Cap' : `Exceeds Cap`}
                               </span>
                             </div>
-                            <div className="flex items-baseline space-x-2">
-                              <span className="text-2xl font-black text-slate-900">{totalLabs}</span>
-                              <span className="text-xs text-slate-500 font-semibold">/ {maxLabTot} Maximum Total Labs</span>
+                            <div className="flex items-baseline space-x-1.5">
+                              <span className="text-xl font-black text-slate-900">{totalLabs}</span>
+                              <span className="text-[11px] text-slate-500 font-semibold">/ {maxLabTot} Labs Max</span>
                             </div>
-                            <p className="text-[10px] text-slate-500">
-                              Institution cap: max {maxLabSem} labs per semester
+                            <p className="text-[10px] text-slate-400 font-medium">Max {maxLabSem} labs/sem</p>
+                          </div>
+
+                          {/* Card 4: Active Semester Stats */}
+                          <div className="p-3 bg-white rounded-xl border border-purple-100 shadow-2xs space-y-1.5">
+                            <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+                              <span className="flex items-center space-x-1">
+                                <BookOpen className="w-3.5 h-3.5 text-brand-600" />
+                                <span>Sem {activeProgSemester} Focus</span>
+                              </span>
+                              <span className="text-[10px] font-black px-1.5 py-0.2 rounded bg-purple-100 text-brand-700">
+                                Active
+                              </span>
+                            </div>
+                            <div className="flex items-baseline space-x-1.5">
+                              <span className="text-xl font-black text-slate-900">
+                                {progPlanData.constraints.semCreditsMap[activeProgSemester] || 0} C
+                              </span>
+                              <span className="text-[11px] text-slate-500 font-semibold">
+                                • {(progPlanData?.plannedItems || []).filter((p: any) => p.semester === activeProgSemester).length} courses
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 font-medium">
+                              {progPlanData.constraints.semLabsMap[activeProgSemester] || 0} lab(s) planned
                             </p>
                           </div>
                         </div>
@@ -1934,18 +2011,18 @@ export default function HoDDashboard() {
                 {/* 3. Semester Timeline Navigator (Interactive Pills) */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between px-1">
-                    <span className="text-xs font-extrabold uppercase tracking-wider text-slate-700 flex items-center space-x-1.5">
-                      <span>Semester Timeline Navigator</span>
-                      <span className="text-[11px] font-medium text-slate-400">
-                        (Click to focus, or drag any course onto a pill to reassign)
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center space-x-1.5">
+                      <span>8-Semester Curriculum Timeline</span>
+                      <span className="text-[11px] font-normal text-slate-400 hidden sm:inline">
+                        — Select semester to view/edit, or drag courses to reassign
                       </span>
                     </span>
-                    <span className="text-[11px] text-brand-600 font-bold hidden sm:inline">
-                      Active: Semester {activeProgSemester}
+                    <span className="text-[11px] text-brand-600 font-bold">
+                      Semester {activeProgSemester} Active
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2">
                     {Array.from({ length: department?.semesters || 8 }, (_, i) => i + 1).map((sem) => {
                       const semCred = progPlanData?.constraints?.semCreditsMap?.[sem] || 0;
                       const semLabs = progPlanData?.constraints?.semLabsMap?.[sem] || 0;
@@ -1965,7 +2042,10 @@ export default function HoDDashboard() {
                       return (
                         <div
                           key={sem}
-                          onClick={() => setActiveProgSemester(sem)}
+                          onClick={() => {
+                            setActiveProgSemester(sem);
+                            setSelectedSemPlanIds([]);
+                          }}
                           onDragOver={(e) => {
                             e.preventDefault();
                             e.dataTransfer.dropEffect = 'move';
@@ -1980,7 +2060,7 @@ export default function HoDDashboard() {
                               await handleMoveSubjectToSemester(planId, sem);
                             }
                           }}
-                          className={`p-3 rounded-2xl border text-center cursor-pointer transition-all space-y-1 relative group ${
+                          className={`p-2.5 rounded-2xl border text-center cursor-pointer transition-all space-y-1 relative group ${
                             isDragTarget
                               ? 'ring-2 ring-brand-500 bg-brand-50 scale-105 shadow-md z-10'
                               : isActive
@@ -1995,7 +2075,7 @@ export default function HoDDashboard() {
                               Sem {sem}
                             </span>
                             {isActive && (
-                              <span className="w-1.5 h-1.5 rounded-full bg-brand-600 animate-ping" />
+                              <span className="w-1.5 h-1.5 rounded-full bg-brand-600" />
                             )}
                           </div>
 
@@ -2016,11 +2096,15 @@ export default function HoDDashboard() {
                           </div>
 
                           <div className="text-[10px] text-slate-500 font-semibold space-x-1">
-                            <span>{semItemsCount} {semItemsCount === 1 ? 'sub' : 'subs'}</span>
-                            <span>•</span>
-                            <span className={semLabs > maxLabSem ? 'text-rose-600 font-bold' : ''}>
-                              {semLabs} {semLabs === 1 ? 'lab' : 'labs'}
-                            </span>
+                            <span>{semItemsCount} {semItemsCount === 1 ? 'course' : 'courses'}</span>
+                            {semLabs > 0 && (
+                              <>
+                                <span>•</span>
+                                <span className={semLabs > maxLabSem ? 'text-rose-600 font-bold' : ''}>
+                                  {semLabs} lab{semLabs > 1 ? 's' : ''}
+                                </span>
+                              </>
+                            )}
                           </div>
                         </div>
                       );
@@ -2066,20 +2150,27 @@ export default function HoDDashboard() {
                         totalP += item.subject?.practical || 0;
                       });
 
+                      const allSemSelected =
+                        semItems.length > 0 &&
+                        semItems.every((item: any) => selectedSemPlanIds.includes(item.id));
+
+                      const selectedItemsList = allSemItems.filter((p: any) => selectedSemPlanIds.includes(p.id));
+                      const selectedPlanCredits = selectedItemsList.reduce((acc: number, curr: any) => acc + (curr.subject?.credits || 0), 0);
+
                       return (
                         <div className="space-y-4">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-purple-100 pb-4">
                             <div>
                               <div className="flex items-center space-x-2">
                                 <h3 className="text-base font-black text-slate-900">
-                                  Semester {activeProgSemester} Course Plan
+                                  Semester {activeProgSemester} Curriculum Plan
                                 </h3>
                                 <span className="text-[10px] font-bold bg-purple-100 text-brand-700 px-2.5 py-0.5 rounded-md flex items-center">
                                   <GripVertical className="w-3 h-3 mr-1" /> Drag & Drop Enabled
                                 </span>
                               </div>
                               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mt-1">
-                                <span className="font-bold text-slate-800">{allSemItems.length} Subjects</span>
+                                <span className="font-bold text-slate-800">{allSemItems.length} Courses</span>
                                 <span>•</span>
                                 <span className="font-bold text-brand-700">{semCredits} Credits</span>
                                 <span>•</span>
@@ -2095,7 +2186,7 @@ export default function HoDDashboard() {
                               className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center space-x-1.5 transition-all self-start sm:self-auto"
                             >
                               <Plus className="w-4 h-4" />
-                              <span>Add Subject to Sem {activeProgSemester}</span>
+                              <span>Add Courses to Sem {activeProgSemester}</span>
                             </button>
                           </div>
 
@@ -2192,6 +2283,25 @@ export default function HoDDashboard() {
                                 <table className="w-full text-xs text-left">
                                   <thead className="bg-purple-50/70 text-slate-700 font-bold border-b border-purple-100">
                                     <tr>
+                                      <th className="p-3 w-10 text-center">
+                                        <input
+                                          type="checkbox"
+                                          disabled={semItems.length === 0}
+                                          checked={allSemSelected}
+                                          onChange={(e) => {
+                                            if (e.target.checked) {
+                                              setSelectedSemPlanIds(
+                                                Array.from(new Set([...selectedSemPlanIds, ...semItems.map((item: any) => item.id)]))
+                                              );
+                                            } else {
+                                              const unselectSet = new Set(semItems.map((item: any) => item.id));
+                                              setSelectedSemPlanIds(selectedSemPlanIds.filter((id) => !unselectSet.has(id)));
+                                            }
+                                          }}
+                                          className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 cursor-pointer"
+                                          title={allSemSelected ? 'Deselect all' : 'Select all courses in this semester'}
+                                        />
+                                      </th>
                                       <th className="p-3 w-8"></th>
                                       <th className="p-3">Course Code</th>
                                       <th className="p-3">Course Title</th>
@@ -2204,75 +2314,169 @@ export default function HoDDashboard() {
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-100 bg-white">
-                                    {semItems.map((item: any) => (
-                                      <tr
-                                        key={item.id}
-                                        draggable={true}
-                                        onDragStart={(e) => {
-                                          e.dataTransfer.setData('text/plain', item.id);
-                                          setDraggedPlanId(item.id);
-                                        }}
-                                        onDragEnd={() => {
-                                          setDraggedPlanId(null);
-                                          setDragOverSem(null);
-                                        }}
-                                        className={`hover:bg-purple-50/30 group transition-all ${
-                                          draggedPlanId === item.id ? 'opacity-40 bg-purple-50' : ''
-                                        }`}
-                                      >
-                                        <td className="p-3 pr-0 cursor-grab active:cursor-grabbing text-slate-400 group-hover:text-brand-600" title="Drag to reassign semester">
-                                          <GripVertical className="w-4 h-4" />
-                                        </td>
-                                        <td className="p-3 font-mono font-bold text-brand-700">{item.subject?.subjectCode}</td>
-                                        <td className="p-3 font-bold text-slate-900">{item.subject?.subjectName}</td>
-                                        <td className="p-3 text-slate-600 font-medium">
-                                          <span className="px-2 py-0.5 bg-slate-100 rounded-md text-[10px]">
-                                            {item.subject?.department?.shortName || item.subject?.department?.departmentCode || 'Dept'}
-                                          </span>
-                                        </td>
-                                        <td className="p-3 text-center">
-                                          <span className="px-2 py-0.5 bg-slate-100 rounded-md text-[10px] font-semibold text-slate-700">
-                                            {item.subject?.subjectType?.name}
-                                          </span>
-                                        </td>
-                                        <td className="p-3 text-center">
-                                          <span className="px-2.5 py-0.5 bg-purple-100 rounded-md text-[10px] font-bold text-brand-700">
-                                            {item.subject?.subjectCategory?.code}
-                                          </span>
-                                        </td>
-                                        <td className="p-3 text-center font-mono text-slate-700">
-                                          {item.subject?.lecture} - {item.subject?.tutorial} - {item.subject?.practical}
-                                        </td>
-                                        <td className="p-3 text-center font-black text-slate-900">
-                                          {item.subject?.credits} C
-                                        </td>
-                                        <td className="p-3 text-right">
-                                          <div className="flex items-center justify-end space-x-2">
-                                            <select
-                                              value={item.semester}
-                                              onChange={(e) => handleMoveSubjectToSemester(item.id, Number(e.target.value))}
-                                              className="text-[10px] py-1 px-2 border border-slate-200 rounded-lg bg-white text-slate-700 font-bold focus:ring-1 focus:ring-brand-500 shadow-2xs"
-                                              title="Move course to another semester"
-                                            >
-                                              {Array.from({ length: department?.semesters || 8 }, (_, i) => i + 1).map((s) => (
-                                                <option key={s} value={s}>Sem {s}</option>
-                                              ))}
-                                            </select>
-                                            <button
-                                              type="button"
-                                              onClick={() => handleRemoveSubjectFromPlan(item.id)}
-                                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-all"
-                                              title="Remove course from curriculum"
-                                            >
-                                              <Trash2 className="w-4 h-4" />
-                                            </button>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    ))}
+                                    {semItems.map((item: any) => {
+                                      const isRowSelected = selectedSemPlanIds.includes(item.id);
+
+                                      return (
+                                        <tr
+                                          key={item.id}
+                                          draggable={true}
+                                          onClick={() => {
+                                            if (isRowSelected) {
+                                              setSelectedSemPlanIds(selectedSemPlanIds.filter((id) => id !== item.id));
+                                            } else {
+                                              setSelectedSemPlanIds([...selectedSemPlanIds, item.id]);
+                                            }
+                                          }}
+                                          onDragStart={(e) => {
+                                            e.dataTransfer.setData('text/plain', item.id);
+                                            setDraggedPlanId(item.id);
+                                          }}
+                                          onDragEnd={() => {
+                                            setDraggedPlanId(null);
+                                            setDragOverSem(null);
+                                          }}
+                                          className={`transition-all ${
+                                            isRowSelected
+                                              ? 'bg-purple-50/80 font-medium'
+                                              : 'hover:bg-purple-50/30 cursor-pointer group'
+                                          } ${draggedPlanId === item.id ? 'opacity-40 bg-purple-50' : ''}`}
+                                        >
+                                          <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                            <input
+                                              type="checkbox"
+                                              checked={isRowSelected}
+                                              onChange={(e) => {
+                                                if (e.target.checked) {
+                                                  setSelectedSemPlanIds([...selectedSemPlanIds, item.id]);
+                                                } else {
+                                                  setSelectedSemPlanIds(selectedSemPlanIds.filter((id) => id !== item.id));
+                                                }
+                                              }}
+                                              className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 cursor-pointer"
+                                            />
+                                          </td>
+                                          <td
+                                            className="p-3 pr-0 cursor-grab active:cursor-grabbing text-slate-400 group-hover:text-brand-600"
+                                            title="Drag to reassign semester"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <GripVertical className="w-4 h-4" />
+                                          </td>
+                                          <td className="p-3 font-mono font-bold text-brand-700">{item.subject?.subjectCode}</td>
+                                          <td className="p-3 font-bold text-slate-900">{item.subject?.subjectName}</td>
+                                          <td className="p-3 text-slate-600 font-medium">
+                                            <span className="px-2 py-0.5 bg-slate-100 rounded-md text-[10px]">
+                                              {item.subject?.department?.shortName || item.subject?.department?.departmentCode || 'Dept'}
+                                            </span>
+                                          </td>
+                                          <td className="p-3 text-center">
+                                            <span className="px-2 py-0.5 bg-slate-100 rounded-md text-[10px] font-semibold text-slate-700">
+                                              {item.subject?.subjectType?.name}
+                                            </span>
+                                          </td>
+                                          <td className="p-3 text-center">
+                                            <span className="px-2.5 py-0.5 bg-purple-100 rounded-md text-[10px] font-bold text-brand-700">
+                                              {item.subject?.subjectCategory?.code}
+                                            </span>
+                                          </td>
+                                          <td className="p-3 text-center font-mono text-slate-700">
+                                            {item.subject?.lecture} - {item.subject?.tutorial} - {item.subject?.practical}
+                                          </td>
+                                          <td className="p-3 text-center font-black text-slate-900">
+                                            {item.subject?.credits} C
+                                          </td>
+                                          <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex items-center justify-end space-x-2">
+                                              <select
+                                                value={item.semester}
+                                                onChange={(e) => handleMoveSubjectToSemester(item.id, Number(e.target.value))}
+                                                className="text-[10px] py-1 px-2 border border-slate-200 rounded-lg bg-white text-slate-700 font-bold focus:ring-1 focus:ring-brand-500 shadow-2xs"
+                                                title="Move course to another semester"
+                                              >
+                                                {Array.from({ length: department?.semesters || 8 }, (_, i) => i + 1).map((s) => (
+                                                  <option key={s} value={s}>Sem {s}</option>
+                                                ))}
+                                              </select>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleRemoveSubjectFromPlan(item.id)}
+                                                className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-all"
+                                                title="Remove course from curriculum"
+                                              >
+                                                <Trash2 className="w-4 h-4" />
+                                              </button>
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
                                   </tbody>
                                 </table>
                               </div>
+
+                              {/* Sticky Bulk Selection Action Bar */}
+                              {selectedSemPlanIds.length > 0 && (
+                                <div className="sticky bottom-4 z-20 p-3 bg-slate-900 text-white rounded-2xl shadow-2xl flex flex-wrap items-center justify-between gap-3 border border-slate-800 animate-in fade-in slide-in-from-bottom-2">
+                                  <div className="flex items-center space-x-3 text-xs">
+                                    <span className="w-6 h-6 rounded-full bg-brand-500 text-white font-black flex items-center justify-center text-xs">
+                                      {selectedSemPlanIds.length}
+                                    </span>
+                                    <span className="font-bold">
+                                      {selectedSemPlanIds.length} course{selectedSemPlanIds.length > 1 ? 's' : ''} selected
+                                    </span>
+                                    <span className="text-slate-400">•</span>
+                                    <span className="text-amber-300 font-extrabold">
+                                      {selectedPlanCredits} Credits
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center space-x-2">
+                                    {/* Bulk Move To Semester Dropdown */}
+                                    <div className="flex items-center space-x-1.5 bg-slate-800 px-2.5 py-1 rounded-xl">
+                                      <span className="text-[11px] text-slate-300 font-medium">Move to:</span>
+                                      <select
+                                        onChange={(e) => {
+                                          const sem = Number(e.target.value);
+                                          if (sem) {
+                                            handleBulkMoveSubjectsToSemester(sem);
+                                            e.target.value = '';
+                                          }
+                                        }}
+                                        defaultValue=""
+                                        className="text-xs bg-slate-700 text-white font-bold py-1 px-2 rounded-lg border border-slate-600 focus:outline-hidden cursor-pointer"
+                                      >
+                                        <option value="" disabled>Select Sem...</option>
+                                        {Array.from({ length: department?.semesters || 8 }, (_, i) => i + 1)
+                                          .filter((s) => s !== activeProgSemester)
+                                          .map((s) => (
+                                            <option key={s} value={s}>Sem {s}</option>
+                                          ))}
+                                      </select>
+                                    </div>
+
+                                    {/* Bulk Remove Button */}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleBulkRemoveSubjectsFromPlan()}
+                                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center space-x-1"
+                                      title="Remove all selected courses from this semester"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                      <span>Remove ({selectedSemPlanIds.length})</span>
+                                    </button>
+
+                                    {/* Deselect */}
+                                    <button
+                                      type="button"
+                                      onClick={() => setSelectedSemPlanIds([])}
+                                      className="px-2.5 py-1.5 text-xs font-semibold text-slate-400 hover:text-white transition-all"
+                                    >
+                                      Deselect All
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -2568,19 +2772,25 @@ export default function HoDDashboard() {
         {/* ========================================================================= */}
         {showAddSubjectModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs">
-            <div className="bg-white rounded-3xl max-w-5xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto border border-purple-100">
-              <div className="flex items-center justify-between border-b border-purple-100 pb-3">
+            <div className="bg-white rounded-3xl max-w-5xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto border border-purple-100 flex flex-col">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-purple-100 pb-3 shrink-0">
                 <div>
                   <div className="flex items-center space-x-2">
                     <h3 className="text-base font-black text-slate-900">
-                      Add Course to Semester {activeProgSemester}
+                      Add Courses to Semester {activeProgSemester}
                     </h3>
                     <span className="text-[10px] font-bold bg-purple-100 text-brand-700 px-2 py-0.5 rounded-md">
                       Target: Sem {activeProgSemester}
                     </span>
+                    {selectedModalSubjectIds.length > 0 && (
+                      <span className="text-[10px] font-black bg-brand-600 text-white px-2 py-0.5 rounded-md shadow-xs animate-pulse">
+                        {selectedModalSubjectIds.length} Selected
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-desc">
-                    Search and select Dean-approved courses from all 18 engineering departments to add into this semester.
+                    Select one or multiple Dean-approved courses from any department to add into Semester {activeProgSemester}.
                   </p>
                 </div>
                 <button
@@ -2593,7 +2803,7 @@ export default function HoDDashboard() {
               </div>
 
               {/* Category Quick Filter Chips */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 shrink-0">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
                   Quick Category Filter
                 </span>
@@ -2627,7 +2837,7 @@ export default function HoDDashboard() {
               </div>
 
               {/* Filter and Search Toolbar */}
-              <div className="flex flex-wrap items-center gap-2 p-3 bg-purple-50/40 rounded-2xl border border-purple-100">
+              <div className="flex flex-wrap items-center gap-2 p-3 bg-purple-50/40 rounded-2xl border border-purple-100 shrink-0">
                 <div className="relative flex-1 min-w-[220px]">
                   <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
@@ -2737,17 +2947,50 @@ export default function HoDDashboard() {
                   );
                 }
 
+                const availableDeptSubjects = deptSubjects.filter((s: any) => {
+                  return !progPlanData?.plannedItems?.some((p: any) => p.subject?.id === s.id);
+                });
+
+                const allAvailableSelected =
+                  availableDeptSubjects.length > 0 &&
+                  availableDeptSubjects.every((s: any) => selectedModalSubjectIds.includes(s.id));
+
+                const selectedSubjectsList = (approvedSubjectsData?.subjects || []).filter((s: any) =>
+                  selectedModalSubjectIds.includes(s.id)
+                );
+                const selectedCreditsCount = selectedSubjectsList.reduce((acc: number, curr: any) => acc + (curr.credits || 0), 0);
+
                 return (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
-                      <span>Found <strong>{deptSubjects.length}</strong> Dean-approved course(s)</span>
-                      <span>Adding to: <strong>Semester {activeProgSemester}</strong></span>
+                  <div className="space-y-3 flex-1 flex flex-col min-h-0">
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 px-1 shrink-0">
+                      <span>
+                        Found <strong>{deptSubjects.length}</strong> Dean-approved course(s) ({availableDeptSubjects.length} available to add)
+                      </span>
+                      <span>Target: <strong>Semester {activeProgSemester}</strong></span>
                     </div>
 
-                    <div className="overflow-x-auto border border-purple-100 rounded-2xl">
+                    <div className="overflow-x-auto border border-purple-100 rounded-2xl flex-1 max-h-[460px]">
                       <table className="w-full text-xs text-left">
-                        <thead className="bg-purple-50/70 text-slate-700 font-bold border-b border-purple-100">
+                        <thead className="bg-purple-50/70 text-slate-700 font-bold border-b border-purple-100 sticky top-0 z-10 backdrop-blur-xs">
                           <tr>
+                            <th className="p-3 w-10 text-center">
+                              <input
+                                type="checkbox"
+                                disabled={availableDeptSubjects.length === 0}
+                                checked={allAvailableSelected}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    const newIds = Array.from(new Set([...selectedModalSubjectIds, ...availableDeptSubjects.map((s: any) => s.id)]));
+                                    setSelectedModalSubjectIds(newIds);
+                                  } else {
+                                    const unselectSet = new Set(availableDeptSubjects.map((s: any) => s.id));
+                                    setSelectedModalSubjectIds(selectedModalSubjectIds.filter((id) => !unselectSet.has(id)));
+                                  }
+                                }}
+                                className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 cursor-pointer"
+                                title={allAvailableSelected ? 'Deselect all' : 'Select all available courses'}
+                              />
+                            </th>
                             <th className="p-3">Course Code</th>
                             <th className="p-3">Course Title</th>
                             <th className="p-3">Offered By</th>
@@ -2763,9 +3006,46 @@ export default function HoDDashboard() {
                             const existingPlan = progPlanData?.plannedItems?.find(
                               (p: any) => p.subject?.id === s.id
                             );
+                            const isSelected = selectedModalSubjectIds.includes(s.id);
+                            const isAvailable = !existingPlan;
 
                             return (
-                              <tr key={s.id} className="hover:bg-purple-50/30 transition-all">
+                              <tr
+                                key={s.id}
+                                onClick={() => {
+                                  if (!isAvailable) return;
+                                  if (isSelected) {
+                                    setSelectedModalSubjectIds(selectedModalSubjectIds.filter((id) => id !== s.id));
+                                  } else {
+                                    setSelectedModalSubjectIds([...selectedModalSubjectIds, s.id]);
+                                  }
+                                }}
+                                className={`transition-all ${
+                                  isSelected
+                                    ? 'bg-purple-50/80 font-medium'
+                                    : isAvailable
+                                    ? 'hover:bg-purple-50/30 cursor-pointer'
+                                    : 'bg-slate-50/40 text-slate-400'
+                                }`}
+                              >
+                                <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                  {isAvailable ? (
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={(e) => {
+                                        if (e.target.checked) {
+                                          setSelectedModalSubjectIds([...selectedModalSubjectIds, s.id]);
+                                        } else {
+                                          setSelectedModalSubjectIds(selectedModalSubjectIds.filter((id) => id !== s.id));
+                                        }
+                                      }}
+                                      className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-slate-300 cursor-pointer"
+                                    />
+                                  ) : (
+                                    <span className="text-slate-300">•</span>
+                                  )}
+                                </td>
                                 <td className="p-3 font-mono font-bold text-brand-700">{s.subjectCode}</td>
                                 <td className="p-3 font-bold text-slate-900">{s.subjectName}</td>
                                 <td className="p-3 text-slate-600 font-medium">
@@ -2787,7 +3067,7 @@ export default function HoDDashboard() {
                                   {s.lecture} - {s.tutorial} - {s.practical}
                                 </td>
                                 <td className="p-3 text-center font-black text-slate-900">{s.credits} C</td>
-                                <td className="p-3 text-right">
+                                <td className="p-3 text-right" onClick={(e) => e.stopPropagation()}>
                                   {existingPlan ? (
                                     existingPlan.semester === activeProgSemester ? (
                                       <span className="px-3 py-1 bg-slate-100 text-slate-500 font-bold text-[10px] rounded-lg border border-slate-200">
@@ -2816,10 +3096,10 @@ export default function HoDDashboard() {
                                       type="button"
                                       disabled={submittingAddSubject}
                                       onClick={() => handleAddSubjectToSemester(s.id)}
-                                      className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-lg shadow-xs transition-all flex items-center space-x-1 ml-auto"
+                                      className="px-3 py-1 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-lg shadow-xs transition-all flex items-center space-x-1 ml-auto"
                                     >
                                       <Plus className="w-3.5 h-3.5" />
-                                      <span>Add to Sem {activeProgSemester}</span>
+                                      <span>Add</span>
                                     </button>
                                   )}
                                 </td>
@@ -2829,6 +3109,43 @@ export default function HoDDashboard() {
                         </tbody>
                       </table>
                     </div>
+
+                    {/* Sticky Multi-Select Action Bar */}
+                    {selectedModalSubjectIds.length > 0 && (
+                      <div className="sticky bottom-0 z-20 p-3.5 bg-slate-900 text-white rounded-2xl shadow-2xl flex flex-wrap items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-2 border border-slate-800">
+                        <div className="flex items-center space-x-3 text-xs">
+                          <span className="w-6 h-6 rounded-full bg-brand-500 text-white font-black flex items-center justify-center text-xs">
+                            {selectedModalSubjectIds.length}
+                          </span>
+                          <span className="font-bold">
+                            {selectedModalSubjectIds.length} course{selectedModalSubjectIds.length > 1 ? 's' : ''} selected
+                          </span>
+                          <span className="text-slate-400">•</span>
+                          <span className="text-amber-300 font-extrabold">
+                            {selectedCreditsCount} Credits Total
+                          </span>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedModalSubjectIds([])}
+                            className="px-3 py-1.5 text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl transition-all"
+                          >
+                            Deselect All
+                          </button>
+                          <button
+                            type="button"
+                            disabled={submittingAddSubject}
+                            onClick={() => handleAddMultipleSubjectsToSemester()}
+                            className="px-4 py-2 bg-brand-600 hover:bg-brand-500 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center space-x-1.5"
+                          >
+                            <Plus className="w-4 h-4" />
+                            <span>Add {selectedModalSubjectIds.length} Course{selectedModalSubjectIds.length > 1 ? 's' : ''} to Semester {activeProgSemester}</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
