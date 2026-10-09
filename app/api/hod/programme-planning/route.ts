@@ -302,43 +302,53 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Active Regulation or Academic Year not configured.' }, { status: 400 });
   }
 
-  // 1. ADD SUBJECT TO SEMESTER PLAN
+  // 1. ADD SUBJECT(S) TO SEMESTER PLAN
   if (action === 'ADD_SUBJECT') {
-    const { semester, subjectId } = body;
-    if (!semester || !subjectId) {
-      return NextResponse.json({ error: 'Semester and subjectId are required.' }, { status: 400 });
+    const { semester, subjectId, subjectIds } = body;
+    const targetSubjectIds: string[] = Array.isArray(subjectIds) && subjectIds.length > 0
+      ? subjectIds
+      : subjectId ? [subjectId] : [];
+
+    if (!semester || targetSubjectIds.length === 0) {
+      return NextResponse.json({ error: 'Semester and at least one subject are required.' }, { status: 400 });
     }
 
-    // Verify subject is approved
-    const subject = await prisma.subject.findUnique({
-      where: { id: subjectId },
+    // Verify all subjects exist and are APPROVED
+    const subjects = await prisma.subject.findMany({
+      where: { id: { in: targetSubjectIds } },
       select: { id: true, syllabusStatus: true, subjectCode: true },
     });
 
-    if (!subject) {
-      return NextResponse.json({ error: 'Subject not found.' }, { status: 404 });
+    if (subjects.length === 0) {
+      return NextResponse.json({ error: 'No valid subjects found.' }, { status: 404 });
     }
 
-    if (subject.syllabusStatus !== 'APPROVED') {
+    const unapproved = subjects.filter((s) => s.syllabusStatus !== 'APPROVED');
+    if (unapproved.length > 0) {
       return NextResponse.json(
-        { error: `Subject ${subject.subjectCode} is not approved by Dean yet.` },
+        { error: `Subject(s) ${unapproved.map((s) => s.subjectCode).join(', ')} are not approved by Dean yet.` },
         { status: 400 }
       );
     }
 
-    // Check if subject is already in this department's plan
-    const existing = await prisma.programmeSubjectPlan.findFirst({
+    // Check if any subject is already in this department's plan
+    const alreadyPlanned = await prisma.programmeSubjectPlan.findMany({
       where: {
         departmentId,
         regulationId: activeReg.id,
         academicYearId: activeAY.id,
-        subjectId,
+        subjectId: { in: targetSubjectIds },
       },
+      include: { subject: { select: { subjectCode: true } } },
     });
 
-    if (existing) {
+    if (alreadyPlanned.length > 0) {
       return NextResponse.json(
-        { error: `Subject is already added to Semester ${existing.semester} of this programme.` },
+        {
+          error: `Subject(s) already added: ${alreadyPlanned
+            .map((p) => `${p.subject?.subjectCode || 'Subject'} in Sem ${p.semester}`)
+            .join(', ')}.`,
+        },
         { status: 400 }
       );
     }
@@ -354,32 +364,60 @@ export async function POST(req: Request) {
       select: { order: true },
     });
 
-    const planned = await prisma.programmeSubjectPlan.create({
-      data: {
-        departmentId,
-        regulationId: activeReg.id,
-        academicYearId: activeAY.id,
-        semester: Number(semester),
-        subjectId,
-        order: (maxOrder?.order || 0) + 1,
-      },
-    });
+    let currentOrder = maxOrder?.order || 0;
+    const createdPlans = [];
+
+    for (const sid of targetSubjectIds) {
+      currentOrder += 1;
+      const planned = await prisma.programmeSubjectPlan.create({
+        data: {
+          departmentId,
+          regulationId: activeReg.id,
+          academicYearId: activeAY.id,
+          semester: Number(semester),
+          subjectId: sid,
+          order: currentOrder,
+        },
+      });
+      createdPlans.push(planned);
+    }
 
     await logAudit({
       userId: session.userId,
       userRole: session.role,
       action: 'ADD_PROGRAMME_SUBJECT',
       entity: 'ProgrammeSubjectPlan',
-      entityId: planned.id,
-      details: { departmentId, semester, subjectId },
+      entityId: createdPlans[0].id,
+      details: { departmentId, semester, count: createdPlans.length, subjectIds: targetSubjectIds },
     });
 
-    return NextResponse.json({ success: true, planned });
+    return NextResponse.json({ success: true, count: createdPlans.length, planned: createdPlans });
   }
 
   // 2. REMOVE SUBJECT FROM SEMESTER PLAN
   if (action === 'REMOVE_SUBJECT') {
-    const { id, subjectId, semester } = body;
+    const { id, ids, subjectId, semester } = body;
+    const targetIds: string[] = Array.isArray(ids) && ids.length > 0 ? ids : id ? [id] : [];
+
+    if (targetIds.length > 0) {
+      await prisma.programmeSubjectPlan.deleteMany({
+        where: {
+          id: { in: targetIds },
+          departmentId,
+        },
+      });
+
+      await logAudit({
+        userId: session.userId,
+        userRole: session.role,
+        action: 'REMOVE_PROGRAMME_SUBJECT',
+        entity: 'ProgrammeSubjectPlan',
+        entityId: targetIds[0],
+        details: { departmentId, count: targetIds.length, targetIds },
+      });
+
+      return NextResponse.json({ success: true, removedCount: targetIds.length });
+    }
 
     let targetId = id;
     if (!targetId && subjectId && semester) {
@@ -416,20 +454,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true });
   }
 
-  // 3. MOVE SUBJECT TO ANOTHER SEMESTER (DRAG AND DROP)
+  // 3. MOVE SUBJECT TO ANOTHER SEMESTER (DRAG AND DROP OR BULK MOVE)
   if (action === 'MOVE_SUBJECT') {
-    const { id, targetSemester } = body;
-    if (!id || !targetSemester) {
-      return NextResponse.json({ error: 'Plan item ID and targetSemester are required.' }, { status: 400 });
-    }
-
-    const item = await prisma.programmeSubjectPlan.findUnique({
-      where: { id },
-      include: { subject: true },
-    });
-
-    if (!item) {
-      return NextResponse.json({ error: 'Plan item not found.' }, { status: 404 });
+    const { id, ids, targetSemester } = body;
+    const targetIds: string[] = Array.isArray(ids) && ids.length > 0 ? ids : id ? [id] : [];
+    if (targetIds.length === 0 || !targetSemester) {
+      return NextResponse.json({ error: 'Plan item ID(s) and targetSemester are required.' }, { status: 400 });
     }
 
     const newSem = Number(targetSemester);
@@ -437,39 +467,53 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Target semester must be between 1 and 8.' }, { status: 400 });
     }
 
+    const items = await prisma.programmeSubjectPlan.findMany({
+      where: { id: { in: targetIds }, departmentId },
+      include: { subject: true },
+    });
+
+    if (items.length === 0) {
+      return NextResponse.json({ error: 'Plan item(s) not found.' }, { status: 404 });
+    }
+
     const maxOrder = await prisma.programmeSubjectPlan.findFirst({
       where: {
-        departmentId: item.departmentId,
-        regulationId: item.regulationId,
-        academicYearId: item.academicYearId,
+        departmentId,
+        regulationId: items[0].regulationId,
+        academicYearId: items[0].academicYearId,
         semester: newSem,
       },
       orderBy: { order: 'desc' },
       select: { order: true },
     });
 
-    const updated = await prisma.programmeSubjectPlan.update({
-      where: { id },
-      data: {
-        semester: newSem,
-        order: (maxOrder?.order || 0) + 1,
-      },
-    });
+    let currentOrder = maxOrder?.order || 0;
+    const updatedItems = [];
+    for (const item of items) {
+      currentOrder += 1;
+      const updated = await prisma.programmeSubjectPlan.update({
+        where: { id: item.id },
+        data: {
+          semester: newSem,
+          order: currentOrder,
+        },
+      });
+      updatedItems.push(updated);
+    }
 
     await logAudit({
       userId: session.userId,
       userRole: session.role,
       action: 'MOVE_PROGRAMME_SUBJECT',
       entity: 'ProgrammeSubjectPlan',
-      entityId: id,
+      entityId: targetIds[0],
       details: {
-        subjectCode: item.subject?.subjectCode,
-        fromSemester: item.semester,
+        count: targetIds.length,
         toSemester: newSem,
       },
     });
 
-    return NextResponse.json({ success: true, updated });
+    return NextResponse.json({ success: true, count: updatedItems.length, updated: updatedItems });
   }
 
   // 4. SUBMIT PROGRAMME CURRICULUM BOOK TO DEAN
